@@ -17,7 +17,7 @@ That starts Postgres 18, PgBouncer (port 6432), the pooler-test PgBouncer (port 
 | Command | Runs | Needs the stack |
 | --- | --- | --- |
 | `pnpm test` | Unit tests: pure logic, plus the route-coverage guard. | No |
-| `pnpm test:int` | Integration tests: the RLS suite, the catalog guard, the permission matrix, sign-in, `withStaffTx`, the PgBouncer test and the seed. | Yes |
+| `pnpm test:int` | Integration tests: the RLS suite, the catalog guard, the permission matrix, sign-in, `withStaffTx`, the PgBouncer test, the pooler smoke check and the seed. | Yes |
 | `pnpm test:e2e` | Playwright against the built app, at laptop and phone size. | Yes |
 | `pnpm test:related <files>` | The unit and integration tests that touch those files. | For integration tests |
 | `pnpm check` | Every check CI runs except `pnpm audit` and Playwright. | Yes |
@@ -87,11 +87,19 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 
 ### The route-coverage guard (`apps/server/src/test/route-coverage.test.ts`)
 
-It lists every registered Hono route and fails if one has neither a matrix row nor an allowlist entry. The allowlist, in `route-coverage.ts`, holds `/healthz`, Better Auth's routes and the built SPA (`ALL /*` for its files, `GET /*` for client-side routes); invite accept and password reset join it in their slices. Hono records `app.use` middleware and `app.all` handlers the same way, with method `ALL`, so every `ALL` entry must be allowlisted: register real handlers on a specific method, with matrix rows.
+It lists every registered Hono route and fails if one has neither a matrix row nor an allowlist entry. The allowlist, in `route-coverage.ts`, holds `/healthz`, Better Auth's routes, the security headers and the built SPA (`ALL /*` for the headers and the SPA's files, `GET /*` for client-side routes); invite accept and password reset join it in their slices. Hono records `app.use` middleware and `app.all` handlers the same way, with method `ALL`, so every `ALL` entry must be allowlisted: register real handlers on a specific method, with matrix rows.
 
 ### The PgBouncer test (`apps/server/src/db/pgbouncer.int.test.ts`)
 
 It runs `withStaffTx` through PgBouncer in transaction mode with `default_pool_size=1`, proves every request landed on the same backend, and proves request B never sees request A's `app.staff_id`.
+
+### The pooler smoke check (`apps/server/src/db/pooler-smoke.ts`)
+
+After every staging deploy, `deploy.yml` runs `src/db/cli/pooler-smoke.ts` inside the staging Machine, through Neon's real pooler as `ping_app`. Four connections run transactions that each set their own `app.staff_id`, one after another and then all at once. It fails if any transaction sees another's `app.staff_id`, or any read outside a transaction sees one. Neon's pool size can't be forced to 1, so it also fails as inconclusive if no backend ever served two of the connections. `pooler-smoke.int.test.ts` runs the same check against the local PgBouncer, and shows it is inconclusive on direct connections. To run it by hand against any database:
+
+```bash
+DATABASE_URL='<url>' pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke.ts
+```
 
 ### Playwright (`e2e/`)
 

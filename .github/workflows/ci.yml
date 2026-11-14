@@ -1,17 +1,20 @@
 name: CI
 
+# On master, deploy.yml calls this workflow before it deploys staging, so merges don't
+# run it twice.
 on:
   pull_request:
     branches: [master]
-  push:
-    branches: [master]
+  workflow_call:
 
 permissions:
   contents: read
 
+# A newer push to a PR cancels the older run. A run that a deploy called is never
+# cancelled, so a deploy can't be cut off halfway.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   # The master ruleset requires this job by name. Rename it only together with

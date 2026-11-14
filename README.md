@@ -99,7 +99,7 @@ docker compose exec postgres psql "postgres://ping:ping@pgbouncer:6432/ping"
 | `pnpm depcruise` | Imports that cross the boundaries: raw database drivers outside `apps/server/src/db/`, the system pool outside `system-actions/`, runtime server code in `apps/web`, and server code in `packages/shared`. |
 | `pnpm check:terms` | Banned words in identifiers, file names and migration SQL, such as `ticket`, `notification` or `todo`. The list and its exceptions are in `check-terms.config.json`. Use the `GLOSSARY.md` term instead. |
 | `pnpm test` | Unit tests (Vitest), including the route-coverage guard. No database. |
-| `pnpm test:int` | Integration tests against the local stack: the RLS suite, the catalog guard, the permission matrix, sign-in and the PgBouncer test. |
+| `pnpm test:int` | Integration tests against the local stack: the RLS suite, the catalog guard, the permission matrix, sign-in, the PgBouncer test and the pooler smoke check. |
 | `pnpm test:e2e` | Playwright: builds the app, seeds a `ping_e2e` database and runs the sign-in journey at laptop and phone size. Not part of `pnpm check`. |
 | `pnpm test:related <files>` | Only the tests that import the given files. |
 
@@ -117,12 +117,15 @@ apps/
 packages/
   shared/          zod schemas and types used by both apps; never imports server code
 e2e/               Playwright smoke journeys
-scripts/           check:terms and the @ts-expect-error check
+scripts/           check:terms, the @ts-expect-error check and the memory load script
 docs/spec/         the MVP spec
+docs/deploy-runbook.md  accounts, secrets, DNS and deploys for staging and prod
 docs/adr/          architecture decisions
 .claude/           Claude Code settings, hooks and path-scoped rules
-.github/           CI workflow, PR template, master ruleset
+.github/           CI, deploy and promote workflows, PR template, master ruleset
 compose.yaml       local Postgres, PgBouncer and MinIO
+Dockerfile         the one image staging and prod run
+fly.toml           prod's Fly config (fly.staging.toml for staging)
 ```
 
 ## Environment variables
@@ -138,6 +141,8 @@ compose.yaml       local Postgres, PgBouncer and MinIO
 | `BETTER_AUTH_URL` | `http://localhost:5173` | The URL people open. Required in production. |
 | `BETTER_AUTH_SECRET` | a local-only value | Signs sessions. Required in production. |
 | `BETTER_AUTH_TRUSTED_ORIGINS` | the auth URL plus ports 5173 and 3000 | Origins allowed to call the auth routes, comma-separated. |
+| `SENTRY_DSN` | unset (Sentry off) | Sentry's EU-region DSN, for the server and the SPA. Any other region is refused. |
+| `SENTRY_ENVIRONMENT` | unset | `production` or `staging`. Required when `SENTRY_DSN` is set. |
 
 Set these in your shell, for example `PORT=4000 pnpm start`, or in a gitignored `.env.local` at the repo root, which the server and the db scripts load. Shell variables win. With `NODE_ENV=production` (as `pnpm start` sets) the server refuses to start without the required ones. `.env` and `.env.*` are gitignored, except `.env.example`.
 
@@ -158,6 +163,16 @@ The repo carries its own Claude Code setup, so every session and worktree gets t
 - `.github/pull_request_template.md` sets the PR body.
 - The CI job is called `check`. Once the `master` ruleset is applied, a merge needs `check` to pass. The ruleset also blocks force pushes and deleting `master`. `.github/rulesets/README.md` has the command to apply it.
 - Renovate opens grouped dependency updates every Monday.
+
+## Deploys
+
+Every merge to `master` runs CI, migrates and deploys staging, and runs the pooler smoke test there (`.github/workflows/deploy.yml`). Prod gets a commit only when someone runs **Promote to prod** (`promote.yml`), and only if staging passed on that commit. Both run the same Docker image:
+
+```bash
+docker build -t ping .
+```
+
+`docs/deploy-runbook.md` has the accounts, secrets, DNS and first-deploy steps, and the memory measurements.
 
 ## Further reading
 

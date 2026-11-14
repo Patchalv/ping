@@ -23,7 +23,23 @@ export type ServerConfig = {
     baseUrl: string;
     trustedOrigins: string[];
   };
+  /** Error reporting for the server and the SPA. Off when SENTRY_DSN is unset. */
+  sentry?: { dsn: string; environment: string };
 };
+
+/** Sentry's EU region (platform.md › Monitoring). A DSN anywhere else is refused. */
+const SENTRY_EU_INGEST = '.ingest.de.sentry.io';
+
+function readSentry(env: NodeJS.ProcessEnv): ServerConfig['sentry'] {
+  const dsn = env.SENTRY_DSN;
+  if (!dsn) return undefined;
+  if (!new URL(dsn).hostname.endsWith(SENTRY_EU_INGEST)) {
+    throw new Error(`SENTRY_DSN must point at Sentry's EU region (*${SENTRY_EU_INGEST})`);
+  }
+  const environment = env.SENTRY_ENVIRONMENT;
+  if (!environment) throw new Error('SENTRY_ENVIRONMENT must be set when SENTRY_DSN is');
+  return { dsn, environment };
+}
 
 export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
   const isProduction = env.NODE_ENV === 'production';
@@ -53,6 +69,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       baseUrl,
       trustedOrigins,
     },
+    sentry: readSentry(env),
   };
 }
 

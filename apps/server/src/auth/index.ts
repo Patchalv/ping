@@ -1,6 +1,7 @@
 // Better Auth: email and password only, public sign-up off, no admin plugin (ADR 0004).
 // Better Auth reaches its own four tables through the database's auth handle. Everything
 // that touches Ping's tables goes through withStaffTx() or withAnonymousTx().
+import { redactSensitiveText } from '@ping/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
@@ -45,6 +46,13 @@ export function createAuth(database: Database, config: ServerConfig['auth']) {
       ipAddress: { ipAddressHeaders: CLIENT_IP_HEADERS },
     },
     telemetry: { enabled: false },
+    // Better Auth's own log lines, minus their extra arguments (which can hold request
+    // data) and with email addresses removed: logs never contain them.
+    logger: {
+      log: (level, message) => {
+        console[level](`[better-auth] ${redactSensitiveText(message)}`);
+      },
+    },
     // The breached-password check runs on password set and change. Sign-in never calls it.
     plugins: [haveIBeenPwned()],
     databaseHooks: {
