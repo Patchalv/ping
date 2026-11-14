@@ -24,6 +24,7 @@ export const SENTRY_DATA_COLLECTION = {
 type ScrubbableEvent = {
   message?: string;
   request?: {
+    url?: string;
     data?: unknown;
     cookies?: unknown;
     query_string?: unknown;
@@ -54,17 +55,26 @@ export function redactSensitiveText(text: string): string {
   return text.replace(QUERY_PARAMS, '\nparams: [redacted]').replace(EMAIL, '[email]');
 }
 
+/** A URL without its query string and fragment, which can carry emails or tokens. */
+function withoutQuery(url: string): string {
+  return url.replace(/[?#].*$/s, '');
+}
+
 export function scrubSentryEvent<E extends ScrubbableEvent>(event: E): E {
   const { extra: _extra, ...rest } = event;
   const scrubbed = rest as E;
 
   if (event.request) {
     const { data: _data, cookies: _cookies, query_string: _query, ...request } = event.request;
+    if (request.url !== undefined) request.url = withoutQuery(request.url);
     if (request.headers) {
       request.headers = Object.fromEntries(
-        Object.entries(request.headers).filter(
-          ([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase()),
-        ),
+        Object.entries(request.headers)
+          .filter(([name]) => !CREDENTIAL_HEADERS.has(name.toLowerCase()))
+          .map(([name, value]) => [
+            name,
+            name.toLowerCase() === 'referer' ? withoutQuery(value) : value,
+          ]),
       );
     }
     scrubbed.request = request;

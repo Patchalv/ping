@@ -5,7 +5,7 @@ How staging and prod are set up and deployed. The decisions behind it are in [pl
 | | Prod | Staging |
 | --- | --- | --- |
 | URL | https://ping.bypatrick.app | https://staging.ping.bypatrick.app |
-| Fly app | `bypatrick-ping` (`fly.toml`) | `bypatrick-ping-staging` (`fly.staging.toml`) |
+| Fly app | `bypatrick-ping` (`fly.prod.toml`) | `bypatrick-ping-staging` (`fly.staging.toml`) |
 | Neon | the project's main branch | the `staging` branch |
 | GitHub environment | `production` | `staging` |
 | Deployed by | `promote.yml`, run by hand | `deploy.yml`, on every merge to `master` |
@@ -97,7 +97,7 @@ The app also scrubs before sending: no request bodies, cookies, headers, query s
    ```
 
    Then the same for `bypatrick-ping` with the main branch's URLs and a new secret.
-5. Create a deploy token for each app. Each token works for its own app only, including `fly ssh console`, which the smoke test needs:
+5. Create a deploy token for each app. Each token works for its own app only. The smoke test also uses it for `fly ssh console`, which nobody has checked yet: see [If the smoke step can't reach the Machine](#if-the-smoke-step-cant-reach-the-machine).
 
    ```bash
    fly tokens create deploy --app bypatrick-ping-staging --expiry 8760h
@@ -193,6 +193,22 @@ SESSIONS=12 SECONDS=120 node scripts/memory-load.ts https://staging.ping.bypatri
 ```
 
 Read the peak from the Memory graph on the app's Fly dashboard (Metrics) while it runs, and add a row above.
+
+## If the smoke step can't reach the Machine
+
+Two things the smoke step depends on can only be checked on the first staging run, because no Machine exists before it:
+
+- that an app-scoped deploy token may open `fly ssh console`;
+- that a `fly ssh console --command` session sees the Machine's secrets and `[env]`. Without them `readConfig` stops with "DATABASE_URL must be set".
+
+If either fails, run the check from Actions instead, which platform.md allows because it uses an owner URL:
+
+1. Add a third secret to the `staging` environment, `SMOKE_DATABASE_URL`: `neondb_owner` on the staging branch's **pooled** host. `set_config(..., true)` staying inside a transaction is a pooler property, not a role property, and the check writes nothing.
+2. In `deploy.yml`, replace the `flyctl ssh console` line with `DATABASE_URL="$SMOKE_DATABASE_URL" pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke.ts | tee smoke.log`, with `SMOKE_DATABASE_URL: ${{ secrets.SMOKE_DATABASE_URL }}` and `NODE_ENV: production` plus placeholder `SYSTEM_DATABASE_URL`, `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET` values in the step's `env`.
+
+## Never run `pnpm db:seed` against Neon
+
+`db:seed` loads fake Staff members and resets the `ping_app` and `ping_system` passwords to the local ones in `.env.example`, which are public. Run it only against the local Docker stack.
 
 ## Monthly
 

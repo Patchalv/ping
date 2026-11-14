@@ -3,7 +3,8 @@
 # never adds a second Machine: live updates and the auth rate limiter live in memory, so
 # Ping must run exactly one instance.
 #
-# Deployed only by .github/workflows/promote.yml. Runtime secrets are set with
+# Named fly.prod.toml, not fly.toml, so a bare `fly deploy` finds no config and can't
+# skip promote's staging check. Deployed only by .github/workflows/promote.yml. Runtime secrets are set with
 # `fly secrets` (docs/deploy-runbook.md). No release_command: migrations run from Actions.
 
 app = "bypatrick-ping"
@@ -22,7 +23,7 @@ primary_region = "fra"
   internal_port = 8080
   force_https = true
   auto_stop_machines = "off"
-  auto_start_machines = false
+  auto_start_machines = true
   min_machines_running = 1
 
   # Every open live-update stream holds a connection, so Fly's default limit of 25 would
@@ -38,7 +39,7 @@ primary_region = "fra"
     path = "/healthz"
     interval = "30s"
     timeout = "5s"
-    grace_period = "10s"
+    grace_period = "30s"
 
 [[vm]]
   size = "shared-cpu-1x"

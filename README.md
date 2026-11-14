@@ -125,7 +125,7 @@ docs/adr/          architecture decisions
 .github/           CI, deploy and promote workflows, PR template, master ruleset
 compose.yaml       local Postgres, PgBouncer and MinIO
 Dockerfile         the one image staging and prod run
-fly.toml           prod's Fly config (fly.staging.toml for staging)
+fly.prod.toml      prod's Fly config (fly.staging.toml for staging)
 ```
 
 ## Environment variables

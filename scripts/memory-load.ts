@@ -14,16 +14,28 @@ const sessions = Number(process.env.SESSIONS ?? '12');
 const seconds = Number(process.env.SECONDS ?? '60');
 
 async function signIn(email: string, index: number): Promise<string> {
+  for (;;) {
+    const cookie = await trySignIn(email, index);
+    if (cookie !== undefined) return cookie;
+    // On Fly, Fly sets Fly-Client-IP itself, so every sign-in shares one rate-limit bucket.
+    console.log(`Sign-in ${index} rate-limited; waiting 10s.`);
+    await new Promise((resolve) => setTimeout(resolve, 10_000));
+  }
+}
+
+/** The session cookie, or undefined when the rate limiter refused the attempt. */
+async function trySignIn(email: string, index: number): Promise<string | undefined> {
   const res = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
       origin: baseUrl ?? '',
-      // A different client IP per session, so the sign-in rate limiter lets them all in.
+      // A different client IP per session, so locally the rate limiter lets them all in.
       'fly-client-ip': `10.9.${Math.floor(index / 250)}.${(index % 250) + 1}`,
     },
     body: JSON.stringify({ email, password }),
   });
+  if (res.status === 429) return undefined;
   if (!res.ok) throw new Error(`Sign-in ${index} failed: HTTP ${res.status}`);
   return res.headers
     .getSetCookie()
@@ -31,9 +43,11 @@ async function signIn(email: string, index: number): Promise<string> {
     .join('; ');
 }
 
-const cookies = await Promise.all(
-  Array.from({ length: sessions }, (_, i) => signIn(emails[i % emails.length] ?? '', i)),
-);
+// One at a time, so a rate-limited sign-in can wait without failing the others.
+const cookies: string[] = [];
+for (let i = 0; i < sessions; i++) {
+  cookies.push(await signIn(emails[i % emails.length] ?? '', i));
+}
 console.log(`${cookies.length} sessions signed in. Loading for ${seconds}s…`);
 
 const deadline = Date.now() + seconds * 1000;

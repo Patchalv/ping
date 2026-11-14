@@ -76,6 +76,19 @@ describe('scrubSentryEvent', () => {
     expect(crumb).toEqual({ category: 'console', message: 'saving [email]' });
   });
 
+  it('drops the query string and fragment from the URL and the referer', () => {
+    const scrubbed = scrubSentryEvent({
+      request: {
+        url: 'https://ping.bypatrick.app/invite?email=anna%40example.org#token=abc',
+        headers: { Referer: 'https://ping.bypatrick.app/reset?email=anna%40example.org' },
+      },
+    });
+    expect(scrubbed.request).toEqual({
+      url: 'https://ping.bypatrick.app/invite',
+      headers: { Referer: 'https://ping.bypatrick.app/reset' },
+    });
+  });
+
   it('drops extra data, which can carry anything', () => {
     const scrubbed = scrubSentryEvent({ message: 'boom', extra: { body: 'Secret body text' } });
     expect(scrubbed).toEqual({ message: 'boom' });
