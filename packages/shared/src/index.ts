@@ -4,4 +4,9 @@ export type HealthzResponse = {
   status: 'ok';
 };
 
-export { redactSensitiveText, SENTRY_DATA_COLLECTION, scrubSentryEvent } from './sentry-scrub';
+export {
+  redactSensitiveText,
+  SENTRY_DATA_COLLECTION,
+  scrubSentryBreadcrumb,
+  scrubSentryEvent,
+} from './sentry-scrub';

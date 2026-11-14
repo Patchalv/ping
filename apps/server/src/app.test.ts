@@ -21,6 +21,8 @@ describe('GET /healthz', () => {
   });
 });
 
+const sentry = { dsn: 'https://abc123@o42.ingest.de.sentry.io/7', environment: 'staging' } as const;
+
 function builtSpa(): string {
   const dir = mkdtempSync(join(tmpdir(), 'ping-web-dist-'));
   writeFileSync(
@@ -63,8 +65,6 @@ describe('serving the built SPA', () => {
 });
 
 describe('security headers', () => {
-  const sentry = { dsn: 'https://abc123@o42.ingest.de.sentry.io/7', environment: 'staging' };
-
   function csp(res: Response): Map<string, string> {
     const header = res.headers.get('content-security-policy') ?? '';
     return new Map(
@@ -107,8 +107,6 @@ describe('security headers', () => {
 });
 
 describe('Sentry settings for the SPA', () => {
-  const sentry = { dsn: 'https://abc123@o42.ingest.de.sentry.io/7', environment: 'staging' };
-
   it.each(['/', '/index.html', '/channels/123'])(
     'puts the DSN and environment in %s',
     async (path) => {
@@ -130,9 +128,11 @@ describe('Sentry settings for the SPA', () => {
   it('escapes the values', async () => {
     const res = await createApp({
       auth,
-      sentry: { dsn: 'https://a@o1.ingest.de.sentry.io/1', environment: '"><script>' },
+      sentry: { dsn: 'https://a@o1.ingest.de.sentry.io/1?"><script>', environment: 'staging' },
       webDistDir: builtSpa(),
     }).request('/');
-    expect(await res.text()).toContain('content="&quot;&gt;&lt;script&gt;"');
+    expect(await res.text()).toContain(
+      'content="https://a@o1.ingest.de.sentry.io/1?&quot;&gt;&lt;script&gt;"',
+    );
   });
 });

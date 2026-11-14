@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { scrubSentryEvent } from './sentry-scrub';
+import { scrubSentryBreadcrumb, scrubSentryEvent } from './sentry-scrub';
 
 describe('scrubSentryEvent', () => {
   it('drops request bodies, cookies, query strings and credential headers', () => {
@@ -65,6 +65,20 @@ describe('scrubSentryEvent', () => {
     expect(scrubbed.exception?.values?.[0]?.value).toBe(
       'Failed query: insert into "thread" ("body") values ($1)\nparams: [redacted]',
     );
+  });
+
+  it('drops breadcrumb data, where console arguments and fetch URLs live', () => {
+    const crumb = scrubSentryBreadcrumb({
+      category: 'console',
+      message: 'saving anna@example.org',
+      data: { arguments: ['saving', 'anna@example.org', { body: 'Secret body text' }] },
+    });
+    expect(crumb).toEqual({ category: 'console', message: 'saving [email]' });
+  });
+
+  it('drops extra data, which can carry anything', () => {
+    const scrubbed = scrubSentryEvent({ message: 'boom', extra: { body: 'Secret body text' } });
+    expect(scrubbed).toEqual({ message: 'boom' });
   });
 
   it('leaves an event with nothing to scrub alone', () => {

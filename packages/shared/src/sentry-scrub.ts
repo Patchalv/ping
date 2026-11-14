@@ -31,7 +31,8 @@ type ScrubbableEvent = {
   };
   user?: { id?: string | number };
   exception?: { values?: { value?: string }[] };
-  breadcrumbs?: { message?: string }[];
+  breadcrumbs?: { message?: string; data?: unknown }[];
+  extra?: unknown;
 };
 
 const EMAIL = /[^\s@"'<>(),;:]+@[^\s@"'<>(),;:]+\.[a-z]{2,}/gi;
@@ -54,7 +55,8 @@ export function redactSensitiveText(text: string): string {
 }
 
 export function scrubSentryEvent<E extends ScrubbableEvent>(event: E): E {
-  const scrubbed: E = { ...event };
+  const { extra: _extra, ...rest } = event;
+  const scrubbed = rest as E;
 
   if (event.request) {
     const { data: _data, cookies: _cookies, query_string: _query, ...request } = event.request;
@@ -86,12 +88,21 @@ export function scrubSentryEvent<E extends ScrubbableEvent>(event: E): E {
   }
 
   if (event.breadcrumbs) {
-    scrubbed.breadcrumbs = event.breadcrumbs.map((crumb) =>
-      crumb.message === undefined
-        ? crumb
-        : { ...crumb, message: redactSensitiveText(crumb.message) },
-    );
+    scrubbed.breadcrumbs = event.breadcrumbs.map(scrubSentryBreadcrumb);
   }
 
+  return scrubbed;
+}
+
+/**
+ * Sentry's beforeBreadcrumb. Drops the breadcrumb's data, which holds console arguments and
+ * fetch URLs, and redacts its message.
+ */
+export function scrubSentryBreadcrumb<B extends { message?: string; data?: unknown }>(
+  breadcrumb: B,
+): B {
+  const { data: _data, ...rest } = breadcrumb;
+  const scrubbed = rest as B;
+  if (breadcrumb.message !== undefined) scrubbed.message = redactSensitiveText(breadcrumb.message);
   return scrubbed;
 }

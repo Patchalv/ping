@@ -4,19 +4,20 @@ import { serveStatic } from '@hono/node-server/serve-static';
 import type { HealthzResponse } from '@ping/shared';
 import { Hono } from 'hono';
 import type { Auth } from './auth';
+import type { SentrySettings } from './config';
 import { securityHeaders } from './security-headers';
 
-/** The SPA's Sentry settings, read at runtime so one image serves staging and prod. */
-type BrowserSentry = { dsn: string; environment: string };
+/** The request an unhandled error came from: its route, never its data. */
+export type ErrorRoute = { method: string; path: string };
 
 type AppOptions = {
   auth: Auth;
   /** The built SPA (apps/web/dist). When set, the server serves it, with index.html as the fallback for client-side routes. */
   webDistDir?: string;
   /** When set, the SPA reports to Sentry, and the CSP allows Sentry's ingest origin. */
-  sentry?: BrowserSentry;
+  sentry?: SentrySettings;
   /** Called with every unhandled error (Sentry, in production). */
-  captureError?: (error: unknown, request: { method: string; path: string }) => void;
+  captureError?: (error: unknown, route: ErrorRoute) => void;
 };
 
 function escapeAttribute(value: string): string {
@@ -27,8 +28,8 @@ function escapeAttribute(value: string): string {
     .replaceAll('>', '&gt;');
 }
 
-/** index.html with the SPA's Sentry settings as meta tags. An inline script would break the CSP. */
-function withSentryMeta(indexHtml: string, sentry: BrowserSentry | undefined): string {
+/** index.html with the SPA's Sentry settings, read at runtime so one image serves staging and prod, as meta tags. An inline script would break the CSP. */
+function withSentryMeta(indexHtml: string, sentry: SentrySettings | undefined): string {
   if (!sentry) return indexHtml;
   const meta =
     `<meta name="sentry-dsn" content="${escapeAttribute(sentry.dsn)}">` +
@@ -46,9 +47,9 @@ export function createApp(options: AppOptions) {
   // The log line leaves out the error's message, which can hold email addresses or a
   // failed query's parameters. Sentry gets the scrubbed error.
   app.onError((error, c) => {
-    const request = { method: c.req.method, path: c.req.path };
-    options.captureError?.(error, request);
-    console.error(`Unhandled ${error.name} on ${request.method} ${request.path}`);
+    const route: ErrorRoute = { method: c.req.method, path: c.req.path };
+    options.captureError?.(error, route);
+    console.error(`Unhandled ${error.name} on ${route.method} ${route.path}`);
     return c.text('Internal Server Error', 500);
   });
 

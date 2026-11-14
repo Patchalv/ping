@@ -126,7 +126,7 @@ The app also scrubs before sending: no request bodies, cookies, headers, query s
 
 ### 5. GitHub
 
-1. Create two environments in the repo settings: `staging` and `production`.
+1. Create two environments in the repo settings: `staging` and `production`. In each, set **Deployment branches and tags** to **Selected branches** with only `master`. Without that, a copy of `promote.yml` edited on another branch could skip the staging check and still reach the prod secrets.
 2. Add each environment's two secrets:
 
    ```bash
@@ -150,6 +150,8 @@ The app also scrubs before sending: no request bodies, cookies, headers, query s
 ## After the first merge
 
 1. Watch **Deploy staging** in the Actions tab. All of CI, the migration, the deploy and the pooler smoke test must pass. The smoke step prints `POOLER SMOKE PASSED`.
+
+   If it prints `Pooler smoke: inconclusive`, nothing leaked, but Neon's pooler gave each connection its own backend, so the test proved nothing. Re-run the job. If it stays inconclusive, raise the rounds (`checkPoolerIsolation(url, { rounds })` in `src/db/cli/pooler-smoke.ts`) rather than accept it. `failed` with `leak:` lines means `app.staff_id` crossed between requests: don't promote, and treat it as a security incident.
 2. Open https://staging.ping.bypatrick.app/healthz.
 3. Run promote:
 

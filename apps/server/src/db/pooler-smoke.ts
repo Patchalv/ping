@@ -24,7 +24,7 @@ export type PoolerSmokeResult = {
   leaks: string[];
 };
 
-async function seen(client: pg.Client): Promise<Seen> {
+async function readStaffSetting(client: pg.Client): Promise<Seen> {
   const result = await client.query<{ staff_id: string | null; pid: number }>(
     `select nullif(current_setting('app.staff_id', true), '') as staff_id, pg_backend_pid() as pid`,
   );
@@ -46,7 +46,7 @@ export async function checkPoolerIsolation(
   const connectionsByBackend = new Map<number, Set<number>>();
   let transactions = 0;
 
-  const note = (connection: number, pid: number) => {
+  const recordBackend = (connection: number, pid: number) => {
     const connections = connectionsByBackend.get(pid) ?? new Set<number>();
     connections.add(connection);
     connectionsByBackend.set(pid, connections);
@@ -62,12 +62,12 @@ export async function checkPoolerIsolation(
     await client.query('begin');
     try {
       await client.query(`select set_config('app.staff_id', $1, true)`, [staffId]);
-      const first = await seen(client);
+      const first = await readStaffSetting(client);
       await client.query('select pg_sleep(0.01)');
-      const second = await seen(client);
+      const second = await readStaffSetting(client);
       await client.query('commit');
       transactions++;
-      note(connection, first.pid);
+      recordBackend(connection, first.pid);
       for (const view of [first, second]) {
         if (view.staffId !== staffId) {
           leaks.push(
@@ -79,8 +79,8 @@ export async function checkPoolerIsolation(
       await client.query('rollback').catch(() => undefined);
       throw error;
     }
-    const after = await seen(client);
-    note(connection, after.pid);
+    const after = await readStaffSetting(client);
+    recordBackend(connection, after.pid);
     if (after.staffId !== null) {
       leaks.push(
         `connection ${connection} saw ${after.staffId} outside a transaction (backend ${after.pid})`,

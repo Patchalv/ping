@@ -32,6 +32,16 @@ describe('readConfig › Sentry', () => {
     ).toThrow('SENTRY_ENVIRONMENT');
   });
 
+  it('refuses an environment other than production or staging', () => {
+    expect(() =>
+      readConfig({
+        ...production,
+        SENTRY_DSN: 'https://abc@o42.ingest.de.sentry.io/7',
+        SENTRY_ENVIRONMENT: 'prod',
+      }),
+    ).toThrow('production or staging');
+  });
+
   it('refuses a DSN outside Sentry’s EU region', () => {
     expect(() =>
       readConfig({
