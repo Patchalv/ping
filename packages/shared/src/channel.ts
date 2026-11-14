@@ -4,7 +4,7 @@ import { z } from 'zod';
 export const CHANNEL_NAME_MAX = 80;
 export const CHANNEL_DESCRIPTION_MAX = 500;
 
-export const channelVisibility = z.enum(['public', 'private']);
+const channelVisibility = z.enum(['public', 'private']);
 export type ChannelVisibility = z.infer<typeof channelVisibility>;
 
 /** POST /api/channels. */
