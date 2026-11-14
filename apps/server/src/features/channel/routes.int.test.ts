@@ -3,7 +3,12 @@
 import { randomUUID } from 'node:crypto';
 import type { ChannelView, SidebarChannel } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createStaffMember, insertChannel, type StaffFixture } from '../../db/test-support';
+import {
+  asOwner,
+  createStaffMember,
+  insertChannel,
+  type StaffFixture,
+} from '../../db/test-support';
 import { createTestApp, jsonHeaders, signIn, type TestApp } from '../../test/test-app';
 
 describe('Channel routes', () => {
@@ -53,11 +58,18 @@ describe('Channel routes', () => {
       const request = await as(await createStaffMember());
       const res = await request('/api/channels', {
         method: 'POST',
-        body: JSON.stringify({ name: '  ', visibility: 'public' }),
+        body: JSON.stringify({ name: '  ', description: 'x'.repeat(501), visibility: 'public' }),
       });
       expect(res.status).toBe(400);
       expect(await res.json()).toEqual({
-        error: { code: 'validation', message: 'Give the Channel a name.' },
+        error: {
+          code: 'validation',
+          message: 'Give the Channel a name.',
+          issues: [
+            { path: 'name', message: 'Give the Channel a name.' },
+            { path: 'description', message: 'Keep the description to 500 characters or fewer.' },
+          ],
+        },
       });
     });
 
@@ -65,6 +77,27 @@ describe('Channel routes', () => {
       const request = await as(await createStaffMember());
       const res = await request('/api/channels', { method: 'POST', body: '{not json' });
       expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({ error: { code: 'validation' } });
+    });
+
+    it('answers 401 to a session that outlived a Deactivation', async () => {
+      // Deactivating deletes sessions; this proves the role read in withActorTx holds even
+      // if one survived.
+      const member = await createStaffMember();
+      const request = await as(member);
+      const admin = await createStaffMember({ role: 'admin' });
+      await asOwner((query) =>
+        query('update staff_member set deactivated_at = now(), deactivated_by = $2 where id = $1', [
+          member.id,
+          admin.id,
+        ]),
+      );
+      const res = await request('/api/channels', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Ops', visibility: 'public' }),
+      });
+      expect(res.status).toBe(401);
+      expect((await request('/api/channels')).status).toBe(401);
     });
 
     it('answers 401 with no session', async () => {

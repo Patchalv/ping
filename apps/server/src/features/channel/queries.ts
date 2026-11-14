@@ -1,9 +1,10 @@
-// The Channel feature's queries. Each takes the request's transaction from withStaffTx, so
-// row-level security applies to every one: a Private channel the actor isn't in reads as
-// missing.
+// The Channel feature's queries. Each takes the request's ActorTx from withActorTx, so
+// row-level security applies to every one and the actor always matches app.staff_id: a
+// Private channel the actor isn't in reads as missing.
 import type { ChannelView, SidebarChannel } from '@ping/shared';
 import { and, asc, eq, sql } from 'drizzle-orm';
-import { schema, type Tx } from '../../db';
+import type { ActorTx } from '../../auth/actor';
+import { schema } from '../../db';
 
 const { channel, channelMember, staffMember } = schema;
 
@@ -12,9 +13,8 @@ const { channel, channelMember, staffMember } = schema;
  * count leaves out Deactivated Staff members: "member" means an active member.
  */
 export async function findChannel(
-  tx: Tx,
+  { tx, actor }: ActorTx,
   channelId: string,
-  staffId: string,
 ): Promise<ChannelView | undefined> {
   const rows = await tx
     .select({
@@ -31,7 +31,7 @@ export async function findChannel(
     .from(channel)
     .leftJoin(
       channelMember,
-      and(eq(channelMember.channelId, channel.id), eq(channelMember.staffId, staffId)),
+      and(eq(channelMember.channelId, channel.id), eq(channelMember.staffId, actor.staffId)),
     )
     .where(eq(channel.id, channelId));
   const row = rows[0];
@@ -42,14 +42,14 @@ export async function findChannel(
 }
 
 /**
- * The Channels the Staff member is a member of, by name. Filtered on their own
- * channel_member rows: row-level security alone would also return every Public channel.
+ * The Channels the actor is a member of, by name. Filtered on their own channel_member
+ * rows: row-level security alone would also return every Public channel.
  */
-export function listMemberChannels(tx: Tx, staffId: string): Promise<SidebarChannel[]> {
+export function listMemberChannels({ tx, actor }: ActorTx): Promise<SidebarChannel[]> {
   return tx
     .select({ id: channel.id, name: channel.name, visibility: channel.visibility })
     .from(channel)
     .innerJoin(channelMember, eq(channelMember.channelId, channel.id))
-    .where(eq(channelMember.staffId, staffId))
+    .where(eq(channelMember.staffId, actor.staffId))
     .orderBy(asc(channel.name), asc(channel.id));
 }

@@ -6,12 +6,7 @@
 // (ADR 0005). Company Admins get no exception anywhere.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import {
-  asPingApp,
-  createStaffMember,
-  insertChannel,
-  type Query,
-} from '../../db/test-support';
+import { asPingApp, createStaffMember, insertChannel, type Query } from '../../db/test-support';
 
 const visibleChannelIds = async (query: Query, ids: string[]) =>
   (await query<{ id: string }>('select id from channel where id = any($1)', [ids])).rows
@@ -32,10 +27,7 @@ type PlanNode = {
   'Actual Rows': number;
   Plans?: PlanNode[];
 };
-const planNodes = (node: PlanNode): PlanNode[] => [
-  node,
-  ...(node.Plans ?? []).flatMap(planNodes),
-];
+const planNodes = (node: PlanNode): PlanNode[] => [node, ...(node.Plans ?? []).flatMap(planNodes)];
 
 describe('channel SELECT', () => {
   it('shows a Public channel to a Staff member who is not a member', async () => {
@@ -117,7 +109,9 @@ describe('channel SELECT', () => {
         expect(node['Actual Loops']).toBe(1);
       }
       // …and never in the per-row filter of the scan over channel.
-      const outside = planNodes(root).filter((n) => !initPlans.some((p) => planNodes(p).includes(n)));
+      const outside = planNodes(root).filter(
+        (n) => !initPlans.some((p) => planNodes(p).includes(n)),
+      );
       expect(outside.some(mentionsHelper)).toBe(false);
       expect(JSON.stringify(root)).not.toContain('is_channel_member');
     });
@@ -228,10 +222,11 @@ describe('channel_member SELECT', () => {
 });
 
 const join = (query: Query, channelId: string, staffId: string, admin = false) =>
-  query(
-    'insert into channel_member (channel_id, staff_id, is_channel_admin) values ($1, $2, $3)',
-    [channelId, staffId, admin],
-  );
+  query('insert into channel_member (channel_id, staff_id, is_channel_admin) values ($1, $2, $3)', [
+    channelId,
+    staffId,
+    admin,
+  ]);
 
 describe('channel_member INSERT', () => {
   it('lets a Staff member add their own plain row to a Public channel (joining)', async () => {
@@ -246,9 +241,7 @@ describe('channel_member INSERT', () => {
     const member = await createStaffMember();
     const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(member.id, async (query) => {
-      await expect(join(query, channel.id, member.id, true)).rejects.toThrow(
-        /row-level security/,
-      );
+      await expect(join(query, channel.id, member.id, true)).rejects.toThrow(/row-level security/);
     });
   });
 
@@ -361,10 +354,7 @@ describe('channel_member UPDATE', () => {
 });
 
 const remove = (query: Query, channelId: string, staffId: string) =>
-  query('delete from channel_member where channel_id = $1 and staff_id = $2', [
-    channelId,
-    staffId,
-  ]);
+  query('delete from channel_member where channel_id = $1 and staff_id = $2', [channelId, staffId]);
 
 describe('channel_member DELETE', () => {
   it('lets a member delete their own row (leaving)', async () => {

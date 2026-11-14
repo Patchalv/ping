@@ -1,32 +1,44 @@
-// Route middleware: the signed-in, active Staff member the request acts for. Put it first
-// on every route that needs one, before validation, so a request with no session gets a
-// 401 rather than a 400. Register it per route, never with app.use (the route-coverage
-// guard refuses unlisted ALL routes).
-import { eq } from 'drizzle-orm';
+// Who a request acts for, in two steps:
+//
+// 1. `signedIn(auth)`: route middleware that checks the session and answers 401 without
+//    one. It runs first on the route, so a request with no session never reaches
+//    validation. It touches no Ping table.
+// 2. `withActorTx(c, ({ tx, actor }) => …)`: the route's one transaction. It sets
+//    app.staff_id, reads the Staff member's role in that same transaction (401 when
+//    they've been Deactivated) and hands the work one context, so the actor and
+//    app.staff_id can never disagree.
+//
+// withActorTx accepts only a Context that has been through signedIn, so a route that
+// forgets the middleware fails to compile.
+import type { Context } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { type Database, schema } from '../db';
+import type { Database, Tx } from '../db';
 import { UnauthenticatedError } from '../lib/errors';
 import type { Actor } from '../permissions/actor';
 import type { Auth } from './index';
+import { findActiveStaffRole } from './queries';
 
-export type ActorEnv = { Variables: { actor: Actor } };
+type SessionEnv = { Variables: { session: { staffId: string } } };
 
-export function signedIn(auth: Auth, database: Database) {
-  return createMiddleware<ActorEnv>(async (c, next) => {
+export function signedIn(auth: Auth) {
+  return createMiddleware<SessionEnv>(async (c, next) => {
     const session = await auth.api.getSession({ headers: c.req.raw.headers });
     if (!session) throw new UnauthenticatedError();
-    const staffId = session.user.id;
-    // Read through the staff_member policy, which shows a Deactivated Staff member
-    // nothing: a session that outlived a Deactivation acts for nobody.
-    const rows = await database.withStaffTx(staffId, (tx) =>
-      tx
-        .select({ role: schema.staffMember.role })
-        .from(schema.staffMember)
-        .where(eq(schema.staffMember.id, staffId)),
-    );
-    const staff = rows[0];
-    if (!staff) throw new UnauthenticatedError();
-    c.set('actor', { staffId, role: staff.role });
+    c.set('session', { staffId: session.user.id });
     await next();
   });
+}
+
+/** What every query in a request takes: its transaction and the Staff member it acts for. */
+export type ActorTx = { tx: Tx; actor: Actor };
+
+export function createWithActorTx(database: Database) {
+  return <T>(c: Context<SessionEnv>, fn: (ctx: ActorTx) => Promise<T>): Promise<T> => {
+    const { staffId } = c.var.session;
+    return database.withStaffTx(staffId, async (tx) => {
+      const role = await findActiveStaffRole(tx, staffId);
+      if (!role) throw new UnauthenticatedError();
+      return fn({ tx, actor: { staffId, role } });
+    });
+  };
 }

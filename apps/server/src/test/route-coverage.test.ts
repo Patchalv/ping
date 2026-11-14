@@ -19,7 +19,7 @@ function realApp() {
     baseUrl: 'http://localhost:3000',
     trustedOrigins: ['http://localhost:3000'],
   });
-  return createApp({ auth, database, webDistDir });
+  return createApp({ auth, database, trustedOrigins: ['http://localhost:3000'], webDistDir });
 }
 
 describe('route-coverage guard', () => {
