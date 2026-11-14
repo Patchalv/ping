@@ -1,0 +1,18 @@
+# Secrets never go into the image.
+.env
+.env.*
+!.env.example
+
+**/node_modules
+**/dist
+*.tsbuildinfo
+.git
+.github
+.claude
+.impeccable
+.wrangler
+docs
+e2e
+test-results
+playwright-report
+coverage

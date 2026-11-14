@@ -1,0 +1,46 @@
+# Prod (platform.md › Environments and domains): https://ping.bypatrick.app
+# One shared-cpu-1x Machine in fra with 256 MB, always on. Deploy with --ha=false, so Fly
+# never adds a second Machine: live updates and the auth rate limiter live in memory, so
+# Ping must run exactly one instance.
+#
+# Named fly.prod.toml, not fly.toml, so a bare `fly deploy` finds no config and can't
+# skip promote's staging check. Deployed only by .github/workflows/promote.yml. Runtime secrets are set with
+# `fly secrets` (docs/deploy-runbook.md). No release_command: migrations run from Actions.
+
+app = "bypatrick-ping"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  BETTER_AUTH_URL = "https://ping.bypatrick.app"
+  SENTRY_ENVIRONMENT = "production"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  # Every open live-update stream holds a connection, so Fly's default limit of 25 would
+  # queue people once streams arrive. The real limit is memory.
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  # Never touches the database, so it lets Neon sleep.
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

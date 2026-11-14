@@ -5,9 +5,11 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { loadEnvLocal, readConfig } from './config';
 import { createDatabase } from './db';
+import { captureError, flushSentry, initSentry } from './sentry';
 
 loadEnvLocal();
 const config = readConfig();
+initSentry(config.sentry);
 const port = Number(process.env.PORT ?? '3000');
 const webDistDir =
   process.env.WEB_DIST_DIR ?? fileURLToPath(new URL('../../web/dist', import.meta.url));
@@ -15,9 +17,22 @@ const webDistDir =
 const database = createDatabase(config.databaseUrl);
 const auth = createAuth(database, config.auth);
 
-// In development Vite serves the SPA; the server only serves a build that exists.
-const app = createApp(existsSync(webDistDir) ? { auth, webDistDir } : { auth });
+const app = createApp({
+  auth,
+  // In development Vite serves the SPA; the server only serves a build that exists.
+  ...(existsSync(webDistDir) && { webDistDir }),
+  ...(config.sentry && { sentry: config.sentry, captureError }),
+});
 
-serve({ fetch: app.fetch, port }, (info) => {
+const server = serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Ping server listening on http://localhost:${info.port}`);
 });
+
+// Fly stops a Machine with SIGINT (then SIGKILL), and Docker with SIGTERM. Node as PID 1
+// ignores both unless handled.
+for (const signal of ['SIGINT', 'SIGTERM'] as const) {
+  process.once(signal, () => {
+    server.close();
+    void Promise.allSettled([database.close(), flushSentry()]).then(() => process.exit(0));
+  });
+}

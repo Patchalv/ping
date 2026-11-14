@@ -1,0 +1,87 @@
+name: Promote to prod
+
+# Run by hand (platform.md › Deploys). Sends one commit that already passed staging to
+# prod: it refuses unless "Deploy staging" succeeded on that exact commit, which includes
+# the pooler smoke test. Then it migrates the prod database and deploys prod.
+#
+# Secrets live in the `production` GitHub environment: FLY_API_TOKEN and
+# MIGRATION_DATABASE_URL (docs/deploy-runbook.md).
+
+on:
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: Commit on master to promote. Leave empty for the newest commit on master.
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: promote-prod
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    name: migrate and deploy prod
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: production
+      url: https://ping.bypatrick.app
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: master
+          fetch-depth: 0
+
+      - name: Pick the commit
+        id: commit
+        env:
+          INPUT_SHA: ${{ inputs.sha }}
+        run: |
+          sha="$(git rev-parse --verify "${INPUT_SHA:-origin/master}^{commit}")"
+          if ! git merge-base --is-ancestor "$sha" origin/master; then
+            echo "::error::$sha is not on master. Promote only sends commits from master."
+            exit 1
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse unless staging passed on this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          passed="$(gh run list --workflow deploy.yml --commit "$SHA" --status success \
+            --json databaseId --jq 'length')"
+          if [ "$passed" -eq 0 ]; then
+            echo "::error::No successful \"Deploy staging\" run for $SHA, so its staging deploy or pooler smoke test failed, or never ran. Not promoting."
+            exit 1
+          fi
+          echo "Staging passed on $SHA."
+
+      - run: git checkout --detach "${{ steps.commit.outputs.sha }}"
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Migrate the prod database
+        run: pnpm db:migrate
+        env:
+          NODE_ENV: production
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+
+      - name: Deploy to Fly
+        run: flyctl deploy --config fly.prod.toml --remote-only --ha=false --image-label "${{ steps.commit.outputs.sha }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      - name: Check /healthz
+        run: curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 https://bypatrick-ping.fly.dev/healthz

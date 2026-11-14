@@ -10,8 +10,9 @@ const ROUTE_ALLOWLIST: readonly string[] = [
   // Better Auth's routes, including sign-in, sign-out, get-session and password reset.
   'GET /api/auth/*',
   'POST /api/auth/*',
-  // The built SPA (production only): its static files, then index.html for client-side
-  // routes. It never answers /api/*, and serves no data.
+  // Middleware on every path: the security headers, and (production only) the built SPA's
+  // index.html and static files. Then index.html for client-side routes. None of it
+  // answers /api/* or serves data.
   'ALL /*',
   'GET /*',
   // Invite accept arrives with "Invites, bootstrap-admin and email" (#32), and any

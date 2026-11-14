@@ -1,0 +1,42 @@
+# Staging (platform.md › Environments and domains): https://staging.ping.bypatrick.app
+# Its own app, 256 MB, stopped when idle and started by the next request. Deploy with
+# --ha=false: one Machine, like prod.
+#
+# Deployed by .github/workflows/deploy.yml on every merge to master. Runtime secrets are
+# set with `fly secrets` (docs/deploy-runbook.md). No release_command: migrations run
+# from Actions.
+
+app = "bypatrick-ping-staging"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  NODE_ENV = "production"
+  PORT = "8080"
+  BETTER_AUTH_URL = "https://staging.ping.bypatrick.app"
+  SENTRY_ENVIRONMENT = "staging"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 200
+    hard_limit = 250
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/healthz"
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "30s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

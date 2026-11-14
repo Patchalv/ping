@@ -1,0 +1,74 @@
+name: Deploy staging
+
+# Every merge to master (platform.md › Deploys): all test suites, then migrations against
+# the Neon staging branch as neondb_owner, then the staging deploy, then the pooler smoke
+# test through Neon's real pooler. Any failure fails the run, and promote.yml refuses to
+# send a commit to prod without a successful run of this workflow.
+#
+# Secrets live in the `staging` GitHub environment: FLY_API_TOKEN and
+# MIGRATION_DATABASE_URL (docs/deploy-runbook.md).
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+# One deploy at a time, never cut off halfway. A newer merge that arrives while two are
+# queued replaces the waiting one, and staging gets the newest commit.
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  staging:
+    name: migrate, deploy and smoke-test staging
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: staging
+      url: https://staging.ping.bypatrick.app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      # Expand-only migrations: the old release keeps running against the new schema
+      # until the deploy below replaces it.
+      - name: Migrate the staging database
+        run: pnpm db:migrate
+        env:
+          NODE_ENV: production
+          MIGRATION_DATABASE_URL: ${{ secrets.MIGRATION_DATABASE_URL }}
+
+      - uses: superfly/flyctl-actions/setup-flyctl@1.6
+
+      - name: Deploy to Fly
+        run: flyctl deploy --config fly.staging.toml --remote-only --ha=false --image-label "${{ github.sha }}"
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+      # Runs inside the staging Machine, as ping_app through Neon's pooler, with the
+      # Machine's own DATABASE_URL: GitHub never holds that credential.
+      - name: Pooler smoke test
+        run: |
+          set -o pipefail
+          # Staging stops when idle; a request starts it again.
+          curl --fail --silent --show-error --retry 10 --retry-all-errors --retry-delay 3 \
+            https://bypatrick-ping-staging.fly.dev/healthz
+          flyctl ssh console --config fly.staging.toml \
+            --command "sh -c 'cd /app/apps/server && node --import tsx src/db/cli/pooler-smoke.ts'" \
+            | tee smoke.log
+          # Belt and braces, in case `fly ssh console` drops the command's exit code.
+          grep -q 'POOLER SMOKE PASSED' smoke.log
+        env:
+          FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
