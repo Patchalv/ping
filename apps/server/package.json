@@ -15,13 +15,15 @@
   },
   "dependencies": {
     "@hono/node-server": "2.1.8",
+    "@hono/zod-validator": "0.9.1",
     "@ping/shared": "workspace:*",
     "@sentry/node": "11.12.0",
     "better-auth": "1.7.23",
     "drizzle-orm": "0.45.4",
     "hono": "4.13.18",
     "pg": "8.23.1",
-    "tsx": "4.23.15"
+    "tsx": "4.23.15",
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@types/pg": "8.23.1",

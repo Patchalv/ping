@@ -7,9 +7,11 @@ import {
   type AnyPgColumn,
   boolean,
   check,
+  customType,
   index,
   pgEnum,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uuid,
@@ -110,6 +112,61 @@ export const staffMember = pgTable(
       'staff_member_deactivated_by_with_at',
       sql`(${t.deactivatedAt} is null) = (${t.deactivatedBy} is null)`,
     ),
+  ],
+);
+
+export const channelVisibility = pgEnum('channel_visibility', ['public', 'private']);
+export const resolvePolicy = pgEnum('resolve_policy', ['any_member', 'author_and_channel_admins']);
+
+const tsvector = customType<{ data: string }>({ dataType: () => 'tsvector' });
+
+/**
+ * A Channel. Created only through the create_channel system function, which inserts its
+ * first Channel admin in the same statement (data-model.md › Channels). Never deleted.
+ */
+export const channel = pgTable(
+  'channel',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    visibility: channelVisibility('visibility').notNull(),
+    resolvePolicy: resolvePolicy('resolve_policy').notNull().default('any_member'),
+    createdAt: createdAt(),
+    createdBy: uuid('created_by')
+      .notNull()
+      .references(() => staffMember.id),
+    archivedAt: timestamp('archived_at', { withTimezone: true }),
+    archivedBy: uuid('archived_by').references(() => staffMember.id),
+    search: tsvector('search').generatedAlwaysAs(
+      sql`to_tsvector('english', name || ' ' || description)`,
+    ),
+  },
+  (t) => [
+    index('channel_search_idx').using('gin', t.search),
+    check(
+      'channel_archived_by_with_at',
+      sql`(${t.archivedAt} is null) = (${t.archivedBy} is null)`,
+    ),
+  ],
+);
+
+/** An active Channel member. Leaving or being removed deletes the row. */
+export const channelMember = pgTable(
+  'channel_member',
+  {
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channel.id),
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    isChannelAdmin: boolean('is_channel_admin').notNull().default(false),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.channelId, t.staffId] }),
+    index('channel_member_staff_id_idx').on(t.staffId),
   ],
 );
 

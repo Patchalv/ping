@@ -213,6 +213,43 @@ export async function createStaffMember(
   return fixture;
 }
 
+export type ChannelFixture = { id: string; name: string };
+
+/**
+ * Inserts a Channel and its members as the owner, behind row-level security. The first
+ * member listed with `channelAdmin: true` is its creator; without one, the creator is a
+ * fresh Staff member who isn't a member.
+ */
+export async function createChannel(
+  options: {
+    visibility?: 'public' | 'private';
+    name?: string;
+    members?: { staffId: string; channelAdmin?: boolean }[];
+  } = {},
+): Promise<ChannelFixture> {
+  const id = randomUUID();
+  const name = options.name ?? `Test channel ${id.slice(0, 8)}`;
+  const members = options.members ?? [];
+  const createdBy =
+    members.find((m) => m.channelAdmin)?.staffId ?? (await createStaffMember()).id;
+  await asOwner(async (query) => {
+    await query('begin');
+    await query(
+      `insert into channel (id, name, description, visibility, created_by)
+       values ($1, $2, '', $3, $4)`,
+      [id, name, options.visibility ?? 'public', createdBy],
+    );
+    for (const member of members) {
+      await query(
+        `insert into channel_member (channel_id, staff_id, is_channel_admin) values ($1, $2, $3)`,
+        [id, member.staffId, member.channelAdmin ?? false],
+      );
+    }
+    await query('commit');
+  });
+  return { id, name };
+}
+
 /**
  * A checksum of every row of every table in the public schema, read as the owner. Two
  * equal snapshots mean nothing was inserted, updated or deleted in between.
