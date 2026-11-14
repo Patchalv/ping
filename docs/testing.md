@@ -82,7 +82,7 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 
 - The standard actors are in `actors.ts`. Each is a real Staff member signed in through Better Auth. The Deactivated actor replays a cookie from before their Deactivation.
 - Deny rows assert the status and that the database is unchanged: every table's rows are checksummed before and after.
-- Rows with a Channel use Channel fixtures, which the first Channel slice adds to `run-row.ts`.
+- Rows with a Channel use the Channel fixtures in `run-row.ts`. Each row gets a fresh Channel of its `channel` kind (`public`, `private`, or `archived`, which is Public), and `CHANNEL_ROLE` in `actors.ts` sets each actor's place in it: Channel admin, member, or not a member.
 - Every new or changed endpoint needs at least one allow row, plus a deny row for every standard actor who shouldn't pass.
 
 ### The route-coverage guard (`apps/server/src/test/route-coverage.test.ts`)
@@ -103,7 +103,7 @@ DATABASE_URL='<url>' pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke
 
 ### Playwright (`e2e/`)
 
-The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member and signing out. Change it only when a slice changes one of the smoke journeys.
+The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, and a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
 
 Locally nothing sets `Fly-Client-IP`, so Better Auth's sign-in rate limiter would put every test in one bucket. Each test sends its own address.
 
@@ -118,6 +118,8 @@ Locally nothing sets `Fly-Client-IP`, so Better Auth's sign-in rate limiter woul
 | `laura.gomez@example.com` | Member |
 | `pablo.serra@example.com` | Member |
 | `carlos.vidal@example.com` | Deactivated (sign-in is refused) |
+
+It also loads three Channels: **Front desk** (Public; Marta, Jordi, Laura and Pablo), **Teaching** (Public; Laura and Jordi) and **Owners** (Private; Jordi and Laura). Opening Owners as Marta or Pablo answers 404.
 
 ## Rules for every slice
 
