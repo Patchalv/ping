@@ -122,9 +122,7 @@ describe('channel UPDATE', () => {
       expect(result.rowCount).toBe(0);
     });
     await asPingApp(member.id, async (query) => {
-      const result = await query(`update channel set name = 'Renamed' where id = $1`, [
-        channel.id,
-      ]);
+      const result = await query(`update channel set name = 'Renamed' where id = $1`, [channel.id]);
       expect(result.rowCount).toBe(1);
     });
   });
@@ -148,9 +146,7 @@ describe('channel UPDATE', () => {
   it('changes nothing when app.staff_id is unset', async () => {
     const channel = await createChannel({ visibility: 'public' });
     await asPingApp(null, async (query) => {
-      const result = await query(`update channel set name = 'Renamed' where id = $1`, [
-        channel.id,
-      ]);
+      const result = await query(`update channel set name = 'Renamed' where id = $1`, [channel.id]);
       expect(result.rowCount).toBe(0);
     });
   });
@@ -329,9 +325,7 @@ describe('channel_member DELETE', () => {
       members: [{ staffId: member.id, channelAdmin: true }],
     });
     await asPingApp(admin.id, async (query) => {
-      const result = await query('delete from channel_member where channel_id = $1', [
-        channel.id,
-      ]);
+      const result = await query('delete from channel_member where channel_id = $1', [channel.id]);
       expect(result.rowCount).toBe(0);
     });
   });
@@ -343,9 +337,7 @@ describe('channel_member DELETE', () => {
       members: [{ staffId: member.id }],
     });
     await asPingApp(null, async (query) => {
-      const result = await query('delete from channel_member where channel_id = $1', [
-        channel.id,
-      ]);
+      const result = await query('delete from channel_member where channel_id = $1', [channel.id]);
       expect(result.rowCount).toBe(0);
     });
   });
@@ -373,7 +365,10 @@ describe('create_channel', () => {
         [id],
       );
       expect(channel.rows).toEqual([{ created_by: member.id, visibility: 'private' }]);
-      const members = await query('select staff_id, is_channel_admin from channel_member where channel_id = $1', [id]);
+      const members = await query(
+        'select staff_id, is_channel_admin from channel_member where channel_id = $1',
+        [id],
+      );
       expect(members.rows).toEqual([{ staff_id: member.id, is_channel_admin: true }]);
     });
   });

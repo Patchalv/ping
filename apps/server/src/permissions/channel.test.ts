@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ForbiddenError, NotFoundError } from '../lib/errors';
+import type { Actor } from './actor';
 import {
   canCreateChannel,
   canReadChannel,
@@ -7,7 +8,6 @@ import {
   requireCanReadChannel,
 } from './channel';
 import { allow, deny, requireAllowed } from './decision';
-import type { Actor } from './actor';
 
 const member: Actor = { staffId: '00000000-0000-4000-8000-0000000000a1', role: 'member' };
 const admin: Actor = { staffId: '00000000-0000-4000-8000-0000000000a2', role: 'admin' };

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   ConflictError,
+  errorResponse,
   ForbiddenError,
   NotFoundError,
   UnauthenticatedError,
   ValidationError,
-  errorResponse,
 } from './errors';
 
 describe('errorResponse', () => {
@@ -23,7 +23,7 @@ describe('errorResponse', () => {
   });
 
   it('says nothing about what was not found', () => {
-    expect(errorResponse(new NotFoundError()).body.error.message).toBe('Not found.');
+    expect(errorResponse(new NotFoundError())?.body.error.message).toBe('Not found.');
   });
 
   it('returns undefined for an unknown error, which the caller reports as a bare 500', () => {

@@ -224,20 +224,27 @@ export async function createChannel(
   options: {
     visibility?: 'public' | 'private';
     name?: string;
+    archived?: boolean;
     members?: { staffId: string; channelAdmin?: boolean }[];
   } = {},
 ): Promise<ChannelFixture> {
   const id = randomUUID();
   const name = options.name ?? `Test channel ${id.slice(0, 8)}`;
   const members = options.members ?? [];
-  const createdBy =
-    members.find((m) => m.channelAdmin)?.staffId ?? (await createStaffMember()).id;
+  const createdBy = members.find((m) => m.channelAdmin)?.staffId ?? (await createStaffMember()).id;
   await asOwner(async (query) => {
     await query('begin');
     await query(
-      `insert into channel (id, name, description, visibility, created_by)
-       values ($1, $2, '', $3, $4)`,
-      [id, name, options.visibility ?? 'public', createdBy],
+      `insert into channel (id, name, description, visibility, created_by, archived_at, archived_by)
+       values ($1, $2, '', $3, $4, $5, $6)`,
+      [
+        id,
+        name,
+        options.visibility ?? 'public',
+        createdBy,
+        options.archived ? new Date() : null,
+        options.archived ? createdBy : null,
+      ],
     );
     for (const member of members) {
       await query(

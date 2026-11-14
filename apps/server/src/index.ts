@@ -19,6 +19,7 @@ const auth = createAuth(database, config.auth);
 
 const app = createApp({
   auth,
+  database,
   // In development Vite serves the SPA; the server only serves a build that exists.
   ...(existsSync(webDistDir) && { webDistDir }),
   ...(config.sentry && { sentry: config.sentry, captureError }),

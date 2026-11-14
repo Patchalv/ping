@@ -22,7 +22,7 @@ export function createTestApp(): TestApp {
     baseUrl: TEST_ORIGIN,
     trustedOrigins: [TEST_ORIGIN],
   });
-  return { app: createApp({ auth }), auth, database, close: () => database.close() };
+  return { app: createApp({ auth, database }), auth, database, close: () => database.close() };
 }
 
 /** A fresh client IP per call, so Better Auth's rate limiter treats each test apart. */

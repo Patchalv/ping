@@ -24,7 +24,10 @@ describe('createChannelBody', () => {
     ['an empty name', { name: '', visibility: 'public' }],
     ['a name of only spaces', { name: '   ', visibility: 'public' }],
     ['a name over 80 characters', { name: 'x'.repeat(81), visibility: 'public' }],
-    ['a description over 500 characters', { name: 'Ops', description: 'x'.repeat(501), visibility: 'public' }],
+    [
+      'a description over 500 characters',
+      { name: 'Ops', description: 'x'.repeat(501), visibility: 'public' },
+    ],
     ['an unknown visibility', { name: 'Ops', visibility: 'secret' }],
     ['no visibility', { name: 'Ops' }],
   ])('refuses %s', (_name, body) => {

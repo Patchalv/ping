@@ -14,8 +14,10 @@
 //      suite proves it acts for app.staff_id, does nothing when it's unset, and can't be
 //      steered to another Staff member through its arguments.
 //
-// Later slices add the functions (create_channel, fan_out_pings, …) and the jobs here.
+// Each system function has one caller here; later slices add fan_out_pings and the rest.
 import { createSystemPool, type SystemDb } from '../db/system-pool';
+
+export { createChannel } from './create-channel';
 
 export type SystemActions = {
   /** The ping_system handle. Jobs in this module only. */

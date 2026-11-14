@@ -3,8 +3,12 @@ import { join } from 'node:path';
 import { serveStatic } from '@hono/node-server/serve-static';
 import type { HealthzResponse } from '@ping/shared';
 import { Hono } from 'hono';
+import { HTTPException } from 'hono/http-exception';
 import type { Auth } from './auth';
 import type { SentrySettings } from './config';
+import type { Database } from './db';
+import { channelRoutes } from './features/channel/routes';
+import { errorResponse } from './lib/errors';
 import { securityHeaders } from './security-headers';
 
 /** The request an unhandled error came from: its route, never its data. */
@@ -12,6 +16,8 @@ export type ErrorRoute = { method: string; path: string };
 
 type AppOptions = {
   auth: Auth;
+  /** The ping_app database. Routes reach it only through withStaffTx(). */
+  database: Database;
   /** The built SPA (apps/web/dist). When set, the server serves it, with index.html as the fallback for client-side routes. */
   webDistDir?: string;
   /** When set, the SPA reports to Sentry, and the CSP allows Sentry's ingest origin. */
@@ -42,11 +48,18 @@ export function createApp(options: AppOptions) {
   // /healthz never touches the database, so uptime checks let Neon sleep.
   const app = new Hono()
     .use('/*', securityHeaders(options.sentry?.dsn))
-    .get('/healthz', (c) => c.json({ status: 'ok' } satisfies HealthzResponse));
+    .get('/healthz', (c) => c.json({ status: 'ok' } satisfies HealthzResponse))
+    // Feature routes, chained here so they come before the SPA's catch-all.
+    .route('/api/channels', channelRoutes(options));
 
-  // The log line leaves out the error's message, which can hold email addresses or a
-  // failed query's parameters. Sentry gets the scrubbed error.
+  // Typed errors become their status and a message the UI can show, and aren't reported.
+  // Hono's own (a malformed JSON body) keep their response. Anything else is a bug: a bare
+  // 500, reported. The log line leaves out the error's message, which can hold email
+  // addresses or a failed query's parameters. Sentry gets the scrubbed error.
   app.onError((error, c) => {
+    const known = errorResponse(error);
+    if (known) return c.json(known.body, known.status);
+    if (error instanceof HTTPException) return error.getResponse();
     const route: ErrorRoute = { method: c.req.method, path: c.req.path };
     options.captureError?.(error, route);
     console.error(`Unhandled ${error.name} on ${route.method} ${route.path}`);

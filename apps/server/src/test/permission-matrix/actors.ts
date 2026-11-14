@@ -25,6 +25,20 @@ export type Actor = {
 const ADMINS: ReadonlySet<ActorKind> = new Set(['adminNonMember', 'adminMember']);
 
 /**
+ * Each actor's place in the row's Channel. The author is an ordinary member until Threads
+ * exist. The Deactivated actor was a member before their Deactivation.
+ */
+export const CHANNEL_ROLE: Record<ActorKind, 'channelAdmin' | 'member' | null> = {
+  author: 'member',
+  channelAdmin: 'channelAdmin',
+  channelMember: 'member',
+  nonMemberMember: null,
+  adminNonMember: null,
+  adminMember: 'member',
+  deactivated: 'member',
+};
+
+/**
  * Creates a signed-in Staff member for `kind`. Channel relationships (author, Channel
  * admin, member) are set up per row by the Channel fixtures, which arrive with the first
  * Channel slice.
