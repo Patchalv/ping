@@ -29,53 +29,94 @@ ALTER TABLE "channel_member" ADD CONSTRAINT "channel_member_staff_id_staff_membe
 CREATE INDEX "channel_search_idx" ON "channel" USING gin ("search");--> statement-breakpoint
 CREATE INDEX "channel_member_staff_id_idx" ON "channel_member" USING btree ("staff_id");--> statement-breakpoint
 
--- Row-level security for Channels (permissions.md › Policies). Hand-written, like 0000.
+-- Row-level security for Channels (permissions.md › Policies, ADR 0005). Hand-written,
+-- like 0000.
 --
--- Policy helper: is the acting Staff member an active member of this Channel? SECURITY
--- DEFINER, so policies can ask without querying channel_member under its own policy,
--- which would raise "infinite recursion detected in policy". Every visibility policy
--- uses it. A Deactivated or unknown app.staff_id is a member of nothing.
-CREATE FUNCTION public.is_channel_member(target_channel_id uuid) RETURNS boolean
+-- Policy helpers: the Channels the acting Staff member is an active member of, and the
+-- ones they are Channel admin of. Set-returning and SECURITY DEFINER, so a policy can ask
+-- without querying channel_member under its own policy (which would raise "infinite
+-- recursion detected in policy"). Policies call them as
+-- `= ANY (ARRAY(SELECT public.current_staff_…()))`, which Postgres runs once per statement
+-- as an InitPlan, never once per row. A Deactivated or unknown app.staff_id gets nothing.
+CREATE FUNCTION public.current_staff_channel_ids() RETURNS SETOF uuid
   LANGUAGE sql STABLE SECURITY DEFINER
   SET search_path = pg_catalog
   AS $$
-    SELECT EXISTS (
-      SELECT 1
-        FROM public.channel_member m
-        JOIN public.staff_member s ON s.id = m.staff_id
-       WHERE m.channel_id = target_channel_id
-         AND m.staff_id = public.current_staff_id()
-         AND s.deactivated_at IS NULL
-    )
+    SELECT m.channel_id
+      FROM public.channel_member m
+      JOIN public.staff_member s ON s.id = m.staff_id
+     WHERE m.staff_id = public.current_staff_id()
+       AND s.deactivated_at IS NULL
   $$;--> statement-breakpoint
-REVOKE ALL ON FUNCTION public.is_channel_member(uuid) FROM PUBLIC;--> statement-breakpoint
-GRANT EXECUTE ON FUNCTION public.is_channel_member(uuid) TO ping_app, ping_system;--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.current_staff_channel_ids() FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.current_staff_channel_ids() TO ping_app, ping_system;--> statement-breakpoint
 
--- channel: the visibility rule, FOR ALL, with no Admin exception. A Channel is visible when
--- it is Public or the acting Staff member is a member. Channels are never deleted, so
--- ping_app has no DELETE grant. A plain insert of a Private channel fails the rule (its
--- creator isn't a member yet); create_channel below does that job.
-GRANT SELECT, INSERT, UPDATE ON "channel" TO ping_app;--> statement-breakpoint
+CREATE FUNCTION public.current_staff_admin_channel_ids() RETURNS SETOF uuid
+  LANGUAGE sql STABLE SECURITY DEFINER
+  SET search_path = pg_catalog
+  AS $$
+    SELECT m.channel_id
+      FROM public.channel_member m
+      JOIN public.staff_member s ON s.id = m.staff_id
+     WHERE m.staff_id = public.current_staff_id()
+       AND m.is_channel_admin
+       AND s.deactivated_at IS NULL
+  $$;--> statement-breakpoint
+REVOKE ALL ON FUNCTION public.current_staff_admin_channel_ids() FROM PUBLIC;--> statement-breakpoint
+GRANT EXECUTE ON FUNCTION public.current_staff_admin_channel_ids() TO ping_app, ping_system;--> statement-breakpoint
+
+-- channel: ping_app only reads, through the visibility rule, with no Admin exception: a
+-- Channel is visible when it is Public or the acting Staff member is a member. Nothing
+-- in the app writes a Channel directly; create_channel below is the only way to create
+-- one. Channels are never deleted. (#42 adds a column-limited UPDATE for settings.)
+GRANT SELECT ON "channel" TO ping_app;--> statement-breakpoint
 ALTER TABLE "channel" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "channel" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY channel_visibility ON "channel" FOR ALL TO ping_app
-  USING ((SELECT public.current_staff_is_active()) AND (visibility = 'public' OR public.is_channel_member(id)))
-  WITH CHECK ((SELECT public.current_staff_is_active()) AND (visibility = 'public' OR public.is_channel_member(id)));--> statement-breakpoint
+CREATE POLICY channel_select ON "channel" FOR SELECT TO ping_app
+  USING (
+    (SELECT public.current_staff_is_active())
+    AND (visibility = 'public' OR id = ANY (ARRAY(SELECT public.current_staff_channel_ids())))
+  );--> statement-breakpoint
 
--- channel_member: the same visibility rule, applied to the row's Channel. The Channel's
--- visibility is read through the channel policy, which itself only calls the helper, so
--- nothing recurses.
+-- channel_member: reads follow the visibility rule; writes have their own rules (ADR 0005).
+-- Company Admins get no exception. The finer rules (the last Channel admin can't leave)
+-- stay in the server's permissions module. The Public-channel check is uncorrelated, so it
+-- too runs once per statement, and it reads channel through channel's own policy.
 GRANT SELECT, INSERT, UPDATE, DELETE ON "channel_member" TO ping_app;--> statement-breakpoint
 ALTER TABLE "channel_member" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "channel_member" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
-CREATE POLICY channel_member_visibility ON "channel_member" FOR ALL TO ping_app
+
+-- Read: the row's Channel is Public, or the acting Staff member is a member of it.
+CREATE POLICY channel_member_select ON "channel_member" FOR SELECT TO ping_app
   USING (
-    public.is_channel_member(channel_id)
-    OR EXISTS (SELECT 1 FROM public.channel c WHERE c.id = channel_id AND c.visibility = 'public')
-  )
+    channel_id = ANY (ARRAY(SELECT public.current_staff_channel_ids()))
+    OR channel_id IN (SELECT c.id FROM public.channel c WHERE c.visibility = 'public')
+  );--> statement-breakpoint
+
+-- Insert: your own plain row in a Public channel (joining), or any row in a Channel you
+-- are Channel admin of (adding members and Channel admins).
+CREATE POLICY channel_member_insert ON "channel_member" FOR INSERT TO ping_app
   WITH CHECK (
-    public.is_channel_member(channel_id)
-    OR EXISTS (SELECT 1 FROM public.channel c WHERE c.id = channel_id AND c.visibility = 'public')
+    (
+      staff_id = (SELECT public.current_staff_id())
+      AND NOT is_channel_admin
+      AND (SELECT public.current_staff_is_active())
+      AND channel_id IN (SELECT c.id FROM public.channel c WHERE c.visibility = 'public')
+    )
+    OR channel_id = ANY (ARRAY(SELECT public.current_staff_admin_channel_ids()))
+  );--> statement-breakpoint
+
+-- Update (appointing or removing a Channel admin): Channel admins of that Channel only.
+CREATE POLICY channel_member_update ON "channel_member" FOR UPDATE TO ping_app
+  USING (channel_id = ANY (ARRAY(SELECT public.current_staff_admin_channel_ids())))
+  WITH CHECK (channel_id = ANY (ARRAY(SELECT public.current_staff_admin_channel_ids())));--> statement-breakpoint
+
+-- Delete: your own row (leaving), or any row in a Channel you are Channel admin of
+-- (removing a member).
+CREATE POLICY channel_member_delete ON "channel_member" FOR DELETE TO ping_app
+  USING (
+    (staff_id = (SELECT public.current_staff_id()) AND (SELECT public.current_staff_is_active()))
+    OR channel_id = ANY (ARRAY(SELECT public.current_staff_admin_channel_ids()))
   );--> statement-breakpoint
 
 -- System function (permissions.md › System functions): inserts a Channel and its first
