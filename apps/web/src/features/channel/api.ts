@@ -1,28 +1,39 @@
-// The Channel feature's calls, through the typed hc client only.
-import type { ChannelView, CreateChannelBody, SidebarChannel } from '@ping/shared';
+// The Channel feature's API: a query-key factory and hooks only. Components use these
+// hooks and never call hc or read a response themselves. A mutation invalidates by key,
+// so every screen showing that data refetches; live updates (#47) will do the same.
+import type { ChannelView, CreateChannelBody } from '@ping/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { apiErrorMessage, type Resource, toResource } from '../../lib/api-error';
-import { useResource } from '../../lib/use-resource';
+import { call } from '../../lib/api-client';
 
 const channels = api.api.channels;
 
+export const channelKeys = {
+  all: ['channels'] as const,
+  mine: () => [...channelKeys.all, 'mine'] as const,
+  detail: (channelId: string) => [...channelKeys.all, 'detail', channelId] as const,
+};
+
 /** The Channels the signed-in Staff member is a member of, for the sidebar. */
-export function useMyChannels(): [Resource<SidebarChannel[]>, () => void] {
-  return useResource('mine', async () => toResource(await channels.$get()));
+export function useMyChannels() {
+  return useQuery({ queryKey: channelKeys.mine(), queryFn: () => call(() => channels.$get()) });
 }
 
-/** One Channel. A Private channel the Staff member isn't in reads as not found. */
-export function useChannel(channelId: string): Resource<ChannelView> {
-  const [channel] = useResource(channelId, async () =>
-    toResource(await channels[':channelId'].$get({ param: { channelId } })),
-  );
-  return channel;
+/** One Channel. A Private channel the Staff member isn't in fails with a 404. */
+export function useChannel(channelId: string) {
+  return useQuery({
+    queryKey: channelKeys.detail(channelId),
+    queryFn: () => call(() => channels[':channelId'].$get({ param: { channelId } })),
+  });
 }
 
-export async function createChannel(
-  body: CreateChannelBody,
-): Promise<{ ok: true; channel: ChannelView } | { ok: false; message: string }> {
-  const res = await channels.$post({ json: body });
-  if (res.ok) return { ok: true, channel: await res.json() };
-  return { ok: false, message: await apiErrorMessage(res) };
+export function useCreateChannel() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: CreateChannelBody) => call(() => channels.$post({ json: body })),
+    onSuccess: (channel: ChannelView) => {
+      queryClient.setQueryData(channelKeys.detail(channel.id), channel);
+      return queryClient.invalidateQueries({ queryKey: channelKeys.mine() });
+    },
+  });
 }

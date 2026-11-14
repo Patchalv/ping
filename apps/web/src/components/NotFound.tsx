@@ -1,4 +1,4 @@
-import { AppLink } from './AppLink';
+import { Link } from '@tanstack/react-router';
 
 /** A not-found screen, with the way back home. */
 export function NotFound({ title, note }: { title: string; note: string }) {
@@ -6,9 +6,9 @@ export function NotFound({ title, note }: { title: string; note: string }) {
     <div className="not-found">
       <h1 className="not-found__title">{title}</h1>
       <p className="not-found__note">{note}</p>
-      <AppLink className="button" href="/">
+      <Link className="button" to="/">
         Back to your Channels
-      </AppLink>
+      </Link>
     </div>
   );
 }

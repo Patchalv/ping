@@ -48,8 +48,7 @@ module.exports = {
     },
     {
       name: 'no-cross-feature-web',
-      comment:
-        'A web feature never imports another feature. Share through components/ or lib/.',
+      comment: 'A web feature never imports another feature. Share through components/ or lib/.',
       severity: 'error',
       from: { path: '^apps/web/src/features/([^/]+)/' },
       to: { path: '^apps/web/src/features/', pathNot: '^apps/web/src/features/$1/' },

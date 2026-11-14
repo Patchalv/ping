@@ -20,6 +20,7 @@ export function AvatarMenu({ user }: { user: User }) {
   const root = useRef<HTMLDivElement>(null);
   const menuId = useId();
 
+  // eslint-disable-next-line no-restricted-syntax -- syncs with document events: closes the open menu on Escape or a click outside it
   useEffect(() => {
     if (!open) return;
     const close = (event: Event) => {
@@ -60,7 +61,7 @@ export function AvatarMenu({ user }: { user: User }) {
       >
         {initials(user.name)}
       </button>
-      {open && (
+      {open ? (
         <div className="avatar-menu__panel" id={menuId} role="menu" aria-label="Account">
           <div className="avatar-menu__who">
             <span className="avatar-menu__name">{user.name}</span>
@@ -75,13 +76,13 @@ export function AvatarMenu({ user }: { user: User }) {
           >
             {signingOut ? 'Signing out…' : 'Sign out'}
           </button>
-          {signOutFailed && (
+          {signOutFailed ? (
             <p className="form-error" role="alert">
               Signing out didn’t work. Try again.
             </p>
-          )}
+          ) : null}
         </div>
-      )}
+      ) : null}
     </div>
   );
 }

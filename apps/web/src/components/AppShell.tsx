@@ -1,25 +1,23 @@
-// The signed-in app: dark top bar, dark sidebar, and the main area (screens.md › Laptop).
-// On a phone the sidebar is the home screen, and opening a Channel replaces it.
+// The signed-in app, as the router's root: dark top bar, dark sidebar, and the current
+// route in the main area (screens.md › Laptop). On a phone the sidebar is the home
+// screen, and any other route replaces it.
 import type { SidebarChannel } from '@ping/shared';
+import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useMyChannels } from '../features/channel/api';
-import { ChannelPage } from '../features/channel/ChannelPage';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
-import type { Resource } from '../lib/api-error';
-import { channelPath, navigate, useRoute } from '../lib/router';
-import { AppLink } from './AppLink';
-import { AvatarMenu, type User } from './AvatarMenu';
+import { authClient } from '../lib/auth-client';
+import { AvatarMenu } from './AvatarMenu';
 import { HashIcon, LockIcon, PlusIcon, SearchIcon } from './icons';
-import { PageNotFound } from './NotFound';
 
-export function AppShell({ user }: { user: User }) {
-  const route = useRoute();
-  const [channels, reloadChannels] = useMyChannels();
+export function AppShell() {
+  const { data: session } = authClient.useSession();
+  const navigate = useNavigate();
+  const isHome = useRouterState({ select: (state) => state.location.pathname === '/' });
   const [creating, setCreating] = useState(false);
-  const activeId = route.name === 'channel' ? route.channelId : null;
 
   return (
-    <div className="shell" data-view={route.name === 'home' ? 'home' : 'main'}>
+    <div className="shell" data-view={isHome ? 'home' : 'main'}>
       <header className="top-bar">
         <span className="top-bar__brand">Ping</span>
         <div className="top-bar__search">
@@ -41,64 +39,53 @@ export function AppShell({ user }: { user: User }) {
         >
           <SearchIcon />
         </button>
-        <AvatarMenu user={user} />
+        {session ? <AvatarMenu user={session.user} /> : null}
       </header>
 
-      <Sidebar channels={channels} activeId={activeId} onCreate={() => setCreating(true)} />
+      <Sidebar onCreate={() => setCreating(true)} />
 
       <main className="shell__main">
-        {route.name === 'channel' && (
-          <ChannelPage key={route.channelId} channelId={route.channelId} />
-        )}
-        {route.name === 'home' && (
-          <p className="main-note">Pick a Channel from the sidebar, or create one.</p>
-        )}
-        {route.name === 'notFound' && <PageNotFound />}
+        <Outlet />
       </main>
 
-      {creating && (
+      {creating ? (
         <CreateChannelDialog
           onClose={() => setCreating(false)}
           onCreated={(channel) => {
             setCreating(false);
-            reloadChannels();
-            navigate(channelPath(channel.id));
+            void navigate({ to: '/channels/$channelId', params: { channelId: channel.id } });
           }}
         />
-      )}
+      ) : null}
     </div>
   );
 }
 
-function Sidebar({
-  channels,
-  activeId,
-  onCreate,
-}: {
-  channels: Resource<SidebarChannel[]>;
-  activeId: string | null;
-  onCreate(): void;
-}) {
+/** The home route's main area. On a phone it's hidden: the sidebar is home. */
+export function HomeNote() {
+  return <p className="main-note">Pick a Channel from the sidebar, or create one.</p>;
+}
+
+function Sidebar({ onCreate }: { onCreate(): void }) {
+  const channels = useMyChannels();
   return (
     <nav className="sidebar" aria-label="Channels">
       <h2 className="sidebar__heading">Channels</h2>
-      {channels.status === 'ready' && channels.data.length === 0 && (
-        <p className="sidebar__empty">You’re not in any Channels yet.</p>
-      )}
-      {channels.status === 'error' && (
+      {channels.isError ? (
         <p className="sidebar__empty" role="alert">
-          {channels.message}
+          {channels.error.message}
         </p>
-      )}
-      {channels.status === 'ready' && (
+      ) : channels.data?.length === 0 ? (
+        <p className="sidebar__empty">You’re not in any Channels yet.</p>
+      ) : channels.data ? (
         <ul className="sidebar__list">
           {channels.data.map((channel) => (
             <li key={channel.id}>
-              <ChannelLink channel={channel} active={channel.id === activeId} />
+              <ChannelLink channel={channel} />
             </li>
           ))}
         </ul>
-      )}
+      ) : null}
       <div className="sidebar__rule" />
       <button className="sidebar__item sidebar__action" type="button" onClick={onCreate}>
         <PlusIcon className="sidebar__icon" />
@@ -108,19 +95,19 @@ function Sidebar({
   );
 }
 
-function ChannelLink({ channel, active }: { channel: SidebarChannel; active: boolean }) {
-  const href = channelPath(channel.id);
+function ChannelLink({ channel }: { channel: SidebarChannel }) {
   const isPrivate = channel.visibility === 'private';
   return (
-    <AppLink
+    <Link
       className="sidebar__item"
-      href={href}
-      aria-current={active ? 'page' : undefined}
+      to="/channels/$channelId"
+      params={{ channelId: channel.id }}
+      activeProps={{ 'aria-current': 'page' }}
       // The lock icon is decorative, so the name says Private for screen readers.
       aria-label={isPrivate ? `${channel.name}, Private` : undefined}
     >
       {isPrivate ? <LockIcon className="sidebar__icon" /> : <HashIcon className="sidebar__icon" />}
       <span className="sidebar__name">{channel.name}</span>
-    </AppLink>
+    </Link>
   );
 }

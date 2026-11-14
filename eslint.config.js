@@ -60,7 +60,7 @@ export default defineConfig(
         'error',
         {
           selector:
-            "CallExpression[callee.name=/^use(Layout)?Effect$/], CallExpression[callee.property.name=/^use(Layout)?Effect$/]",
+            'CallExpression[callee.name=/^use(Layout)?Effect$/], CallExpression[callee.property.name=/^use(Layout)?Effect$/]',
           message:
             'No effect for fetching, derived state or reacting to events. To sync with something outside React, disable this rule with a reason after `--`.',
         },
