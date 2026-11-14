@@ -19,7 +19,7 @@ Then, outside the feature folder:
 - the matrix rows in `apps/server/src/test/permission-matrix/matrix.ts`;
 - the schemas in `packages/shared/src/channel.ts`.
 
-A new screen copies `apps/web/src/features/channel/`. `api.ts` holds the feature's calls through the typed client, and the components sit beside it.
+A new screen copies the structure of `apps/web/src/features/channel/`. `api.ts` holds the feature's calls through the typed client, and the components sit beside it. Don't copy its look: the styling is interim until #65 (see [The web app](#the-web-app)).
 
 ## Standards sources
 
@@ -119,6 +119,8 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | No OpenAPI in the MVP | review only |
 
 ## The web app
+
+**The styling is interim.** [Design system: component library decision, tokens, type and core components](https://github.com/Patchalv/ping/issues/65) (#65) settles the visual design: the tokens, the type, the core components, and whether to use a component library. Until #65 lands, `apps/web/src/styles.css` and the look of the hand-made components are not the pattern to copy. The web app's structure is the pattern: feature folders, calls through the typed client, `useResource`, and the router. The server-side exemplar is unaffected.
 
 | Rule | Checked by |
 | --- | --- |

@@ -1,5 +1,8 @@
-/* Ping's styles. The app shell follows prototype B2: dark top bar and sidebar, a white
-   Channel bar over a grey Thread feed (docs/spec/screens.md). */
+/* Interim styles, not the pattern to copy. The visual design (tokens, type, core
+   components, and whether to use a component library) is settled in #65,
+   https://github.com/Patchalv/ping/issues/65. Until then the app shell roughly follows
+   prototype B2: dark top bar and sidebar, a white Channel bar over a grey Thread feed
+   (docs/spec/screens.md). */
 :root {
   --bg: #f6f7f9;
   --surface: #ffffff;
