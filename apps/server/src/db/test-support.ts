@@ -220,7 +220,7 @@ export type ChannelFixture = { id: string; name: string };
  * member listed with `channelAdmin: true` is its creator; without one, the creator is a
  * fresh Staff member who isn't a member.
  */
-export async function createChannel(
+export async function insertChannel(
   options: {
     visibility?: 'public' | 'private';
     name?: string;

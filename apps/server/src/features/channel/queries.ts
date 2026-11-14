@@ -4,23 +4,28 @@
 import type { ChannelView, SidebarChannel } from '@ping/shared';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { schema, type Tx } from '../../db';
-import type { ChannelAccess } from '../../permissions/channel';
 
-const { channel, channelMember } = schema;
+const { channel, channelMember, staffMember } = schema;
 
-/** A Channel, the actor's membership in it and its member count, or undefined when missing or hidden. */
+/**
+ * A Channel as the actor sees it, or undefined when it's missing or hidden. The member
+ * count leaves out Deactivated Staff members: "member" means an active member.
+ */
 export async function findChannel(
   tx: Tx,
   channelId: string,
   staffId: string,
-): Promise<(ChannelView & ChannelAccess) | undefined> {
+): Promise<ChannelView | undefined> {
   const rows = await tx
     .select({
       id: channel.id,
       name: channel.name,
       description: channel.description,
       visibility: channel.visibility,
-      memberCount: sql<number>`(select count(*)::int from ${channelMember} where ${channelMember.channelId} = ${channel.id})`,
+      memberCount: sql<number>`(
+        select count(*)::int from ${channelMember}
+          join ${staffMember} on ${staffMember.id} = ${channelMember.staffId}
+         where ${channelMember.channelId} = ${channel.id} and ${staffMember.deactivatedAt} is null)`,
       isChannelAdmin: channelMember.isChannelAdmin,
     })
     .from(channel)
@@ -32,13 +37,8 @@ export async function findChannel(
   const row = rows[0];
   if (!row) return undefined;
   const { isChannelAdmin, ...rest } = row;
-  const isMember = isChannelAdmin !== null;
-  return {
-    ...rest,
-    isMember,
-    isChannelAdmin: isChannelAdmin ?? false,
-    membership: isMember ? { isChannelAdmin: isChannelAdmin ?? false } : null,
-  };
+  // The left join finds the actor's own channel_member row, or nothing.
+  return { ...rest, isMember: isChannelAdmin !== null, isChannelAdmin: isChannelAdmin ?? false };
 }
 
 /**

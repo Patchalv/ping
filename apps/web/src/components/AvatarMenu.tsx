@@ -9,8 +9,11 @@ const initials = (name: string) =>
     .map((part) => part[0]?.toUpperCase())
     .join('');
 
+/** The signed-in Staff member, as Better Auth's session gives it. */
+export type User = { name: string; email: string };
+
 /** The avatar on the right of the top bar: who's signed in, and sign-out. */
-export function AvatarMenu({ user }: { user: { name: string; email: string } }) {
+export function AvatarMenu({ user }: { user: User }) {
   const [open, setOpen] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);

@@ -5,25 +5,30 @@ import type { Actor } from './actor';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
 /** What the decisions need to know about a Channel and the actor's place in it. */
-export type ChannelAccess = {
-  visibility: ChannelVisibility;
-  /** The actor's own channel_member row, or null when they aren't a member. */
-  membership: { isChannelAdmin: boolean } | null;
-};
+type ChannelAccess = { visibility: ChannelVisibility; isMember: boolean };
 
 /** Anyone can create a Channel, and becomes its Channel admin. */
 export function canCreateChannel(_actor: Actor): Decision {
   return allow();
 }
 
+/** Anyone can list the Channels they are a member of (the sidebar). */
+export function canListOwnChannels(_actor: Actor): Decision {
+  return allow();
+}
+
 /** Public, or a member. A Private channel is hidden from everyone else, company Admins included. */
 export function canReadChannel(_actor: Actor, channel: ChannelAccess): Decision {
-  if (channel.visibility === 'public' || channel.membership) return allow();
+  if (channel.visibility === 'public' || channel.isMember) return allow();
   return deny({ kind: 'hidden' });
 }
 
 export function requireCanCreateChannel(actor: Actor): void {
   requireAllowed(canCreateChannel(actor));
+}
+
+export function requireCanListOwnChannels(actor: Actor): void {
+  requireAllowed(canListOwnChannels(actor));
 }
 
 export function requireCanReadChannel(actor: Actor, channel: ChannelAccess): void {

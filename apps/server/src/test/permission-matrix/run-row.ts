@@ -1,5 +1,5 @@
 import { expect } from 'vitest';
-import { createChannel, createStaffMember, databaseSnapshot } from '../../db/test-support';
+import { createStaffMember, databaseSnapshot, insertChannel } from '../../db/test-support';
 import { jsonHeaders, type TestApp } from '../test-app';
 import { CHANNEL_ROLE, createActor } from './actors';
 import type { ChannelKind, MatrixRow, RowContext } from './matrix';
@@ -26,7 +26,7 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
           { staffId: (await createStaffMember()).id, channelAdmin: true },
           ...(role === 'member' ? [{ staffId: actor.staff.id }] : []),
         ];
-  return createChannel({
+  return insertChannel({
     visibility: kind === 'private' ? 'private' : 'public',
     archived: kind === 'archived',
     members,

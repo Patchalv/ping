@@ -3,14 +3,14 @@
 import type { SidebarChannel } from '@ping/shared';
 import { useState } from 'react';
 import { useMyChannels } from '../features/channel/api';
-import { ChannelNotFound, ChannelPage } from '../features/channel/ChannelPage';
+import { ChannelPage } from '../features/channel/ChannelPage';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
 import type { Resource } from '../lib/api-error';
 import { channelPath, navigate, useRoute } from '../lib/router';
-import { AvatarMenu } from './AvatarMenu';
+import { AppLink } from './AppLink';
+import { AvatarMenu, type User } from './AvatarMenu';
 import { HashIcon, LockIcon, PlusIcon, SearchIcon } from './icons';
-
-type User = { name: string; email: string };
+import { PageNotFound } from './NotFound';
 
 export function AppShell({ user }: { user: User }) {
   const route = useRoute();
@@ -32,6 +32,15 @@ export function AppShell({ user }: { user: User }) {
             disabled
           />
         </div>
+        <button
+          className="top-bar__search-button"
+          type="button"
+          aria-label="Search"
+          title="Search arrives in a later release"
+          disabled
+        >
+          <SearchIcon />
+        </button>
         <AvatarMenu user={user} />
       </header>
 
@@ -44,7 +53,7 @@ export function AppShell({ user }: { user: User }) {
         {route.name === 'home' && (
           <p className="main-note">Pick a Channel from the sidebar, or create one.</p>
         )}
-        {route.name === 'notFound' && <ChannelNotFound />}
+        {route.name === 'notFound' && <PageNotFound />}
       </main>
 
       {creating && (
@@ -103,20 +112,15 @@ function ChannelLink({ channel, active }: { channel: SidebarChannel; active: boo
   const href = channelPath(channel.id);
   const isPrivate = channel.visibility === 'private';
   return (
-    <a
+    <AppLink
       className="sidebar__item"
       href={href}
       aria-current={active ? 'page' : undefined}
       // The lock icon is decorative, so the name says Private for screen readers.
       aria-label={isPrivate ? `${channel.name}, Private` : undefined}
-      onClick={(event) => {
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-        event.preventDefault();
-        navigate(href);
-      }}
     >
       {isPrivate ? <LockIcon className="sidebar__icon" /> : <HashIcon className="sidebar__icon" />}
       <span className="sidebar__name">{channel.name}</span>
-    </a>
+    </AppLink>
   );
 }

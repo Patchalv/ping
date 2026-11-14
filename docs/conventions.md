@@ -81,7 +81,7 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | Register middleware on each route, never with `app.use` | the route-coverage guard (it fails on any unlisted `ALL` route) |
 | Validate params, query and body with `validate(target, schema)` from `lib/validate.ts`, using a schema from `packages/shared` | review only |
 | Read input only through `c.req.valid(...)` | review only |
-| Call a `require…` helper from `permissions/` before any work. Keep permission logic out of routes | review only; the permission matrix catches wrong answers |
+| Call a `require…` helper from `permissions/` before any work, even when every actor is allowed. A route that needs the row to decide (reading a Channel needs its visibility) loads it inside `withStaffTx` first, then decides before returning or changing anything. Keep permission logic out of routes | review only; the permission matrix catches wrong answers |
 | Run every query inside `withStaffTx`, and await it | ESLint (`no-floating-promises`) for the await; review for the wrapper |
 | Throw errors, never return them: `NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError` (and `UnauthenticatedError` for 401). One `onError` in `app.ts` maps them. Routes never set error statuses by hand | review only; `app.test.ts` covers the mapping |
 | 404 when the actor can't see the Channel (a Private channel they aren't in, Admins included); 403 when they can see it but can't act | the permission matrix |

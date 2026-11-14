@@ -208,6 +208,18 @@ body {
   color: var(--chrome-muted);
 }
 
+.top-bar__search-button {
+  display: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--chrome-muted);
+}
+
 .avatar-menu {
   position: relative;
   margin-left: auto;
@@ -591,6 +603,15 @@ a.button {
 
   .top-bar__search {
     display: none;
+  }
+
+  /* Search sits behind an icon on a phone (screens.md › Phone). */
+  .top-bar__search-button {
+    display: grid;
+  }
+
+  .top-bar__search-button + .avatar-menu {
+    margin-left: 0;
   }
 
   .shell[data-view="home"] .shell__main,

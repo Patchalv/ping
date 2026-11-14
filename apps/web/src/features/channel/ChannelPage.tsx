@@ -1,6 +1,7 @@
 import type { ChannelView } from '@ping/shared';
+import { AppLink } from '../../components/AppLink';
 import { LockIcon } from '../../components/icons';
-import { navigate } from '../../lib/router';
+import { NotFound } from '../../components/NotFound';
 import { useChannel } from './api';
 
 /** The Channel view: its Channel bar above the Thread feed. */
@@ -33,13 +34,13 @@ export function ChannelPage({ channelId }: { channelId: string }) {
 }
 
 function ChannelBar({ channel }: { channel: ChannelView }) {
-  const private_ = channel.visibility === 'private';
+  const isPrivate = channel.visibility === 'private';
   return (
     <section className="channel-bar" aria-label="Channel">
       <div className="channel-bar__top">
         <BackToChannels />
         <h1 className="channel-bar__name">{channel.name}</h1>
-        {private_ && (
+        {isPrivate && (
           <span className="tag">
             <LockIcon />
             Private
@@ -62,37 +63,18 @@ function ChannelBar({ channel }: { channel: ChannelView }) {
 /** Phone only: the sidebar is the home screen, so the Channel view needs a way back. */
 function BackToChannels() {
   return (
-    <a
-      className="back-link"
-      href="/"
-      onClick={(event) => {
-        event.preventDefault();
-        navigate('/');
-      }}
-    >
+    <AppLink className="back-link" href="/">
       <span aria-hidden="true">‹</span> Channels
-    </a>
+    </AppLink>
   );
 }
 
 /** A missing Channel and a Private one the Staff member isn't in look the same. */
-export function ChannelNotFound() {
+function ChannelNotFound() {
   return (
-    <div className="not-found">
-      <h1 className="not-found__title">Channel not found</h1>
-      <p className="not-found__note">
-        Check the link. If it’s a Private channel, ask one of its Channel admins to add you.
-      </p>
-      <a
-        className="button"
-        href="/"
-        onClick={(event) => {
-          event.preventDefault();
-          navigate('/');
-        }}
-      >
-        Back to your Channels
-      </a>
-    </div>
+    <NotFound
+      title="Channel not found"
+      note="Check the link. If it’s a Private channel, ask one of its Channel admins to add you."
+    />
   );
 }

@@ -37,90 +37,72 @@ const ACTIVE_ACTORS = STANDARD_ACTORS.filter((kind) => kind !== 'deactivated');
 
 const readChannel = (ctx: RowContext) => ({ path: `/api/channels/${ctx.channel?.id}` });
 
-/** The Deactivated actor is denied everywhere: their session is gone, so it's a 401. */
-const deactivatedRow = (row: Omit<MatrixRow, 'actor' | 'expect'>): MatrixRow => ({
-  ...row,
-  actor: 'deactivated',
-  expect: { allow: false, status: 401 },
-});
+type RowBase = Omit<MatrixRow, 'actor' | 'expect'>;
+
+/**
+ * One row per standard actor. `expectFor` gives each active actor's expectation; the
+ * Deactivated actor is denied everywhere: their session is gone, so it's a 401.
+ */
+const rowsFor = (base: RowBase, expectFor: (actor: ActorKind) => MatrixRow['expect']) => [
+  ...ACTIVE_ACTORS.map((actor): MatrixRow => ({ ...base, actor, expect: expectFor(actor) })),
+  { ...base, actor: 'deactivated', expect: { allow: false, status: 401 } } satisfies MatrixRow,
+];
+
+const allowed = (status: number) => (): MatrixRow['expect'] => ({ allow: true, status });
 
 /** The rows. The first arrived with "Exemplar: create a Channel and open it" (#31). */
 export const MATRIX: MatrixRow[] = [
   // Create a Channel: anyone, Public or Private.
-  ...(['public', 'private'] as const).flatMap((visibility): MatrixRow[] => {
-    const row = {
-      route: 'POST /api/channels',
-      action: `create a ${visibility === 'public' ? 'Public' : 'Private'} channel`,
-      channel: null,
-      request: () => ({
-        path: '/api/channels',
-        method: 'POST',
-        body: { name: 'Ops', description: 'Daily operations', visibility },
-      }),
-    } as const;
-    return [
-      ...ACTIVE_ACTORS.map(
-        (actor): MatrixRow => ({ ...row, actor, expect: { allow: true, status: 201 } }),
-      ),
-      deactivatedRow(row),
-    ];
-  }),
+  ...(['public', 'private'] as const).flatMap((visibility) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels',
+        action: `create a ${visibility === 'public' ? 'Public' : 'Private'} channel`,
+        channel: null,
+        request: () => ({
+          path: '/api/channels',
+          method: 'POST',
+          body: { name: 'Ops', description: 'Daily operations', visibility },
+        }),
+      },
+      allowed(201),
+    ),
+  ),
 
   // List my Channels (the sidebar): anyone.
-  ...ACTIVE_ACTORS.map(
-    (actor): MatrixRow => ({
+  ...rowsFor(
+    {
       route: 'GET /api/channels',
       action: 'list the Channels they are a member of',
-      actor,
       channel: null,
       request: () => ({ path: '/api/channels' }),
-      expect: { allow: true, status: 200 },
-    }),
+    },
+    allowed(200),
   ),
-  deactivatedRow({
-    route: 'GET /api/channels',
-    action: 'list the Channels they are a member of',
-    channel: null,
-    request: () => ({ path: '/api/channels' }),
-  }),
 
   // Read a Public channel: everyone, members or not. Archived channels stay readable.
-  ...(['public', 'archived'] as const).flatMap((channel): MatrixRow[] => {
-    const row = {
-      route: 'GET /api/channels/:channelId',
-      action: `read a ${channel === 'public' ? 'Public' : 'Archived Public'} channel`,
-      channel,
-      request: readChannel,
-    } as const;
-    return [
-      ...ACTIVE_ACTORS.map(
-        (actor): MatrixRow => ({ ...row, actor, expect: { allow: true, status: 200 } }),
-      ),
-      deactivatedRow(row),
-    ];
-  }),
+  ...(['public', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/channels/:channelId',
+        action: `read a ${channel === 'public' ? 'Public' : 'Archived Public'} channel`,
+        channel,
+        request: readChannel,
+      },
+      allowed(200),
+    ),
+  ),
 
   // Read a Private channel: members only. Everyone else gets 404, company Admins included.
-  ...(() => {
-    const row = {
+  ...rowsFor(
+    {
       route: 'GET /api/channels/:channelId',
       action: 'read a Private channel',
       channel: 'private',
       request: readChannel,
-    } as const;
-    return [
-      ...ACTIVE_ACTORS.map(
-        (actor): MatrixRow => ({
-          ...row,
-          actor,
-          expect: CHANNEL_ROLE[actor]
-            ? { allow: true, status: 200 }
-            : { allow: false, status: 404 },
-        }),
-      ),
-      deactivatedRow(row),
-    ];
-  })(),
+    },
+    (actor) => (CHANNEL_ROLE[actor] ? { allow: true, status: 200 } : { allow: false, status: 404 }),
+  ),
 ];
 
 /** Every route the matrix covers, for the route-coverage guard. */

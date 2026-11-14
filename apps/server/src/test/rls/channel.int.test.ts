@@ -3,7 +3,7 @@
 // member is a member of it. No Admin exception. Channels are never deleted.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { asPingApp, createChannel, createStaffMember } from '../../db/test-support';
+import { asPingApp, createStaffMember, insertChannel } from '../../db/test-support';
 
 const visibleChannelIds = async (
   query: Parameters<Parameters<typeof asPingApp>[1]>[0],
@@ -16,7 +16,7 @@ const visibleChannelIds = async (
 describe('channel SELECT', () => {
   it('shows a Public channel to a Staff member who is not a member', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({ visibility: 'public' });
+    const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(member.id, async (query) => {
       expect(await visibleChannelIds(query, [channel.id])).toEqual([channel.id]);
     });
@@ -24,7 +24,7 @@ describe('channel SELECT', () => {
 
   it('shows a Private channel to its members', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id }],
     });
@@ -35,7 +35,7 @@ describe('channel SELECT', () => {
 
   it('hides a Private channel from a Member who is not a member', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({ visibility: 'private' });
+    const channel = await insertChannel({ visibility: 'private' });
     await asPingApp(member.id, async (query) => {
       expect(await visibleChannelIds(query, [channel.id])).toEqual([]);
     });
@@ -43,7 +43,7 @@ describe('channel SELECT', () => {
 
   it('hides a Private channel from a company Admin who is not a member', async () => {
     const admin = await createStaffMember({ role: 'admin' });
-    const channel = await createChannel({ visibility: 'private' });
+    const channel = await insertChannel({ visibility: 'private' });
     await asPingApp(admin.id, async (query) => {
       expect(await visibleChannelIds(query, [channel.id])).toEqual([]);
     });
@@ -51,18 +51,18 @@ describe('channel SELECT', () => {
 
   it('shows nothing to a Deactivated Staff member, even in their own Channels', async () => {
     const deactivated = await createStaffMember({ deactivated: true });
-    const mine = await createChannel({
+    const mine = await insertChannel({
       visibility: 'private',
       members: [{ staffId: deactivated.id }],
     });
-    const open = await createChannel({ visibility: 'public' });
+    const open = await insertChannel({ visibility: 'public' });
     await asPingApp(deactivated.id, async (query) => {
       expect(await visibleChannelIds(query, [mine.id, open.id])).toEqual([]);
     });
   });
 
   it('shows nothing when app.staff_id is unset', async () => {
-    const channel = await createChannel({ visibility: 'public' });
+    const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(null, async (query) => {
       expect(await visibleChannelIds(query, [channel.id])).toEqual([]);
     });
@@ -113,7 +113,7 @@ describe('channel UPDATE', () => {
   it('reaches a Private channel only for its members', async () => {
     const member = await createStaffMember();
     const outsider = await createStaffMember({ role: 'admin' });
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -131,7 +131,7 @@ describe('channel UPDATE', () => {
     // The visibility rule guards reads. Who may change a Channel's settings is the server's
     // permissions module's job (permissions.md › Policies).
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -144,7 +144,7 @@ describe('channel UPDATE', () => {
   });
 
   it('changes nothing when app.staff_id is unset', async () => {
-    const channel = await createChannel({ visibility: 'public' });
+    const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(null, async (query) => {
       const result = await query(`update channel set name = 'Renamed' where id = $1`, [channel.id]);
       expect(result.rowCount).toBe(0);
@@ -155,7 +155,7 @@ describe('channel UPDATE', () => {
 describe('channel DELETE', () => {
   it('is refused to everyone: Channels are never deleted', async () => {
     const member = await createStaffMember({ role: 'admin' });
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'public',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -171,7 +171,7 @@ describe('channel_member SELECT', () => {
   it('shows the members of a Public channel to a non-member, with no recursion error', async () => {
     const member = await createStaffMember();
     const outsider = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'public',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -186,7 +186,7 @@ describe('channel_member SELECT', () => {
   it('shows the members of a Private channel to its members', async () => {
     const member = await createStaffMember();
     const other = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }, { staffId: other.id }],
     });
@@ -201,7 +201,7 @@ describe('channel_member SELECT', () => {
   it('hides the members of a Private channel from a non-member company Admin', async () => {
     const admin = await createStaffMember({ role: 'admin' });
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -215,7 +215,7 @@ describe('channel_member SELECT', () => {
 
   it('shows nothing when app.staff_id is unset', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'public',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -231,7 +231,7 @@ describe('channel_member SELECT', () => {
 describe('channel_member INSERT', () => {
   it('lets a Staff member add a row to a Public channel', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({ visibility: 'public' });
+    const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(member.id, async (query) => {
       const result = await query(
         'insert into channel_member (channel_id, staff_id) values ($1, $2)',
@@ -243,7 +243,7 @@ describe('channel_member INSERT', () => {
 
   it('refuses a non-member adding themself to a Private channel', async () => {
     const admin = await createStaffMember({ role: 'admin' });
-    const channel = await createChannel({ visibility: 'private' });
+    const channel = await insertChannel({ visibility: 'private' });
     await asPingApp(admin.id, async (query) => {
       await expect(
         query('insert into channel_member (channel_id, staff_id) values ($1, $2)', [
@@ -256,7 +256,7 @@ describe('channel_member INSERT', () => {
 
   it('refuses when app.staff_id is unset', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({ visibility: 'public' });
+    const channel = await insertChannel({ visibility: 'public' });
     await asPingApp(null, async (query) => {
       await expect(
         query('insert into channel_member (channel_id, staff_id) values ($1, $2)', [
@@ -272,7 +272,7 @@ describe('channel_member UPDATE', () => {
   it('cannot promote anyone in a Private channel the actor is not in', async () => {
     const admin = await createStaffMember({ role: 'admin' });
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id }],
     });
@@ -287,7 +287,7 @@ describe('channel_member UPDATE', () => {
 
   it('changes nothing when app.staff_id is unset', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'public',
       members: [{ staffId: member.id }],
     });
@@ -304,7 +304,7 @@ describe('channel_member UPDATE', () => {
 describe('channel_member DELETE', () => {
   it('lets a member of a Private channel delete a row there', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -320,7 +320,7 @@ describe('channel_member DELETE', () => {
   it('cannot remove anyone from a Private channel the actor is not in', async () => {
     const admin = await createStaffMember({ role: 'admin' });
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'private',
       members: [{ staffId: member.id, channelAdmin: true }],
     });
@@ -332,7 +332,7 @@ describe('channel_member DELETE', () => {
 
   it('deletes nothing when app.staff_id is unset', async () => {
     const member = await createStaffMember();
-    const channel = await createChannel({
+    const channel = await insertChannel({
       visibility: 'public',
       members: [{ staffId: member.id }],
     });

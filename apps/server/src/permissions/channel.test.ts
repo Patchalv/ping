@@ -3,6 +3,7 @@ import { ForbiddenError, NotFoundError } from '../lib/errors';
 import type { Actor } from './actor';
 import {
   canCreateChannel,
+  canListOwnChannels,
   canReadChannel,
   requireCanCreateChannel,
   requireCanReadChannel,
@@ -12,9 +13,9 @@ import { allow, deny, requireAllowed } from './decision';
 const member: Actor = { staffId: '00000000-0000-4000-8000-0000000000a1', role: 'member' };
 const admin: Actor = { staffId: '00000000-0000-4000-8000-0000000000a2', role: 'admin' };
 
-const publicChannel = { visibility: 'public' as const, membership: null };
-const privateChannel = { visibility: 'private' as const, membership: null };
-const privateAsMember = { visibility: 'private' as const, membership: { isChannelAdmin: false } };
+const publicChannel = { visibility: 'public' as const, isMember: false };
+const privateChannel = { visibility: 'private' as const, isMember: false };
+const privateAsMember = { visibility: 'private' as const, isMember: true };
 
 describe('canCreateChannel', () => {
   it.each([
@@ -22,6 +23,15 @@ describe('canCreateChannel', () => {
     ['a company Admin', admin],
   ])('allows %s', (_name, actor) => {
     expect(canCreateChannel(actor)).toEqual(allow());
+  });
+});
+
+describe('canListOwnChannels', () => {
+  it.each([
+    ['a Member', member],
+    ['a company Admin', admin],
+  ])('allows %s', (_name, actor) => {
+    expect(canListOwnChannels(actor)).toEqual(allow());
   });
 });
 

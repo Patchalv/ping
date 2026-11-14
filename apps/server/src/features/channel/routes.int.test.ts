@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ChannelView, SidebarChannel } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { createChannel, createStaffMember, type StaffFixture } from '../../db/test-support';
+import { createStaffMember, insertChannel, type StaffFixture } from '../../db/test-support';
 import { createTestApp, jsonHeaders, signIn, type TestApp } from '../../test/test-app';
 
 describe('Channel routes', () => {
@@ -80,13 +80,13 @@ describe('Channel routes', () => {
   describe('GET /api/channels', () => {
     it('lists only the Channels the Staff member is a member of, by name, Private ones included', async () => {
       const member = await createStaffMember();
-      const zebra = await createChannel({ name: 'Zebra', members: [{ staffId: member.id }] });
-      const alpha = await createChannel({
+      const zebra = await insertChannel({ name: 'Zebra', members: [{ staffId: member.id }] });
+      const alpha = await insertChannel({
         name: 'Alpha',
         visibility: 'private',
         members: [{ staffId: member.id, channelAdmin: true }],
       });
-      await createChannel({ name: 'Not joined', visibility: 'public' });
+      await insertChannel({ name: 'Not joined', visibility: 'public' });
       const request = await as(member);
 
       const res = await request('/api/channels');
@@ -99,11 +99,12 @@ describe('Channel routes', () => {
   });
 
   describe('GET /api/channels/:channelId', () => {
-    it('shows a Public channel to a non-member, with its member count', async () => {
+    it('shows a Public channel to a non-member, counting only active members', async () => {
       const a = await createStaffMember();
       const b = await createStaffMember();
-      const channel = await createChannel({
-        members: [{ staffId: a.id, channelAdmin: true }, { staffId: b.id }],
+      const gone = await createStaffMember({ deactivated: true });
+      const channel = await insertChannel({
+        members: [{ staffId: a.id, channelAdmin: true }, { staffId: b.id }, { staffId: gone.id }],
       });
       const request = await as(await createStaffMember());
       const res = await request(`/api/channels/${channel.id}`);
@@ -117,7 +118,7 @@ describe('Channel routes', () => {
     });
 
     it('answers a Private channel to a non-member company Admin exactly as a missing one', async () => {
-      const channel = await createChannel({ visibility: 'private' });
+      const channel = await insertChannel({ visibility: 'private' });
       const request = await as(await createStaffMember({ role: 'admin' }));
       const hidden = await request(`/api/channels/${channel.id}`);
       const missing = await request(`/api/channels/${randomUUID()}`);
