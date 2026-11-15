@@ -143,11 +143,10 @@ export function CreateChannelDialog({ onClose, onCreated }: Props) {
 
 /** One visibility option as a card: the radio, its name and what it means. */
 function VisibilityChoice({ value, title, hint }: { value: string; title: string; hint: string }) {
-  const id = `create-channel-${value}`;
   return (
-    <FieldLabel htmlFor={id}>
+    <FieldLabel>
       <Field orientation="horizontal">
-        <RadioGroupItem value={value} id={id} />
+        <RadioGroupItem value={value} />
         <FieldContent>
           <FieldTitle>{title}</FieldTitle>
           <FieldDescription>{hint}</FieldDescription>
