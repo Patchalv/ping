@@ -50,13 +50,13 @@ Password-reset tokens use Better Auth's own `verification` table.
 - `resolve_policy`: `any_member` (default) or `author_and_channel_admins`.
 - `created_at`, `created_by`, `archived_at`, `archived_by`.
 - Search: a generated `search` tsvector (English) over name and description, with a GIN index.
-- Created through the `create_channel` system function, which inserts the Channel and its first Channel admin together. A plain insert of a Private channel would fail the visibility rule, because its creator isn't a member yet. See [permissions.md](permissions.md#system-functions).
+- Created only through the `create_channel` system function, which inserts the Channel and its first Channel admin together. `ping_app` can't insert a Channel directly, so no Channel is ever made without a Channel admin or with a made-up `created_by`. See [permissions.md](permissions.md#system-functions).
 
 **`channel_member`**
 
 - `channel_id`, `staff_id`, `is_channel_admin`, `joined_at`.
 - Primary key `(channel_id, staff_id)`, with an index on `staff_id`.
-- Its own visibility policy can't query `channel_member` directly, or Postgres raises "infinite recursion detected in policy". Membership checks go through a small helper function owned by the table owner (for example `is_channel_member(channel_id)`), which every policy uses.
+- Its own policies can't query `channel_member` directly, or Postgres raises "infinite recursion detected in policy". Membership checks go through set-returning helper functions owned by the table owner, `current_staff_channel_ids()` and `current_staff_admin_channel_ids()`, which every policy uses and Postgres runs once per statement (see [permissions.md](permissions.md#policies)).
 - Leaving or being removed deletes the row. Rejoining sets a new `joined_at`.
 - Auto-promotion on Deactivation picks the active member with the earliest `joined_at`; a tie goes to the Staff member created first.
 

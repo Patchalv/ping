@@ -55,6 +55,8 @@ await asPingApp(member.id, async (query) => {
 
 Pass `null` instead of an ID to test failing closed. Each case runs in one transaction that is rolled back. Every new table needs cases for SELECT, INSERT, UPDATE and DELETE, plus failing closed. Every system function needs cases proving it acts for `app.staff_id`, does nothing when it's unset, and can't be steered through its arguments.
 
+A policy that checks membership must run its helper once per statement. `channel.int.test.ts` shows how to prove it: run `explain (analyze, verbose, format json)` as `ping_app` over several rows, and check that the helper appears only inside an InitPlan with one loop, never in the scan's per-row filter.
+
 ### The catalog guard (`apps/server/src/test/catalog-guard.int.test.ts`)
 
 It reads `pg_catalog` and fails if:
@@ -103,7 +105,7 @@ DATABASE_URL='<url>' pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke
 
 ### Playwright (`e2e/`)
 
-The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, and a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
+The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin, nothing cached reaching the next person to sign in on the same browser, a lost session returning to sign-in, a failed network call, and a form mistake shown on its field. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
 
 Locally nothing sets `Fly-Client-IP`, so Better Auth's sign-in rate limiter would put every test in one bucket. Each test sends its own address.
 
