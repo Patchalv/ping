@@ -26,7 +26,7 @@ A throwaway branch (`67-forms-spike`, not merged) built a new-Thread form with a
 
 - It costs one dependency, `@tanstack/react-form`. It brings `@tanstack/form-core`, `@tanstack/store`, `@tanstack/react-store`, `@tanstack/pacer-lite`, `@standard-schema/utils` and `@tanstack/devtools-event-client`. That last one is an event bus for TanStack's devtools and stays idle without them. The built SPA grew by 16 KB gzipped (249.7 KB to 265.7 KB). `pnpm audit` reports nothing.
 - Forms are controlled, so every keystroke re-renders the field being typed in, but not the rest of the form.
-- There are no React component tests, so the pure parts (`lib/form-issues.ts`) have unit tests. Playwright covers the behaviour: a schema mistake and a server mistake each land on their field and take focus, both clear when fixed, and an offline failure can be retried.
+- There are no React component tests, so the pure parts (`lib/form-issues.ts`) have unit tests. Playwright covers the behaviour: a schema mistake and a server mistake each land on their field and take focus, both clear when fixed, and an offline failure, in Create channel or sign-in, says so and can be retried. A server issue's `path` must match a field name exactly (the server joins zod's path with dots), which array fields such as Attachments must keep to.
 - A new kind of control (date, select, Mention picker) gets a bound field in `components/form.tsx` before a form uses it, so the wiring stays in one place.
 
 ## Considered options

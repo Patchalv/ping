@@ -37,6 +37,18 @@ test('an empty sign-in says what is missing and focuses it', async ({ page }) =>
   await expect(email).toHaveAccessibleDescription('Enter an email address like name@example.com.');
 });
 
+test('signing in without a connection says so and lets the Staff member retry', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.route('**/api/auth/sign-in/email', (route) => route.abort());
+  await page.getByLabel('Email').fill('laura.gomez@example.com');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Can’t reach Ping. Try again.');
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+});
+
 test('a Deactivated Staff member is refused', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Email').fill('carlos.vidal@example.com');

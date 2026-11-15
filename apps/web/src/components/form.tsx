@@ -71,7 +71,18 @@ function clearServerError(field: AnyFieldApi) {
   field.setMeta((meta) => ({ ...meta, errorMap: { ...meta.errorMap, onServer: undefined } }));
 }
 
-type TextControlProps = Omit<ComponentProps<'input'>, 'id' | 'name' | 'value' | 'onChange'>;
+/** Props the wiring owns; a caller can't pass them, so nothing is silently overridden. */
+type WiredProps =
+  | 'id'
+  | 'name'
+  | 'value'
+  | 'onChange'
+  | 'onBlur'
+  | 'aria-invalid'
+  | 'aria-describedby'
+  | 'data-field';
+
+type TextControlProps = Omit<ComponentProps<'input'>, WiredProps>;
 
 function TextField({ label, ...props }: TextControlProps & { label: ReactNode }) {
   const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<string>();
@@ -91,7 +102,7 @@ function TextField({ label, ...props }: TextControlProps & { label: ReactNode })
   );
 }
 
-type TextareaControlProps = Omit<ComponentProps<'textarea'>, 'id' | 'name' | 'value' | 'onChange'>;
+type TextareaControlProps = Omit<ComponentProps<'textarea'>, WiredProps>;
 
 function TextareaField({ label, ...props }: TextareaControlProps & { label: ReactNode }) {
   const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<string>();
@@ -173,7 +184,8 @@ function focusFirstInvalid(element: HTMLFormElement, form: AnyFormApi) {
     const target =
       control.tabIndex >= 0
         ? control
-        : control.querySelector<HTMLElement>('[tabindex="0"], input:not([type="hidden"])');
+        : (control.querySelector<HTMLElement>('[role="radio"][tabindex="0"]') ??
+          control.querySelector<HTMLElement>('[role="radio"]'));
     target?.focus();
     return;
   }
@@ -215,5 +227,5 @@ export function showServerIssues(form: AnyFormApi, issues: readonly FieldIssue[]
       errorMap: { ...meta.errorMap, onServer: message },
     }));
   }
-  return issues.length > 0 && issues.every((issue) => issue.path in errors);
+  return issues.length > 0 && issues.every((issue) => Object.hasOwn(errors, issue.path));
 }

@@ -24,7 +24,7 @@ export function serverFieldErrors(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const { path, message } of issues) {
-    if (fieldNames.includes(path) && !(path in errors)) errors[path] = message;
+    if (fieldNames.includes(path) && !Object.hasOwn(errors, path)) errors[path] = message;
   }
   return errors;
 }

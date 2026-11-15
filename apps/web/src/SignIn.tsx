@@ -3,6 +3,7 @@ import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
 import { useAppForm } from '#/components/form';
 import { FormError } from './components/FormError';
+import { OFFLINE_MESSAGE } from './lib/api-client';
 import { authClient } from './lib/auth-client';
 import { signInErrorMessage } from './lib/sign-in-error';
 
@@ -19,8 +20,13 @@ export function SignIn() {
     validators: { onDynamic: signInBody },
     onSubmit: async ({ value }) => {
       setError(null);
-      const { error: refused } = await authClient.signIn.email(signInBody.parse(value));
-      if (refused) setError(signInErrorMessage(refused));
+      try {
+        const { error: refused } = await authClient.signIn.email(signInBody.parse(value));
+        if (refused) setError(signInErrorMessage(refused));
+      } catch {
+        // Better Auth's client throws when the request never reaches Ping.
+        setError(OFFLINE_MESSAGE);
+      }
     },
   });
 
