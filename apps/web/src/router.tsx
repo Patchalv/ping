@@ -13,6 +13,7 @@ import {
 import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { ChannelPage } from './features/channel/ChannelPage';
+import { ThreadFormSpike } from './spike/ThreadFormSpike';
 
 const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: PageNotFound });
 
@@ -41,7 +42,13 @@ function ChannelRoute() {
   return <ChannelPage key={channelId} channelId={channelId} />;
 }
 
-const routeTree = rootRoute.addChildren([homeRoute, channelRoute]);
+const spikeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/spike/thread-form',
+  component: ThreadFormSpike,
+});
+
+const routeTree = rootRoute.addChildren([homeRoute, channelRoute, spikeRoute]);
 
 /** The browser's router by default; tests pass a memory history. */
 export function createAppRouter(history?: RouterHistory) {
