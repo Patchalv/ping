@@ -7,7 +7,57 @@ const production = {
   SYSTEM_DATABASE_URL: 'postgres://ping_system:x@db/ping',
   BETTER_AUTH_URL: 'https://ping.bypatrick.app',
   BETTER_AUTH_SECRET: 'a-long-random-secret',
+  PING_ENVIRONMENT: 'production',
 };
+
+describe('readConfig › email', () => {
+  it('needs PING_ENVIRONMENT in production', () => {
+    expect(() => readConfig(production)).not.toThrow();
+    const { PING_ENVIRONMENT: _, ...withoutEnvironment } = production;
+    expect(() => readConfig(withoutEnvironment)).toThrow('PING_ENVIRONMENT');
+  });
+
+  it('is local, with no SMTP, in development', () => {
+    expect(readConfig({}).email).toEqual({ environment: 'local', allowlist: [] });
+  });
+
+  it('starts without SMTP settings, so a deploy before the secrets are set still boots', () => {
+    expect(readConfig(production).email.smtp).toBeUndefined();
+  });
+
+  it('reads the SMTP settings and the staging allowlist', () => {
+    const config = readConfig({
+      ...production,
+      PING_ENVIRONMENT: 'staging',
+      SMTP_HOST: 'smtp-relay.brevo.com',
+      SMTP_USER: 'user@smtp-brevo.com',
+      SMTP_PASSWORD: 'smtp-key',
+      EMAIL_ALLOWLIST: 'a@example.com, B@example.com',
+    });
+    expect(config.email).toEqual({
+      environment: 'staging',
+      smtp: {
+        host: 'smtp-relay.brevo.com',
+        port: 587,
+        user: 'user@smtp-brevo.com',
+        password: 'smtp-key',
+      },
+      allowlist: ['a@example.com', 'b@example.com'],
+    });
+  });
+
+  it('refuses half an SMTP setup', () => {
+    expect(() => readConfig({ ...production, SMTP_HOST: 'smtp-relay.brevo.com' })).toThrow(
+      'SMTP_HOST, SMTP_USER and SMTP_PASSWORD',
+    );
+  });
+
+  it('refuses an unknown PING_ENVIRONMENT', () => {
+    expect(() => readConfig({ ...production, PING_ENVIRONMENT: 'prod' })).toThrow(
+      'PING_ENVIRONMENT',
+    );
+  });
+});
 
 describe('readConfig › Sentry', () => {
   it('is off without a DSN, even in production', () => {

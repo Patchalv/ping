@@ -17,6 +17,8 @@ primary_region = "fra"
   PORT = "8080"
   BETTER_AUTH_URL = "https://staging.ping.bypatrick.app"
   SENTRY_ENVIRONMENT = "staging"
+  # Email subjects start with [Staging], and only EMAIL_ALLOWLIST is sent to.
+  PING_ENVIRONMENT = "staging"
 
 [http_service]
   internal_port = 8080

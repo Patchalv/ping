@@ -28,6 +28,8 @@ export default defineConfig({
       SYSTEM_DATABASE_URL: 'postgres://ping_system:ping_system@localhost:6432/ping_e2e',
       BETTER_AUTH_URL: baseURL,
       BETTER_AUTH_SECRET: 'playwright-secret-for-the-local-e2e-database-only',
+      // Emails are printed, never sent.
+      PING_ENVIRONMENT: 'local',
     },
   },
 });
