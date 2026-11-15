@@ -1,9 +1,10 @@
-/* Ping's design tokens and base styles: the only global CSS. Components style themselves
-   with Tailwind utilities that read these tokens. DESIGN.md explains each choice;
-   ADR 0007 records the stack. Every text pair here meets WCAG AA (4.5:1). */
+/* Ping's design tokens and base styles: the only global CSS besides the vendored
+   shadcn.css. Components style themselves with Tailwind utilities that read these tokens.
+   DESIGN.md explains each choice; ADR 0007 records the stack. Every text pair here meets
+   WCAG AA (4.5:1). */
 @import "tailwindcss";
 @import "tw-animate-css";
-@import "shadcn/tailwind.css";
+@import "./shadcn.css";
 
 @custom-variant dark (&:is(.dark *));
 
