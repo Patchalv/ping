@@ -244,6 +244,7 @@ Soft, compact and plain.
 - **Style:** white with a Field Edge border and a faint shadow, 10px corners, 32px tall. The label sits above in 14px medium.
 - **Focus:** the border turns Ink Indigo and a soft 3px ring appears.
 - **Error:** the border and label turn Alarm Red and the message appears under the field, announced. A failure no field explains (the network, a refusal) shows as a pale red box above the actions.
+- **Building one:** use the bound fields in `apps/web/src/components/form.tsx`, which apply these states, the error wiring and focus. The rules are in `docs/conventions.md` › The web app › Forms (ADR 0008).
 
 ### Navigation
 - **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text.

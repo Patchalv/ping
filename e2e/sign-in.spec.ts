@@ -24,6 +24,31 @@ test('a wrong password is refused', async ({ page }) => {
   await expect(page.getByRole('alert')).toHaveText('That email and password don’t match.');
 });
 
+test('an empty sign-in says what is missing and focuses it', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  const email = page.getByLabel('Email');
+  await expect(email).toHaveAttribute('aria-invalid', 'true');
+  await expect(email).toHaveAccessibleDescription('Enter your email address.');
+  await expect(email).toBeFocused();
+  await expect(page.getByLabel('Password')).toHaveAccessibleDescription('Enter your password.');
+
+  await email.fill('laura');
+  await expect(email).toHaveAccessibleDescription('Enter an email address like name@example.com.');
+});
+
+test('signing in without a connection says so and lets the Staff member retry', async ({
+  page,
+}) => {
+  await page.goto('/');
+  await page.route('**/api/auth/sign-in/email', (route) => route.abort());
+  await page.getByLabel('Email').fill('laura.gomez@example.com');
+  await page.getByLabel('Password').fill(PASSWORD);
+  await page.getByRole('button', { name: 'Sign in' }).click();
+  await expect(page.getByRole('alert')).toHaveText('Can’t reach Ping. Try again.');
+  await expect(page.getByRole('button', { name: 'Sign in' })).toBeEnabled();
+});
+
 test('a Deactivated Staff member is refused', async ({ page }) => {
   await page.goto('/');
   await page.getByLabel('Email').fill('carlos.vidal@example.com');
