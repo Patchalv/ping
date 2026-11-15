@@ -1,4 +1,8 @@
 import { type FormEvent, useState } from 'react';
+import { Button } from '#/components/ui/button';
+import { Field, FieldLabel } from '#/components/ui/field';
+import { Input } from '#/components/ui/input';
+import { FormError } from './components/FormError';
 import { authClient } from './lib/auth-client';
 import { signInErrorMessage } from './lib/sign-in-error';
 
@@ -20,38 +24,34 @@ export function SignIn() {
   }
 
   return (
-    <main className="sign-in">
-      <form className="sign-in__form" onSubmit={(e) => void onSubmit(e)}>
-        <h1 className="sign-in__title">Sign in to Ping</h1>
-        <label className="field">
-          <span className="field__label">Email</span>
-          <input
-            className="field__input"
-            name="email"
-            type="email"
-            autoComplete="username"
-            required
-          />
-        </label>
-        <label className="field">
-          <span className="field__label">Password</span>
-          <input
-            className="field__input"
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-          />
-        </label>
-        {error && (
-          <p className="sign-in__error" role="alert">
-            {error}
-          </p>
-        )}
-        <button className="button button--primary" type="submit" disabled={submitting}>
-          {submitting ? 'Signing in…' : 'Sign in'}
-        </button>
-      </form>
+    <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
+      <div className="grid w-full max-w-sm gap-6">
+        <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
+        <form
+          className="grid gap-4 rounded-xl bg-background p-6 shadow-lg"
+          onSubmit={(e) => void onSubmit(e)}
+        >
+          <h1 className="text-xl font-bold">Sign in to Ping</h1>
+          <Field>
+            <FieldLabel htmlFor="sign-in-email">Email</FieldLabel>
+            <Input id="sign-in-email" name="email" type="email" autoComplete="username" required />
+          </Field>
+          <Field>
+            <FieldLabel htmlFor="sign-in-password">Password</FieldLabel>
+            <Input
+              id="sign-in-password"
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          </Field>
+          {error ? <FormError>{error}</FormError> : null}
+          <Button type="submit" size="lg" disabled={submitting}>
+            {submitting ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
+      </div>
     </main>
   );
 }

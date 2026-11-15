@@ -17,8 +17,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
+import { Button } from '#/components/ui/button';
+import { Separator } from '#/components/ui/separator';
 
 const OPEN_KEY = 'ping-sidebar-open';
 const WIDTH_KEY = 'ping-sidebar-width';

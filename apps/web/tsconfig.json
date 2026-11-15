@@ -5,7 +5,8 @@
     "lib": ["ES2023", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "types": ["vite/client"],
-    "paths": { "@/*": ["./src/*"] }
+    // For TypeScript only: Vite, Vitest and dependency-cruiser read package.json#imports.
+    "paths": { "#/*": ["./src/*"] }
   },
   "include": ["src"],
   "references": [{ "path": "../server" }]

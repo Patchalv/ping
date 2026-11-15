@@ -1,17 +1,19 @@
 // The colour theme: the Staff member's choice (System, Light or Dark), kept in this
 // browser. A small external store read with useSyncExternalStore, so it needs no React
-// context and no effect. index.html applies the same choice before first paint, so the
-// page never flashes the wrong theme.
+// context and no effect. public/theme-init.js applies the same choice before first
+// paint, so the page never flashes the wrong theme.
 import { useSyncExternalStore } from 'react';
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
-/** Shared with the inline script in index.html. */
+/** Shared with public/theme-init.js. */
 const STORAGE_KEY = 'ping-theme';
 const listeners = new Set<() => void>();
-const systemDark = window.matchMedia('(prefers-color-scheme: dark)');
+// Absent outside a browser, such as in unit tests that import the router.
+const systemDark =
+  typeof window === 'undefined' ? null : window.matchMedia('(prefers-color-scheme: dark)');
 
-const isThemeChoice = (value: unknown): value is ThemeChoice =>
+export const isThemeChoice = (value: unknown): value is ThemeChoice =>
   value === 'system' || value === 'light' || value === 'dark';
 
 function readChoice(): ThemeChoice {
@@ -19,7 +21,7 @@ function readChoice(): ThemeChoice {
     const stored = localStorage.getItem(STORAGE_KEY);
     return isThemeChoice(stored) ? stored : 'system';
   } catch {
-    // Storage can be blocked (private windows, strict settings): fall back to the system.
+    // No storage, or it's blocked (private windows, strict settings): follow the system.
     return 'system';
   }
 }
@@ -27,11 +29,11 @@ function readChoice(): ThemeChoice {
 let choice = readChoice();
 
 function apply() {
-  const dark = choice === 'dark' || (choice === 'system' && systemDark.matches);
+  const dark = choice === 'dark' || (choice === 'system' && Boolean(systemDark?.matches));
   document.documentElement.classList.toggle('dark', dark);
 }
 
-systemDark.addEventListener('change', () => {
+systemDark?.addEventListener('change', () => {
   if (choice === 'system') apply();
 });
 

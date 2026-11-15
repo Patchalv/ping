@@ -1,5 +1,19 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useState } from 'react';
+import { Avatar, AvatarFallback } from '#/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu';
 import { authClient } from '../lib/auth-client';
+import { isThemeChoice, setThemeChoice, useThemeChoice } from '../lib/theme';
+import { FormError } from './FormError';
 
 const initials = (name: string) =>
   name
@@ -12,33 +26,11 @@ const initials = (name: string) =>
 /** The signed-in Staff member, as Better Auth's session gives it. */
 export type User = { name: string; email: string };
 
-/** The avatar on the right of the top bar: who's signed in, and sign-out. */
+/** The avatar on the right of the top bar: who's signed in, the theme, and sign-out. */
 export function AvatarMenu({ user }: { user: User }) {
-  const [open, setOpen] = useState(false);
+  const theme = useThemeChoice();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
-  const root = useRef<HTMLDivElement>(null);
-  const menuId = useId();
-
-  // eslint-disable-next-line no-restricted-syntax -- syncs with document events: closes the open menu on Escape or a click outside it
-  useEffect(() => {
-    if (!open) return;
-    const close = (event: Event) => {
-      if (
-        event instanceof KeyboardEvent
-          ? event.key === 'Escape'
-          : !root.current?.contains(event.target as Node)
-      ) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener('keydown', close);
-    document.addEventListener('pointerdown', close);
-    return () => {
-      document.removeEventListener('keydown', close);
-      document.removeEventListener('pointerdown', close);
-    };
-  }, [open]);
 
   async function signOut() {
     setSigningOut(true);
@@ -49,40 +41,53 @@ export function AvatarMenu({ user }: { user: User }) {
   }
 
   return (
-    <div className="avatar-menu" ref={root}>
-      <button
-        className="avatar-menu__button"
-        type="button"
+    <DropdownMenu>
+      <DropdownMenuTrigger
         aria-label={`Account: ${user.name}`}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-controls={menuId}
-        onClick={() => setOpen((o) => !o)}
+        className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
       >
-        {initials(user.name)}
-      </button>
-      {open ? (
-        <div className="avatar-menu__panel" id={menuId} role="menu" aria-label="Account">
-          <div className="avatar-menu__who">
-            <span className="avatar-menu__name">{user.name}</span>
-            <span className="avatar-menu__email">{user.email}</span>
-          </div>
-          <button
-            className="avatar-menu__item"
-            type="button"
-            role="menuitem"
-            onClick={() => void signOut()}
-            disabled={signingOut}
+        <Avatar className="rounded-md after:rounded-md after:border-0">
+          <AvatarFallback className="rounded-md bg-sidebar-primary text-small font-bold text-sidebar-primary-foreground">
+            {initials(user.name)}
+          </AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-64">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="grid gap-0.5 py-1.5">
+            <span className="text-sm font-semibold text-foreground">{user.name}</span>
+            <span className="text-small [overflow-wrap:anywhere]">{user.email}</span>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Theme</DropdownMenuLabel>
+          <DropdownMenuRadioGroup
+            value={theme}
+            onValueChange={(value: unknown) => {
+              if (isThemeChoice(value)) setThemeChoice(value);
+            }}
           >
-            {signingOut ? 'Signing out…' : 'Sign out'}
-          </button>
-          {signOutFailed ? (
-            <p className="form-error" role="alert">
-              Signing out didn’t work. Try again.
-            </p>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+            <DropdownMenuRadioItem value="system" closeOnClick={false}>
+              System
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="light" closeOnClick={false}>
+              Light
+            </DropdownMenuRadioItem>
+            <DropdownMenuRadioItem value="dark" closeOnClick={false}>
+              Dark
+            </DropdownMenuRadioItem>
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        {/* Stays open on click, so a failure message has somewhere to show. */}
+        <DropdownMenuItem closeOnClick={false} disabled={signingOut} onClick={() => void signOut()}>
+          {signingOut ? 'Signing out…' : 'Sign out'}
+        </DropdownMenuItem>
+        {signOutFailed ? (
+          <FormError className="m-1">Signing out didn’t work. Try again.</FormError>
+        ) : null}
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
