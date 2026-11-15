@@ -5,7 +5,6 @@
 //   and hide it with ⌘B or Ctrl+B; both choices are kept in this browser, not a cookie.
 import { mergeProps } from '@base-ui/react/merge-props';
 import { useRender } from '@base-ui/react/use-render';
-import { cn } from 'cn';
 import { PanelLeftIcon } from 'lucide-react';
 import {
   type ComponentProps,
@@ -19,6 +18,8 @@ import {
 } from 'react';
 import { Button } from '#/components/ui/button';
 import { Separator } from '#/components/ui/separator';
+import { readStored, writeStored } from '#/lib/storage';
+import { cn } from '#/lib/utils';
 
 const OPEN_KEY = 'ping-sidebar-open';
 const WIDTH_KEY = 'ping-sidebar-width';
@@ -26,21 +27,11 @@ const WIDTH = { initial: 260, min: 200, max: 420, step: 16 };
 
 const clampWidth = (width: number) => Math.round(Math.min(WIDTH.max, Math.max(WIDTH.min, width)));
 
-function readStored(key: string): string | null {
-  try {
-    return localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStored(key: string, value: string) {
-  try {
-    localStorage.setItem(key, value);
-  } catch {
-    // Storage blocked: the choice lasts for this visit only.
-  }
-}
+/** The next open state, saved as it's computed. Saving twice (StrictMode) is harmless. */
+const flipOpen = (open: boolean) => {
+  writeStored(OPEN_KEY, String(!open));
+  return !open;
+};
 
 /** Whether a key press belongs to a text field, where ⌘B means bold. */
 const isTyping = (target: EventTarget | null) =>
@@ -70,8 +61,7 @@ export function SidebarProvider({ className, style, ...props }: ComponentProps<'
   );
 
   function toggle() {
-    writeStored(OPEN_KEY, String(!open));
-    setOpen(!open);
+    setOpen(flipOpen);
   }
 
   function setWidth(next: number) {
@@ -85,12 +75,11 @@ export function SidebarProvider({ className, style, ...props }: ComponentProps<'
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (event.key !== 'b' || !(event.metaKey || event.ctrlKey) || isTyping(event.target)) return;
       event.preventDefault();
-      writeStored(OPEN_KEY, String(!open));
-      setOpen(!open);
+      setOpen(flipOpen);
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [open]);
+  }, []);
 
   return (
     <SidebarContext value={{ open, toggle, width, setWidth }}>
@@ -175,7 +164,7 @@ export function SidebarTrigger({ className, ...props }: ComponentProps<typeof Bu
   return (
     <Button
       data-slot="sidebar-trigger"
-      variant="ghost"
+      variant="chrome"
       size="icon-sm"
       aria-label={open ? 'Hide sidebar' : 'Show sidebar'}
       aria-keyshortcuts="Meta+B Control+B"

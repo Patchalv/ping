@@ -130,7 +130,7 @@ components:
 
 Ping is where Spark's staff spend their working day clearing Pings and following Threads, so the room has to stay calm for eight hours. A steady ink navy frame (top bar and sidebar) holds a bright work surface: a white panel inset on the chrome on a laptop, over a cool, navy-tinted grey feed. Nothing in the frame competes for attention. Colour appears only where something needs a person: a pink Ping count, a green Saved marker, an indigo action.
 
-The density is a chat tool's: 15px reading text, 14px controls, 28px sidebar rows, so a heavy user sees a long list without scrolling. The components are soft and friendly rather than technical: gently rounded corners, pill-shaped tags and counts, plain words. The shell is shadcn/ui on Base UI (ADR 0007), adapted rather than restyled from scratch.
+The density is a chat tool's: 15px reading text, 14px controls, 28px sidebar rows, so a Staff member triaging all day sees a long list without scrolling. The components are soft and friendly rather than technical: gently rounded corners, pill-shaped tags and counts, plain words. The shell is shadcn/ui on Base UI (ADR 0007), adapted rather than restyled from scratch.
 
 Light and dark are equal citizens. In dark mode the chrome deepens to a near-black navy, so the dark panel still reads as the lit work surface.
 
@@ -180,7 +180,7 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 - **Channel title** (700, 18px, 24px): the Channel name in the Channel bar, dialog titles, Thread titles later.
 - **Body** (400, 15px, 1.45): Thread and Thread Response text, descriptions, empty states. The Tailwind `text-base` step.
 - **Control** (500, 14px, 20px): sidebar rows, buttons, inputs, menu items. `text-sm`.
-- **Small** (500, 13px, 18px): tabs, section labels, member counts, account details. `text-small`.
+- **Small** (500, 13px, 18px): tabs, section labels, member counts, the name and email in the avatar menu. `text-small`.
 - **Meta** (400, 12px, 16px): timestamps, tags, badges. `text-xs`.
 
 ### Named Rules
@@ -195,7 +195,7 @@ The shell is a two-row grid: a 44px top bar across the full width, then the side
 - **Laptop (768px and up):** the sidebar starts at 260px. The Staff member can drag it between 200px and 420px or move it with the arrow keys on the handle, and double-clicking resets it. ⌘B or Ctrl+B hides it. The main area is a panel inset on the chrome with a 6px gutter on the right and bottom (and on the left when the sidebar is hidden), and it is the only scroll container. The Channel bar sticks to its top.
 - **Phone (below 768px):** no inset. The sidebar is the home screen at full width with 40px rows. Opening a Channel replaces it, and the Channel bar shows a "‹ Channels" link back. Search sits behind an icon. Buttons grow to 40px tall for touch.
 - **Rhythm:** Tailwind's 4px scale. Common steps are 8px inside controls, 12–16px between fields, 16–20px of side padding in the main area (16px on a phone), and 24px of padding in dialogs and cards.
-- **Thread panel (#38):** opens on the right of the Channel view with shadcn's `Resizable`, a drag handle and a saved width, the same as the sidebar.
+- **Thread panel (#38):** opens on the right of the Channel view, resizable the same way as the sidebar: a focusable drag handle (arrow keys, double-click to reset) and a width kept in this browser. Copy `SidebarResizeHandle`, not shadcn's `Resizable`.
 
 ## Elevation & Depth
 
@@ -216,7 +216,7 @@ Soft and friendly: every corner is gently rounded, nothing is sharp and nothing 
 - Buttons, inputs, textareas and the inset panel: 10px (`rounded-lg`).
 - Sidebar rows and menu items: 8px and 6px (`rounded-md`), so they nest inside their container's curve.
 - Dialogs and the sign-in card: 14px (`rounded-xl`).
-- Tags, badges, counts, radios and avatars' fallbacks: fully rounded, except the account avatar, which is a 8px-rounded square.
+- Tags, badges, counts, radios and avatars' fallbacks: fully rounded, except the avatar in the top bar, which is an 8px-rounded square.
 
 ## Components
 
@@ -225,13 +225,15 @@ Soft, compact and plain.
 - **Shape:** 10px corners, 32px tall (40px on a phone), 12px side padding, 14px medium text.
 - **Primary:** Ink Indigo with white text. At most one per view: the main action of a form or dialog.
 - **Outline:** white with a Hairline border. Cancel, "Back to your Channels", secondary actions.
-- **Ghost:** no fill until hover. Icon buttons in the top bar (sidebar toggle, phone search) use a 10% white hover on the chrome.
+- **Ghost:** no fill until hover.
+- **Chrome:** the ghost button for the dark top bar (sidebar toggle, phone search): chrome text at 80%, with a 10% tint of the chrome text colour on hover.
 - **Destructive:** a pale red wash with red text, never solid red.
 - **Hover / Focus:** hover dims the fill slightly. Focus shows a 3px ring at 30% of the ring colour. A pending button reads "Creating…" or "Signing in…" and is disabled.
 
 ### Chips and tags
-- **Tag** (Badge, `variant="outline"`): a pill with a Hairline border and Slate Muted 12px text, such as "Private" with a lock icon in the Channel bar. Later: "Archived", "Deactivated".
-- **Count** (SidebarMenuBadge): a solid Ping Pink pill with white 12px bold tabular numbers, at the end of a sidebar row.
+- **Tag** (Badge, `variant="tag"`): a pill with a Hairline border and Slate Muted 12px text, such as "Private" with a lock icon in the Channel bar. Later: "Archived", "Deactivated".
+- **Ping count** (Badge `variant="ping"`, or SidebarMenuBadge at the end of a sidebar row): a solid Ping Pink pill with white 12px bold tabular numbers.
+- **Saved** (Badge `variant="saved"`): Saved Green text in a pill with a faint green border.
 
 ### Cards / Containers
 - **Inset panel:** 10px corners, Feed Mist behind content, no shadow.
@@ -247,10 +249,13 @@ Soft, compact and plain.
 - **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text.
 - **Section labels:** 13px medium Sidebar Muted, such as "Channels".
 - **Tabs (Channel bar):** 13px semibold, the current tab underlined 2px in Ink Indigo.
-- **Account menu:** the avatar opens a menu with the name and email, the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
+- **Avatar menu:** the avatar opens a menu with the name and email, the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
+
+### Toasts
+Short confirmations and failures ("Thread Saved", "Can't reach Ping. Try again.") use Base UI's Toast from the shadcn base registry, not Sonner. The first slice that needs one installs it.
 
 ### Top bar
-44px of ink navy chrome: the sidebar toggle (laptop), the Ping wordmark, a centred search field of 10% white on the navy (behind an icon on a phone), and the account avatar on the right.
+44px of ink navy chrome: the sidebar toggle (laptop), the Ping wordmark, a centred search field tinted 10% with the chrome text colour (behind an icon on a phone), and the avatar on the right.
 
 ## Do's and Don'ts
 

@@ -13,7 +13,8 @@ The exemplar slice (#31) styled the shell with one hand-written `styles.css`, a 
 - **The Sidebar is shadcn's, adapted** (`components/ui/sidebar.tsx`): it sits in the page flow under the top bar, it is the home screen on a phone instead of a slide-out sheet, it can be resized by dragging or with the arrow keys, and ⌘B or Ctrl+B hides it. Its open state and width are kept in `localStorage`, not shadcn's cookie.
 - **`SidebarProvider` is an allowed exception to "no data in React context" (ADR 0006).** It holds UI state only (open and width) for the sidebar's compound components. Server data still never goes into context.
 - **Components follow Vercel's composition patterns** (`.claude/skills/vercel-composition-patterns`): compound components, explicit variants, `children` over render props, and no boolean props that switch a component's mode. The generated `showCloseButton` and `inset` props were removed for that reason.
-- **Imports into `src/` use `#/`**, a `package.json#imports` subpath, so Vite, Vitest and dependency-cruiser resolve it without extra config. TypeScript reads the same mapping from `paths` in `apps/web/tsconfig.json`.
+- **`#/` points at `src/`**, a `package.json#imports` subpath, so Vite, Vitest and dependency-cruiser resolve it without extra config (dependency-cruiser could not resolve a `@/` alias, so the feature-boundary rule would have stopped seeing those imports). TypeScript reads the same mapping from `paths` in `apps/web/tsconfig.json`.
+- **`cn` comes from `#/lib/utils`**, built with `createCn` from the `cn` package and taught the custom `text-small` step. The package's default `cn` mistakes `text-small` for a colour and drops it.
 - `DESIGN.md` describes the visual system: colour roles, type, spacing and components. `docs/conventions.md` points to it.
 
 ## Consequences

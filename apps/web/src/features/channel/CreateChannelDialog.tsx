@@ -142,7 +142,15 @@ export function CreateChannelDialog({ onClose, onCreated }: Props) {
 }
 
 /** One visibility option as a card: the radio, its name and what it means. */
-function VisibilityChoice({ value, title, hint }: { value: string; title: string; hint: string }) {
+function VisibilityChoice({
+  value,
+  title,
+  hint,
+}: {
+  value: ChannelView['visibility'];
+  title: string;
+  hint: string;
+}) {
   return (
     <FieldLabel>
       <Field orientation="horizontal">

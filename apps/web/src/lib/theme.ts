@@ -3,6 +3,7 @@
 // context and no effect. public/theme-init.js applies the same choice before first
 // paint, so the page never flashes the wrong theme.
 import { useSyncExternalStore } from 'react';
+import { readStored, writeStored } from './storage';
 
 export type ThemeChoice = 'system' | 'light' | 'dark';
 
@@ -17,13 +18,8 @@ export const isThemeChoice = (value: unknown): value is ThemeChoice =>
   value === 'system' || value === 'light' || value === 'dark';
 
 function readChoice(): ThemeChoice {
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return isThemeChoice(stored) ? stored : 'system';
-  } catch {
-    // No storage, or it's blocked (private windows, strict settings): follow the system.
-    return 'system';
-  }
+  const stored = readStored(STORAGE_KEY);
+  return isThemeChoice(stored) ? stored : 'system';
 }
 
 let choice = readChoice();
@@ -39,11 +35,7 @@ systemDark?.addEventListener('change', () => {
 
 export function setThemeChoice(next: ThemeChoice) {
   choice = next;
-  try {
-    localStorage.setItem(STORAGE_KEY, next);
-  } catch {
-    // Not saved, but it still applies for this visit.
-  }
+  writeStored(STORAGE_KEY, next);
   apply();
   for (const listener of listeners) listener();
 }

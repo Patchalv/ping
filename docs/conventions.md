@@ -140,7 +140,7 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | **Components:** build from `apps/web/src/components/ui/`. Add a missing one with `pnpm dlx shadcn@4.23.0 add <name>` from `apps/web`, then lint it and adapt it to `DESIGN.md` | review only |
 | **Styling:** Tailwind utilities with the semantic tokens (`bg-primary`, `text-muted-foreground`, `bg-ping`, `bg-sidebar`), never raw colours. `apps/web/src/index.css` holds the tokens and base styles only: no per-feature CSS files and no `@apply` in components | review only; Impeccable's detector runs after every edit |
 | **Composition:** compound components and explicit variants, `children` over render props, and no boolean props that switch a component's mode (`.claude/skills/vercel-composition-patterns`) | review only |
-| **Imports into `src/`** use `#/` (for example `#/components/ui/button`), from `package.json#imports` | `tsc -b`, dependency-cruiser |
+| **Imports:** shared code (`#/components/ui/…`, `#/lib/…`) can be imported with `#/` from `package.json#imports`, which the shadcn components use; relative imports stay fine inside a feature. Import `cn` from `#/lib/utils`, never from the `cn` package, so the custom type step merges correctly | review only; `lib/utils.test.ts` |
 | Every text pair meets WCAG AA (4.5:1) in light and dark, and every action works from the keyboard | review only; check in the browser |
 | UI state shared by compound components may use context (`SidebarProvider`); server data never does | review only |
 

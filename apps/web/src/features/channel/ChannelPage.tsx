@@ -52,7 +52,7 @@ function ChannelBar({ channel }: { channel: ChannelView }) {
         </Link>
         <h1 className="min-w-0 truncate text-lg font-bold">{channel.name}</h1>
         {isPrivate ? (
-          <Badge variant="outline" className="text-muted-foreground">
+          <Badge variant="tag">
             <LockIcon aria-hidden="true" />
             Private
           </Badge>

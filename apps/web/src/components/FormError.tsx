@@ -1,5 +1,5 @@
-import { cn } from 'cn';
 import type { ComponentProps } from 'react';
+import { cn } from '#/lib/utils';
 
 /** A failure no single field explains, such as the network or a refusal. Announced. */
 export function FormError({ className, ...props }: ComponentProps<'p'>) {

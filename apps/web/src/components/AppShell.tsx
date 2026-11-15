@@ -6,6 +6,7 @@ import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-route
 import { HashIcon, LockIcon, PlusIcon, SearchIcon } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
+import { Input } from '#/components/ui/input';
 import {
   Sidebar,
   SidebarContent,
@@ -62,15 +63,15 @@ export function AppShell() {
 function TopBar({ children }: { children: ReactNode }) {
   return (
     <header className="flex h-11 items-center gap-2 px-2 text-chrome-foreground md:px-3">
-      <SidebarTrigger className="text-chrome-foreground/80 hover:bg-white/10 hover:text-chrome-foreground" />
+      <SidebarTrigger />
       <span className="px-1 text-lg font-bold tracking-tight">Ping</span>
       <div className="relative mx-auto w-full max-w-xl max-md:hidden">
         <SearchIcon
           aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-chrome-foreground/70"
+          className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-chrome-foreground/70"
         />
-        <input
-          className="h-7 w-full rounded-md border border-white/15 bg-white/10 pr-3 pl-8 text-sm text-chrome-foreground placeholder:text-chrome-foreground/70"
+        <Input
+          className="h-7 border-chrome-foreground/15 bg-chrome-foreground/10 pl-8 text-chrome-foreground shadow-none placeholder:text-chrome-foreground/70 disabled:opacity-100"
           type="search"
           placeholder="Search arrives in a later release"
           aria-label="Search"
@@ -79,9 +80,9 @@ function TopBar({ children }: { children: ReactNode }) {
       </div>
       {/* Search sits behind an icon on a phone (screens.md › Phone). */}
       <Button
-        variant="ghost"
+        variant="chrome"
         size="icon-sm"
-        className="ml-auto text-chrome-foreground/80 hover:bg-white/10 md:hidden"
+        className="ml-auto md:hidden"
         aria-label="Search"
         title="Search arrives in a later release"
         disabled
