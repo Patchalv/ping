@@ -115,6 +115,24 @@ export const staffMember = pgTable(
   ],
 );
 
+/**
+ * The live invite of an Invited Staff member: one row per person (data-model.md › Auth and
+ * Staff members). Only the token's SHA-256 is stored. Resend replaces the hash and expiry;
+ * accepting deletes the row; Cancel deletes it with the person.
+ */
+export const staffInvite = pgTable('staff_invite', {
+  staffId: uuid('staff_id')
+    .primaryKey()
+    .references(() => staffMember.id),
+  tokenHash: text('token_hash').notNull().unique(),
+  expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  // Null for the bootstrap Admin's invite, which no Staff member sent.
+  createdBy: uuid('created_by').references(() => staffMember.id),
+  createdAt: createdAt(),
+  // Set when the invite email couldn't be sent; cleared by Resend.
+  emailFailedAt: timestamp('email_failed_at', { withTimezone: true }),
+});
+
 export const channelVisibility = pgEnum('channel_visibility', ['public', 'private']);
 export const resolvePolicy = pgEnum('resolve_policy', ['any_member', 'author_and_channel_admins']);
 
@@ -170,8 +188,13 @@ export const channelMember = pgTable(
   ],
 );
 
-/** Every kind of audit_event. Later slices add invites, role changes and the rest. */
-export type AuditEventKind = 'sign_in_succeeded' | 'sign_in_failed';
+/** Every kind of audit_event. Later slices add role changes, Deactivation and the rest. */
+export type AuditEventKind =
+  | 'sign_in_succeeded'
+  | 'sign_in_failed'
+  | 'staff_invited'
+  | 'staff_invite_resent'
+  | 'staff_invite_cancelled';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email

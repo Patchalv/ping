@@ -148,6 +148,18 @@ export async function asPingApp<T>(
   });
 }
 
+/** Like asPingApp, as ping_system, which never sets app.staff_id. Rolled back. */
+export async function asPingSystem<T>(fn: (query: Query) => Promise<T>): Promise<T> {
+  return withConnection(testUrls().system, async (query) => {
+    await query('begin');
+    try {
+      return await fn(query);
+    } finally {
+      await query('rollback');
+    }
+  });
+}
+
 export type StaffFixture = {
   id: string;
   name: string;
