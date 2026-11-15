@@ -33,5 +33,5 @@ CREATE POLICY staff_invite_system ON "staff_invite" FOR ALL TO ping_system
 GRANT SELECT, INSERT, UPDATE ("joined_at") ON "staff_member" TO ping_system;--> statement-breakpoint
 CREATE POLICY staff_member_system ON "staff_member" FOR ALL TO ping_system
   USING (true) WITH CHECK (true);--> statement-breakpoint
-GRANT SELECT, INSERT, UPDATE ("email_verified") ON "user" TO ping_system;--> statement-breakpoint
+GRANT SELECT, INSERT, UPDATE ("email_verified", "updated_at") ON "user" TO ping_system;--> statement-breakpoint
 GRANT INSERT ON "account" TO ping_system;

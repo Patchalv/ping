@@ -6,7 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 abstract class AppError extends Error {
-  abstract readonly status: 400 | 401 | 403 | 404 | 409;
+  abstract readonly status: 400 | 401 | 403 | 404 | 409 | 429;
   abstract readonly code: string;
 }
 
@@ -37,8 +37,9 @@ export class ForbiddenError extends AppError {
 export class NotFoundError extends AppError {
   readonly status = 404;
   readonly code = 'not_found';
-  constructor() {
-    super('Not found.');
+  /** A custom message only where nothing could leak, such as a dead invite link. */
+  constructor(message = 'Not found.') {
+    super(message);
     this.name = 'NotFoundError';
   }
 }
@@ -50,6 +51,16 @@ export class ConflictError extends AppError {
   constructor(message: string) {
     super(message);
     this.name = 'ConflictError';
+  }
+}
+
+/** The client sent too many requests to a rate-limited route. */
+export class TooManyRequestsError extends AppError {
+  readonly status = 429;
+  readonly code = 'rate_limited';
+  constructor() {
+    super('Too many attempts. Wait a minute, then try again.');
+    this.name = 'TooManyRequestsError';
   }
 }
 
@@ -77,6 +88,7 @@ const CODE_BY_STATUS: Record<number, string> = {
   403: 'forbidden',
   404: 'not_found',
   409: 'conflict',
+  429: 'rate_limited',
 };
 
 /**

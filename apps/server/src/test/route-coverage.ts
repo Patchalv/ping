@@ -15,9 +15,12 @@ const ROUTE_ALLOWLIST: readonly string[] = [
   // answers /api/* or serves data.
   'ALL /*',
   'GET /*',
-  // Invite accept arrives with "Invites, bootstrap-admin and email" (#32), and any
-  // password-reset route outside Better Auth with "Password reset" (#33). Their slices
-  // add them here.
+  // Invite accept (#32): nobody is signed in yet, so there's no actor to put in the
+  // matrix. They run as ping_system, and features/staff/accept-routes.int.test.ts tests
+  // them directly, with expired, used and unknown tokens.
+  'POST /api/invites/lookup',
+  'POST /api/invites/accept',
+  // Any password-reset route outside Better Auth arrives with "Password reset" (#33).
 ];
 
 type RegisteredRoute = { method: string; path: string };

@@ -6,7 +6,10 @@
  * What changed: a kind and IDs, never content. A client that hears it refetches through
  * the API, where the permissions module and row-level security decide what it may see.
  */
-type LiveEvent = { kind: 'channel.created'; channelId: string };
+type LiveEvent =
+  | { kind: 'channel.created'; channelId: string }
+  // Someone was invited, re-invited or had their invite cancelled.
+  | { kind: 'staff.changed'; staffId: string };
 
 export function publish(_event: LiveEvent): void {
   // Delivery arrives with #47.

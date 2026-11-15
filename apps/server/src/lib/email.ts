@@ -8,6 +8,7 @@
 // - A failure reaches the caller as an error that never holds the address, so the caller
 //   can mark the invite and report to Sentry.
 import nodemailer from 'nodemailer';
+import type { EmailSettings } from '../config';
 
 export const FROM_ADDRESS = 'Ping <no-reply@ping.bypatrick.app>';
 
@@ -90,10 +91,24 @@ export function logTransport(log: (line: string) => void = console.log): MailTra
 }
 
 /** Production or staging before the SMTP secrets are set: every send fails, and is reported. */
-export function unconfiguredTransport(): MailTransport {
+function unconfiguredTransport(): MailTransport {
   return {
     async send() {
       throw new Error('SMTP is not configured');
     },
   };
+}
+
+/** The server's mailer, from its config: SMTP when set, else a local log or a failure. */
+export function createMailerFromConfig(settings: EmailSettings): Mailer {
+  const transport = settings.smtp
+    ? smtpTransport(settings.smtp)
+    : settings.environment === 'local'
+      ? logTransport()
+      : unconfiguredTransport();
+  return createMailer({
+    transport,
+    environment: settings.environment,
+    allowlist: settings.allowlist,
+  });
 }

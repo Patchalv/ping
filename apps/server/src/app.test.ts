@@ -7,10 +7,12 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { createDatabase } from './db';
 import { ForbiddenError, NotFoundError, ValidationError } from './lib/errors';
+import { offlineInviteServices } from './test/test-app';
 
 // Never connects: these routes don't touch the database.
 const database = createDatabase('postgres://nobody@localhost:1/none');
 const trustedOrigins = ['http://localhost:3000'];
+const invites = offlineInviteServices();
 const auth = createAuth(database, {
   secret: 'unit-test-secret-not-used-for-anything',
   baseUrl: 'http://localhost:3000',
@@ -19,7 +21,7 @@ const auth = createAuth(database, {
 
 describe('GET /healthz', () => {
   it('answers ok', async () => {
-    const res = await createApp({ auth, database, trustedOrigins }).request('/healthz');
+    const res = await createApp({ auth, database, trustedOrigins, invites }).request('/healthz');
     expect(res.status).toBe(200);
     expect(await res.json()).toEqual({ status: 'ok' });
   });
@@ -40,40 +42,60 @@ function builtSpa(): string {
 
 describe('serving the built SPA', () => {
   it('serves index.html at the root', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/');
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('<title>Ping</title>');
   });
 
   it('serves built assets', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/assets/main.js',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/assets/main.js');
     expect(res.status).toBe(200);
     expect(await res.text()).toBe('console.log(1);');
   });
 
   it('falls back to index.html for client-side routes', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/channels/123',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/channels/123');
     expect(res.status).toBe(200);
     expect(await res.text()).toContain('<title>Ping</title>');
   });
 
   it('does not answer unknown API paths with the SPA', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/api/nothing-here',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/api/nothing-here');
     expect(res.status).toBe(404);
   });
 
   it('still answers /healthz', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/healthz',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/healthz');
     expect(await res.json()).toEqual({ status: 'ok' });
   });
 });
@@ -94,7 +116,7 @@ describe('security headers', () => {
   }
 
   it('sends a strict same-origin CSP on API responses', async () => {
-    const res = await createApp({ auth, database, trustedOrigins }).request('/healthz');
+    const res = await createApp({ auth, database, trustedOrigins, invites }).request('/healthz');
     const policy = csp(res);
     expect(policy.get('default-src')).toBe("'self'");
     expect(policy.get('script-src')).toBe("'self'");
@@ -108,7 +130,9 @@ describe('security headers', () => {
   });
 
   it('allows Sentry as the only third-party origin', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, sentry }).request('/healthz');
+    const res = await createApp({ auth, database, trustedOrigins, invites, sentry }).request(
+      '/healthz',
+    );
     expect(csp(res).get('connect-src')).toBe("'self' https://o42.ingest.de.sentry.io");
     expect(csp(res).get('script-src')).toBe("'self'");
   });
@@ -118,6 +142,7 @@ describe('security headers', () => {
       auth,
       database,
       trustedOrigins,
+      invites,
       sentry,
       webDistDir: builtSpa(),
     }).request('/channels/123');
@@ -134,6 +159,7 @@ describe('Sentry settings for the SPA', () => {
         auth,
         database,
         trustedOrigins,
+        invites,
         sentry,
         webDistDir: builtSpa(),
       }).request(path);
@@ -147,9 +173,13 @@ describe('Sentry settings for the SPA', () => {
   );
 
   it('leaves them out when Sentry is off', async () => {
-    const res = await createApp({ auth, database, trustedOrigins, webDistDir: builtSpa() }).request(
-      '/',
-    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      webDistDir: builtSpa(),
+    }).request('/');
     expect(await res.text()).not.toContain('sentry-dsn');
   });
 
@@ -158,6 +188,7 @@ describe('Sentry settings for the SPA', () => {
       auth,
       database,
       trustedOrigins,
+      invites,
       sentry: { dsn: 'https://a@o1.ingest.de.sentry.io/1?"><script>', environment: 'staging' },
       webDistDir: builtSpa(),
     }).request('/');
@@ -174,6 +205,7 @@ describe('errors', () => {
       auth,
       database,
       trustedOrigins,
+      invites,
       captureError: (e) => reported.push(e),
     });
     app.get('/api/test-only/throw', () => {
@@ -209,7 +241,9 @@ describe('errors', () => {
   });
 
   it('answers 401 to a Channel route with no session, without touching the database', async () => {
-    const res = await createApp({ auth, database, trustedOrigins }).request('/api/channels');
+    const res = await createApp({ auth, database, trustedOrigins, invites }).request(
+      '/api/channels',
+    );
     expect(res.status).toBe(401);
     expect(await res.json()).toEqual({
       error: { code: 'unauthenticated', message: 'Sign in to continue.' },
@@ -246,7 +280,9 @@ describe('errors', () => {
   });
 
   it('answers an unknown API path in the same envelope', async () => {
-    const res = await createApp({ auth, database, trustedOrigins }).request('/api/nothing-here');
+    const res = await createApp({ auth, database, trustedOrigins, invites }).request(
+      '/api/nothing-here',
+    );
     expect(res.status).toBe(404);
     expect(await res.json()).toEqual({ error: { code: 'not_found', message: 'Not found.' } });
   });
@@ -254,7 +290,7 @@ describe('errors', () => {
 
 describe('the Origin check', () => {
   const app = () => {
-    const app = createApp({ auth, database, trustedOrigins });
+    const app = createApp({ auth, database, trustedOrigins, invites });
     app.post('/api/test-only/echo', (c) => c.json({ ok: true }));
     return app;
   };
@@ -280,7 +316,7 @@ describe('Cache-Control on the API', () => {
   const noStore = (res: Response) => res.headers.get('cache-control');
 
   it('sends no-store on a successful API response', async () => {
-    const app = createApp({ auth, database, trustedOrigins });
+    const app = createApp({ auth, database, trustedOrigins, invites });
     app.get('/api/test-only/ok', (c) => c.json({ ok: true }));
     expect(noStore(await app.request('/api/test-only/ok'))).toBe('no-store');
   });
@@ -291,7 +327,7 @@ describe('Cache-Control on the API', () => {
     ["one of Hono's own errors", new HTTPException(400, { message: 'Malformed JSON' })],
     ['an unknown error', new Error('boom')],
   ])('sends no-store on %s', async (_name, error) => {
-    const app = createApp({ auth, database, trustedOrigins });
+    const app = createApp({ auth, database, trustedOrigins, invites });
     app.get('/api/test-only/throw', () => {
       throw error;
     });
@@ -299,13 +335,13 @@ describe('Cache-Control on the API', () => {
   });
 
   it('sends no-store on a 401 and an unknown API path', async () => {
-    const app = createApp({ auth, database, trustedOrigins });
+    const app = createApp({ auth, database, trustedOrigins, invites });
     expect(noStore(await app.request('/api/channels'))).toBe('no-store');
     expect(noStore(await app.request('/api/nothing-here'))).toBe('no-store');
   });
 
   it('leaves non-API responses alone', async () => {
-    const res = await createApp({ auth, database, trustedOrigins }).request('/healthz');
+    const res = await createApp({ auth, database, trustedOrigins, invites }).request('/healthz');
     expect(noStore(res)).toBeNull();
   });
 });

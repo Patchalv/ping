@@ -225,6 +225,19 @@ export async function createStaffMember(
   return fixture;
 }
 
+/** An Invited Staff member with a live invite (token hash random), inserted as the owner. */
+export async function createInvitedStaffMember(): Promise<StaffFixture> {
+  const invited = await createStaffMember({ invited: true });
+  await asOwner((query) =>
+    query(
+      `insert into staff_invite (staff_id, token_hash, expires_at)
+       values ($1, $2, now() + interval '7 days')`,
+      [invited.id, randomUUID()],
+    ),
+  );
+  return invited;
+}
+
 export type ChannelFixture = { id: string; name: string };
 
 /**

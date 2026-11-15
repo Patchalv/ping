@@ -4,25 +4,11 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
-  asOwner,
   asPingApp,
   asPingSystem,
   createStaffMember,
-  type StaffFixture,
+  createInvitedStaffMember as invitedWithInvite,
 } from '../../db/test-support';
-
-/** An Invited Staff member with a live invite row, inserted as the owner. */
-async function invitedWithInvite(): Promise<StaffFixture> {
-  const invited = await createStaffMember({ invited: true });
-  await asOwner((query) =>
-    query(
-      `insert into staff_invite (staff_id, token_hash, expires_at)
-       values ($1, $2, now() + interval '7 days')`,
-      [invited.id, randomUUID()],
-    ),
-  );
-  return invited;
-}
 
 const insertInvite = `insert into staff_invite (staff_id, token_hash, expires_at, created_by)
   values ($1, $2, now() + interval '7 days', $3)`;
