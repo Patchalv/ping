@@ -73,7 +73,7 @@
 
 /* Light: ink navy chrome around a white panel over a navy-tinted grey feed. */
 :root {
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 
   --chrome: oklch(0.219 0.043 261.6);
   --chrome-foreground: oklch(1 0 0);

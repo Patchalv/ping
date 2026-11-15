@@ -19,7 +19,7 @@ Then, outside the feature folder:
 - the matrix rows in `apps/server/src/test/permission-matrix/matrix.ts`;
 - the schemas in `packages/shared/src/channel.ts`.
 
-A new screen copies the structure of `apps/web/src/features/channel/`: `api.ts` (a query-key factory and hooks), with the components beside it, and a route in `apps/web/src/router.tsx`. Don't copy its look: the styling is interim until #65 (see [The web app](#the-web-app)).
+A new screen copies the structure of `apps/web/src/features/channel/`: `api.ts` (a query-key factory and hooks), with the components beside it, and a route in `apps/web/src/router.tsx`. Its look comes from the design system in `DESIGN.md` (see [The web app](#the-web-app)).
 
 ## Standards sources
 
@@ -133,7 +133,16 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 
 ## The web app
 
-**The styling is interim.** [Design system: component library decision, tokens, type and core components](https://github.com/Patchalv/ping/issues/65) (#65) settles the visual design: the tokens, the type, the core components, and whether to use a component library. Until #65 lands, `apps/web/src/styles.css` and the look of the hand-made components are not the pattern to copy. The web app's structure is the pattern. The server-side exemplar is unaffected.
+**The look follows `DESIGN.md`**: the colour roles, type scale, spacing, shapes and components, with their do's and don'ts. Read it before building a screen. The stack is in [ADR 0007](adr/0007-shadcn-on-base-ui.md): shadcn/ui on Base UI, Tailwind CSS v4, lucide-react and Figtree.
+
+| Rule | Checked by |
+| --- | --- |
+| **Components:** build from `apps/web/src/components/ui/`. Add a missing one with `pnpm dlx shadcn@4.23.0 add <name>` from `apps/web`, then lint it and adapt it to `DESIGN.md` | review only |
+| **Styling:** Tailwind utilities with the semantic tokens (`bg-primary`, `text-muted-foreground`, `bg-ping`, `bg-sidebar`), never raw colours. `apps/web/src/index.css` holds the tokens and base styles only: no per-feature CSS files and no `@apply` in components | review only; Impeccable's detector runs after every edit |
+| **Composition:** compound components and explicit variants, `children` over render props, and no boolean props that switch a component's mode (`.claude/skills/vercel-composition-patterns`) | review only |
+| **Imports into `src/`** use `#/` (for example `#/components/ui/button`), from `package.json#imports` | `tsc -b`, dependency-cruiser |
+| Every text pair meets WCAG AA (4.5:1) in light and dark, and every action works from the keyboard | review only; check in the browser |
+| UI state shared by compound components may use context (`SidebarProvider`); server data never does | review only |
 
 The structure ([ADR 0006](adr/0006-web-data-and-routing.md)):
 
