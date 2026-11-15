@@ -47,7 +47,7 @@ function ServerUnreachableBanner() {
     queryFn: () => call(() => api.healthz.$get()),
   });
   return healthz.isError ? (
-    <p className="banner" role="alert">
+    <p className="bg-destructive-surface px-4 py-3 text-center text-destructive" role="alert">
       Can’t reach the Ping server. Check your connection, then reload.
     </p>
   ) : null;

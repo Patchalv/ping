@@ -6,16 +6,33 @@ import {
   createChannelBody,
 } from '@ping/shared';
 import { type FormEvent, useState } from 'react';
+import { Button } from '#/components/ui/button';
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '#/components/ui/dialog';
+import {
+  Field,
+  FieldContent,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+  FieldTitle,
+} from '#/components/ui/field';
+import { Input } from '#/components/ui/input';
+import { RadioGroup, RadioGroupItem } from '#/components/ui/radio-group';
+import { Textarea } from '#/components/ui/textarea';
+import { FormError } from '../../components/FormError';
 import { ApiError, type FieldIssue } from '../../lib/api-client';
 import { useCreateChannel } from './api';
 
 type Props = { onClose(): void; onCreated(channel: ChannelView): void };
-
-/** Opens the native dialog as a modal once it's in the page. */
-const showModal = (node: HTMLDialogElement | null) => {
-  // React calls ref callbacks twice in StrictMode; a dialog already open stays open.
-  if (node && !node.open) node.showModal();
-};
 
 /** Create channel: name, description and visibility (screens.md › Other flows). */
 export function CreateChannelDialog({ onClose, onCreated }: Props) {
@@ -58,82 +75,91 @@ export function CreateChannelDialog({ onClose, onCreated }: Props) {
   const visibilityIssue = issueFor('visibility');
 
   return (
-    <dialog
-      ref={showModal}
-      className="dialog"
-      aria-labelledby="create-channel-title"
-      onClose={onClose}
+    <Dialog
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
     >
-      <form className="dialog__form" onSubmit={onSubmit} noValidate>
-        <h2 id="create-channel-title" className="dialog__title">
-          Create a Channel
-        </h2>
-        <label className="field">
-          <span className="field__label">Name</span>
-          <input
-            className="field__input"
-            name="name"
-            maxLength={CHANNEL_NAME_MAX}
-            autoComplete="off"
-            aria-invalid={nameIssue ? true : undefined}
-            aria-describedby={nameIssue ? 'create-channel-name-issue' : undefined}
-          />
-          {nameIssue ? (
-            <span className="field__issue" id="create-channel-name-issue">
-              {nameIssue}
-            </span>
-          ) : null}
-        </label>
-        <label className="field">
-          <span className="field__label">Description</span>
-          <textarea
-            className="field__input field__input--area"
-            name="description"
-            maxLength={CHANNEL_DESCRIPTION_MAX}
-            rows={3}
-            aria-invalid={descriptionIssue ? true : undefined}
-            aria-describedby={descriptionIssue ? 'create-channel-description-issue' : undefined}
-          />
-          {descriptionIssue ? (
-            <span className="field__issue" id="create-channel-description-issue">
-              {descriptionIssue}
-            </span>
-          ) : null}
-        </label>
-        <fieldset className="choice">
-          <legend className="field__label">Who can find it?</legend>
-          <label className="choice__option">
-            <input type="radio" name="visibility" value="public" defaultChecked />
-            <span>
-              <span className="choice__name">Public</span>
-              <span className="choice__hint">Any Staff member can find, read and join it.</span>
-            </span>
-          </label>
-          <label className="choice__option">
-            <input type="radio" name="visibility" value="private" />
-            <span>
-              <span className="choice__name">Private</span>
-              <span className="choice__hint">
-                Only its members can find and read it. It can’t be made Public later.
-              </span>
-            </span>
-          </label>
-          {visibilityIssue ? <span className="field__issue">{visibilityIssue}</span> : null}
-        </fieldset>
-        {formError ? (
-          <p className="form-error" role="alert">
-            {formError}
-          </p>
-        ) : null}
-        <div className="dialog__actions">
-          <button className="button" type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="button button--primary" type="submit" disabled={create.isPending}>
-            {create.isPending ? 'Creating…' : 'Create channel'}
-          </button>
-        </div>
-      </form>
-    </dialog>
+      <DialogContent>
+        <form className="grid gap-5" onSubmit={onSubmit} noValidate>
+          <DialogHeader>
+            <DialogTitle>Create a Channel</DialogTitle>
+          </DialogHeader>
+          <Field data-invalid={nameIssue ? true : undefined}>
+            <FieldLabel htmlFor="create-channel-name">Name</FieldLabel>
+            <Input
+              id="create-channel-name"
+              name="name"
+              maxLength={CHANNEL_NAME_MAX}
+              autoComplete="off"
+              aria-invalid={nameIssue ? true : undefined}
+              aria-describedby={nameIssue ? 'create-channel-name-issue' : undefined}
+            />
+            {nameIssue ? <FieldError id="create-channel-name-issue">{nameIssue}</FieldError> : null}
+          </Field>
+          <Field data-invalid={descriptionIssue ? true : undefined}>
+            <FieldLabel htmlFor="create-channel-description">Description</FieldLabel>
+            <Textarea
+              id="create-channel-description"
+              name="description"
+              maxLength={CHANNEL_DESCRIPTION_MAX}
+              rows={3}
+              aria-invalid={descriptionIssue ? true : undefined}
+              aria-describedby={descriptionIssue ? 'create-channel-description-issue' : undefined}
+            />
+            {descriptionIssue ? (
+              <FieldError id="create-channel-description-issue">{descriptionIssue}</FieldError>
+            ) : null}
+          </Field>
+          <FieldSet>
+            <FieldLegend variant="label">Who can find it?</FieldLegend>
+            <RadioGroup name="visibility" defaultValue="public" className="gap-2">
+              <VisibilityChoice
+                value="public"
+                title="Public"
+                hint="Any Staff member can find, read and join it."
+              />
+              <VisibilityChoice
+                value="private"
+                title="Private"
+                hint="Only its members can find and read it. It can’t be made Public later."
+              />
+            </RadioGroup>
+            {visibilityIssue ? <FieldError>{visibilityIssue}</FieldError> : null}
+          </FieldSet>
+          {formError ? <FormError>{formError}</FormError> : null}
+          <DialogFooter>
+            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+            <Button type="submit" disabled={create.isPending}>
+              {create.isPending ? 'Creating…' : 'Create channel'}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** One visibility option as a card: the radio, its name and what it means. */
+function VisibilityChoice({
+  value,
+  title,
+  hint,
+}: {
+  value: ChannelView['visibility'];
+  title: string;
+  hint: string;
+}) {
+  return (
+    <FieldLabel>
+      <Field orientation="horizontal">
+        <RadioGroupItem value={value} />
+        <FieldContent>
+          <FieldTitle>{title}</FieldTitle>
+          <FieldDescription>{hint}</FieldDescription>
+        </FieldContent>
+      </Field>
+    </FieldLabel>
   );
 }

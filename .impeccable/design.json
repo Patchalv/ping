@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-15T12:00:00Z",
+  "title": "Design System: Ping",
+  "extensions": {
+    "colorMeta": {
+      "ink-navy-chrome": { "role": "neutral", "displayName": "Ink Navy Chrome", "canonical": "oklch(0.219 0.043 261.6)", "tonalRamp": ["oklch(0.15 0.03 262)", "oklch(0.219 0.043 261.6)", "oklch(0.3 0.055 262)", "oklch(0.42 0.06 262)", "oklch(0.55 0.055 262)", "oklch(0.68 0.045 262)", "oklch(0.82 0.03 262)", "oklch(0.95 0.012 262)"] },
+      "ink-navy-sidebar": { "role": "neutral", "displayName": "Ink Navy Sidebar", "canonical": "oklch(0.259 0.052 263.1)" },
+      "indigo-primary": { "role": "primary", "displayName": "Ink Indigo", "canonical": "oklch(0.47 0.158 267.4)", "tonalRamp": ["oklch(0.2 0.06 268)", "oklch(0.32 0.11 268)", "oklch(0.47 0.158 267.4)", "oklch(0.56 0.15 268)", "oklch(0.65 0.13 270)", "oklch(0.727 0.114 272.2)", "oklch(0.84 0.07 272)", "oklch(0.95 0.025 272)"] },
+      "ping-pink": { "role": "secondary", "displayName": "Ping Pink", "canonical": "oklch(0.539 0.193 6.5)", "tonalRamp": ["oklch(0.2 0.06 6)", "oklch(0.35 0.13 6)", "oklch(0.539 0.193 6.5)", "oklch(0.62 0.18 4)", "oklch(0.708 0.162 1.5)", "oklch(0.79 0.11 2)", "oklch(0.88 0.06 2)", "oklch(0.96 0.02 2)"] },
+      "saved-green": { "role": "secondary", "displayName": "Saved Green", "canonical": "oklch(0.512 0.129 148.9)", "tonalRamp": ["oklch(0.2 0.05 149)", "oklch(0.35 0.09 149)", "oklch(0.512 0.129 148.9)", "oklch(0.6 0.14 150)", "oklch(0.735 0.142 151.1)", "oklch(0.82 0.1 151)", "oklch(0.9 0.05 151)", "oklch(0.96 0.02 151)"] },
+      "danger-red": { "role": "tertiary", "displayName": "Alarm Red", "canonical": "oklch(0.5 0.182 29.5)", "tonalRamp": ["oklch(0.22 0.07 29)", "oklch(0.36 0.13 29)", "oklch(0.5 0.182 29.5)", "oklch(0.6 0.18 28)", "oklch(0.709 0.17 26.5)", "oklch(0.8 0.1 26)", "oklch(0.9 0.04 25)", "oklch(0.972 0.012 23.7)"] },
+      "feed-mist": { "role": "neutral", "displayName": "Feed Mist", "canonical": "oklch(0.973 0.006 264.5)" },
+      "ink-text": { "role": "neutral", "displayName": "Ink Text", "canonical": "oklch(0.24 0.024 267)" },
+      "slate-muted": { "role": "neutral", "displayName": "Slate Muted", "canonical": "oklch(0.512 0.031 262.2)" }
+    },
+    "typographyMeta": {
+      "page-title": { "displayName": "Page title", "purpose": "Sign-in and not-found headings." },
+      "channel-title": { "displayName": "Channel title", "purpose": "Channel name in the Channel bar, dialog titles." },
+      "body": { "displayName": "Body", "purpose": "Thread and Thread Response text, descriptions." },
+      "control": { "displayName": "Control", "purpose": "Sidebar rows, buttons, inputs, menu items." },
+      "small": { "displayName": "Small", "purpose": "Tabs, section labels, member counts." },
+      "meta": { "displayName": "Meta", "purpose": "Timestamps, tags, badges." }
+    },
+    "shadows": [
+      { "name": "float", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)", "purpose": "Dropdown menus and popovers, with a 1px ring at 5% foreground." },
+      { "name": "modal", "value": "0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1)", "purpose": "Dialogs, over a 50% black backdrop." }
+    ],
+    "motion": [
+      { "name": "popup", "value": "100ms fade and 95% zoom", "purpose": "Menus, dialogs and tooltips opening and closing (tw-animate-css)." }
+    ],
+    "breakpoints": [
+      { "name": "md", "value": "768px", "purpose": "Laptop layout: inset panel, resizable sidebar. Below it the sidebar is the home screen." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action of a form or dialog.",
+      "html": "<button class=\"ds-btn-primary\">Create channel</button>",
+      "css": ".ds-btn-primary { height: 32px; padding: 0 12px; border: 1px solid transparent; border-radius: 10px; background: var(--primary, oklch(0.47 0.158 267.4)); color: var(--primary-foreground, #fff); font: 500 14px/20px 'Figtree Variable', system-ui, sans-serif; cursor: pointer; transition: background 150ms; } .ds-btn-primary:hover { background: color-mix(in oklch, var(--primary, oklch(0.47 0.158 267.4)) 80%, transparent); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.47 0.158 267.4)) 30%, transparent); }"
+    },
+    {
+      "name": "Outline Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Cancel and secondary actions.",
+      "html": "<button class=\"ds-btn-outline\">Cancel</button>",
+      "css": ".ds-btn-outline { height: 32px; padding: 0 12px; border: 1px solid var(--border, oklch(0.911 0.012 259.8)); border-radius: 10px; background: var(--background, #fff); color: var(--foreground, oklch(0.24 0.024 267)); font: 500 14px/20px 'Figtree Variable', system-ui, sans-serif; cursor: pointer; } .ds-btn-outline:hover { background: var(--muted, oklch(0.955 0.008 264.5)); } .ds-btn-outline:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.47 0.158 267.4)) 30%, transparent); }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "A labelled single-line field.",
+      "html": "<label class=\"ds-field\"><span>Name</span><input class=\"ds-input\" placeholder=\"Front desk\"></label>",
+      "css": ".ds-field { display: grid; gap: 8px; font: 500 14px/20px 'Figtree Variable', system-ui, sans-serif; color: var(--foreground, oklch(0.24 0.024 267)); } .ds-input { height: 32px; padding: 4px 10px; border: 1px solid var(--input, oklch(0.82 0.018 260)); border-radius: 10px; background: var(--background, #fff); color: inherit; font: 400 14px/20px 'Figtree Variable', system-ui, sans-serif; box-shadow: 0 1px 2px rgb(0 0 0 / 0.05); } .ds-input:focus-visible { outline: none; border-color: var(--ring, oklch(0.47 0.158 267.4)); box-shadow: 0 0 0 3px color-mix(in oklch, var(--ring, oklch(0.47 0.158 267.4)) 30%, transparent); }"
+    },
+    {
+      "name": "Sidebar",
+      "kind": "nav",
+      "refersTo": "sidebar-item",
+      "description": "Ink navy sidebar with a section label, rows, the current Channel and a Ping count.",
+      "html": "<nav class=\"ds-sidebar\"><div class=\"ds-sidebar-label\">Channels</div><a class=\"ds-sidebar-item\" aria-current=\"page\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 9h16M4 15h16M10 3 8 21M16 3l-2 18\"/></svg>front-desk</a><a class=\"ds-sidebar-item\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 9h16M4 15h16M10 3 8 21M16 3l-2 18\"/></svg>maintenance<span class=\"ds-count\">2</span></a></nav>",
+      "css": ".ds-sidebar { width: 240px; padding: 8px; border-radius: 10px; background: var(--sidebar, oklch(0.259 0.052 263.1)); font-family: 'Figtree Variable', system-ui, sans-serif; } .ds-sidebar-label { height: 28px; display: flex; align-items: center; padding: 0 8px; font: 500 13px/18px inherit; color: var(--sidebar-muted-foreground, oklch(0.729 0.038 261.3)); } .ds-sidebar-item { display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 8px; border-radius: 8px; font: 400 14px/20px 'Figtree Variable', system-ui, sans-serif; color: var(--sidebar-foreground, oklch(0.864 0.025 259.8)); text-decoration: none; cursor: pointer; } .ds-sidebar-item svg { opacity: 0.8; } .ds-sidebar-item:hover { background: var(--sidebar-accent, oklch(0.315 0.058 263.3)); } .ds-sidebar-item[aria-current=page] { background: var(--sidebar-primary, oklch(0.508 0.168 267.9)); color: #fff; } .ds-count { margin-left: auto; min-width: 18px; height: 18px; padding: 0 6px; border-radius: 9999px; display: inline-flex; align-items: center; justify-content: center; background: var(--ping, oklch(0.539 0.193 6.5)); color: var(--ping-foreground, #fff); font: 700 12px/16px 'Figtree Variable', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Tag",
+      "kind": "chip",
+      "refersTo": "tag",
+      "description": "A quiet pill label such as Private.",
+      "html": "<span class=\"ds-tag\"><svg width=\"12\" height=\"12\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><rect x=\"3\" y=\"11\" width=\"18\" height=\"11\" rx=\"2\"/><path d=\"M7 11V7a5 5 0 0 1 10 0v4\"/></svg>Private</span>",
+      "css": ".ds-tag { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 2px 8px; border: 1px solid var(--border, oklch(0.911 0.012 259.8)); border-radius: 9999px; color: var(--muted-foreground, oklch(0.512 0.031 262.2)); font: 500 12px/16px 'Figtree Variable', system-ui, sans-serif; }"
+    },
+    {
+      "name": "Form Error",
+      "kind": "custom",
+      "refersTo": "button-destructive",
+      "description": "A failure no single field explains.",
+      "html": "<p class=\"ds-form-error\">Can’t reach Ping. Try again.</p>",
+      "css": ".ds-form-error { margin: 0; padding: 8px 12px; border-radius: 8px; background: var(--destructive-surface, oklch(0.972 0.012 23.7)); color: var(--destructive, oklch(0.5 0.182 29.5)); font: 400 14px/20px 'Figtree Variable', system-ui, sans-serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Control Room",
+    "overview": "Ping is where Spark's staff spend their working day clearing Pings and following Threads, so the room has to stay calm for eight hours. A steady ink navy frame (top bar and sidebar) holds a bright work surface: a white panel inset on the chrome on a laptop, over a cool, navy-tinted grey feed. Nothing in the frame competes for attention. Colour appears only where something needs a person: a pink Ping count, a green Saved marker, an indigo action.",
+    "keyCharacteristics": [
+      "Ink navy chrome around a bright, inset work surface.",
+      "Colour is a signal, never decoration: indigo acts, pink needs you, green is Saved, red is danger.",
+      "Compact density with soft, friendly shapes.",
+      "Flat surfaces separated by tone; shadows only on things that float.",
+      "Every text pair meets WCAG AA, in both themes."
+    ],
+    "rules": [
+      { "name": "The Signal Rule", "body": "Pink, green, indigo and red each mean one thing. Never use Ping Pink for decoration, a brand moment or an error, and never use a signal colour as a large fill.", "section": "colors" },
+      { "name": "The Tinted Neutral Rule", "body": "Greys lean toward the navy hue (about 260 in OKLCH, low chroma). Don't introduce a pure grey or a warm stone.", "section": "colors" },
+      { "name": "The Six Sizes Rule", "body": "Use only the six steps (text-xs, text-small, text-sm, text-base, text-lg, text-xl). The one exception is the Ping wordmark on the sign-in page.", "section": "typography" },
+      { "name": "The 16px Field Rule", "body": "On a phone, inputs and textareas render at 16px so iOS doesn't zoom on focus. They drop to 14px from the md breakpoint.", "section": "typography" },
+      { "name": "The Flat-By-Default Rule", "body": "Thread rows, the Channel bar and the inset panel have no shadow. Use a Hairline border or a tone step instead.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do build from apps/web/src/components/ui and the tokens in apps/web/src/index.css. Add a missing piece with pnpm dlx shadcn@4.23.0 add <name> from apps/web, then adapt it to these rules.",
+      "Do use semantic utilities (bg-primary, text-muted-foreground, bg-ping, text-saved, bg-sidebar), never raw colours like bg-blue-500.",
+      "Do check every new text pair for 4.5:1 contrast in both themes, and check new screens at laptop and phone width.",
+      "Do compose: compound components and explicit variants, children over render props (.claude/skills/vercel-composition-patterns).",
+      "Do use lucide-react icons at 16px, decorative (aria-hidden), with the meaning in text or an accessible name."
+    ],
+    "donts": [
+      "Don't add per-feature CSS files or @apply in components. index.css holds tokens and base styles only.",
+      "Don't use Ping Pink, Saved Green or Alarm Red for anything but their one meaning (The Signal Rule).",
+      "Don't add shadows to in-flow surfaces like Thread rows or the Channel bar (The Flat-By-Default Rule).",
+      "Don't add a boolean prop that switches a component's mode. Make an explicit variant or a separate component.",
+      "Don't load fonts, icons or scripts from a CDN: the CSP allows only this origin, and no Staff member's data goes to a third party.",
+      "Don't use gradients, glows, blur or purple-to-pink decoration."
+    ]
+  }
+}

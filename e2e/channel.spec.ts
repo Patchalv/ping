@@ -45,7 +45,8 @@ test('a Staff member creates a Private channel and lands in it', async ({ page }
   const dialog = page.getByRole('dialog', { name: 'Create a Channel' });
   await dialog.getByLabel('Name').fill(name);
   await dialog.getByLabel('Description').fill('Next term’s plans.');
-  await dialog.getByLabel(/^Private/).check();
+  // By role: Base UI's radio is a span with role="radio", backed by a hidden native input.
+  await dialog.getByRole('radio', { name: /^Private/ }).check();
   await dialog.getByRole('button', { name: 'Create channel' }).click();
 
   const bar = page.getByRole('region', { name: 'Channel' });

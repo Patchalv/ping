@@ -52,6 +52,12 @@ There are no secrets to set up locally. `.env.example` lists every environment v
 | `pnpm build` | Builds the React app into `apps/web/dist`. | Before `pnpm start`. |
 | `pnpm start` | Starts Hono alone on 3000. It serves the built app, its assets and the API from one process, the way the production container does. Nothing reloads. | You want to check the production shape: the built app loads, a refresh on a deep link like `/channels/123` still loads the app, and `/api/*` never returns the page. |
 
+To add a shadcn/ui component to the web app, run this from `apps/web`, then lint the new file (see `DESIGN.md` and ADR 0007):
+
+```bash
+pnpm dlx shadcn@4.23.0 add <component>
+```
+
 `pnpm start` without a build serves `/healthz` only. Rebuild after every change you want to see there.
 
 `pnpm start` runs with `NODE_ENV=production`, so it refuses to start without `DATABASE_URL`, `SYSTEM_DATABASE_URL`, `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Locally, copy the values from `.env.example` into `.env.local` and set `BETTER_AUTH_URL=http://localhost:3000`. `pnpm test:e2e` sets its own.
@@ -117,6 +123,7 @@ apps/
     src/lib/       typed errors, validation and live updates
     src/test/      guards and harnesses: RLS suite, catalog guard, permission matrix
   web/             Vite + React SPA; talks to the server only through the typed hc client
+    src/components/ui/  shadcn/ui components on Base UI (see DESIGN.md)
 packages/
   shared/          zod schemas and types used by both apps; never imports server code
 e2e/               Playwright smoke journeys
@@ -124,6 +131,7 @@ scripts/           check:terms, the @ts-expect-error check and the memory load s
 docs/spec/         the MVP spec
 docs/deploy-runbook.md  accounts, secrets, DNS and deploys for staging and prod
 docs/adr/          architecture decisions
+DESIGN.md          the visual design system: colours, type, layout, components
 .claude/           Claude Code settings, hooks and path-scoped rules
 .github/           CI, deploy and promote workflows, PR template, master ruleset
 compose.yaml       local Postgres, PgBouncer and MinIO

@@ -9,8 +9,11 @@ Product principles behind the layout: clearing Pings and working through Saved o
 ### Top bar
 
 - Dark, across the full width.
+- A button on the left hides or shows the sidebar (also ⌘B or Ctrl+B, except while typing in a text field).
 - The search bar sits in the centre (see [Search](#search)).
-- The Staff member's avatar sits on the right. It opens their profile (display name and email), sign-out, and for Admins the Admin screens.
+- The Staff member's avatar sits on the right. It opens their profile (display name and email), the theme (System, Light or Dark, kept in this browser), sign-out, and for Admins the Admin screens.
+
+The main area is a white panel inset on the dark chrome, with rounded corners. `DESIGN.md` has the visual system.
 
 ### Sidebar
 
@@ -27,6 +30,7 @@ Rules:
 - A Private channel shows a lock icon.
 - Sections are personal: you create, name, reorder and collapse your own, and nobody else sees them. A collapsed Section still shows any of its Channels that have Pings.
 - Channels move between Sections by drag and drop, or with the Section picker in the Channel bar. Channels you haven't placed, including ones you've just joined, sit in the default Channels section.
+- The Staff member can drag the sidebar's right edge to make it wider or narrower (200 to 420px), or focus the edge and use the arrow keys. The width is kept in this browser.
 
 ### Channel view
 
@@ -56,7 +60,7 @@ The **Members** tab lists members, marks Channel admins, and shows Deactivated m
 
 ### Thread view
 
-- Opens as a side panel on the right of the Channel view.
+- Opens as a side panel on the right of the Channel view. The Staff member can resize it like the sidebar, by dragging its edge or with the arrow keys, and the width is kept in this browser.
 - Its header holds the Acknowledge buttons (mark read, react, Save) and Resolve or reopen when allowed.
 - Then the Thread itself, its Thread Responses, a "N new" divider above the Thread Responses that are new since you last Acknowledged, and the composer at the bottom.
 - Opening a Thread never clears its Ping.

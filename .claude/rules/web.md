@@ -5,7 +5,7 @@ paths:
 
 # Touching the web app
 
-Follow `docs/conventions.md` › The web app, and copy the structure (not the look) of `apps/web/src/features/channel/`. Never miss these:
+Follow `docs/conventions.md` › The web app, and copy the structure of `apps/web/src/features/channel/`. The look comes from `DESIGN.md`: build from `src/components/ui/` and the tokens in `src/index.css`. Never miss these:
 
 - Server data only through TanStack Query hooks in the feature's `api.ts`; components never call `hc`. Navigation through TanStack Router in `router.tsx`.
 - No `useEffect` except to sync with something outside React, with the reason in the disable comment. No global store or data in context without an ADR.
