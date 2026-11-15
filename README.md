@@ -112,6 +112,9 @@ apps/
   server/          Hono app: /healthz, Better Auth, the API, serves the built SPA
     src/db/        the only place that opens database connections; schema and migrations
     src/system-actions/  the only user of the ping_system pool and of system functions
+    src/permissions/  the permissions module: who can do what
+    src/features/  the API, one folder per feature (copy features/channel/)
+    src/lib/       typed errors, validation and live updates
     src/test/      guards and harnesses: RLS suite, catalog guard, permission matrix
   web/             Vite + React SPA; talks to the server only through the typed hc client
 packages/
@@ -179,3 +182,4 @@ docker build -t ping .
 - `GLOSSARY.md`: the domain language.
 - `docs/spec/`: what Ping does, its screens, data model, permissions, platform and testing strategy.
 - `docs/adr/`: why the stack and permission model look the way they do.
+- `docs/conventions.md`: how code is written, and which tool checks each rule.

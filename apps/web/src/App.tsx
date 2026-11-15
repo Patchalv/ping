@@ -1,70 +1,54 @@
-import { useEffect, useState } from 'react';
+import { QueryClientProvider, useQuery } from '@tanstack/react-query';
+import { RouterProvider } from '@tanstack/react-router';
+import { useState } from 'react';
 import { api } from './lib/api';
+import { call } from './lib/api-client';
 import { authClient } from './lib/auth-client';
+import { createQueryClient } from './lib/query-client';
+import { createAppRouter } from './router';
 import { SignIn } from './SignIn';
 
-function useServerReachable(): boolean {
-  const [reachable, setReachable] = useState(true);
-  useEffect(() => {
-    api.healthz
-      .$get()
-      .then((res) => setReachable(res.ok))
-      .catch(() => setReachable(false));
-  }, []);
-  return reachable;
-}
+const router = createAppRouter();
+
+// The client for what anyone may ask before signing in: only whether the server answers.
+const publicQueryClient = createQueryClient(() => undefined);
 
 export function App() {
-  const reachable = useServerReachable();
-  const { data: session, isPending } = authClient.useSession();
-
+  const { data: session, isPending, refetch } = authClient.useSession();
   return (
-    <>
-      {!reachable && (
-        <p className="banner" role="alert">
-          Can’t reach the Ping server. Check your connection, then reload.
-        </p>
+    <QueryClientProvider client={publicQueryClient}>
+      <ServerUnreachableBanner />
+      {isPending ? null : session ? (
+        // Keyed by Staff member: a new person gets a new, empty cache.
+        <SignedIn key={session.user.id} onUnauthenticated={() => void refetch()} />
+      ) : (
+        <SignIn />
       )}
-      {isPending ? null : session ? <SignedIn name={session.user.name} /> : <SignIn />}
-    </>
+    </QueryClientProvider>
   );
 }
 
-/** Placeholder until the inbox exists. */
-function SignedIn({ name }: { name: string }) {
-  const [signingOut, setSigningOut] = useState(false);
-  const [signOutFailed, setSignOutFailed] = useState(false);
-
-  async function signOut() {
-    setSigningOut(true);
-    setSignOutFailed(false);
-    const { error } = await authClient.signOut();
-    setSigningOut(false);
-    if (error) setSignOutFailed(true);
-  }
-
+/**
+ * The signed-in app, with its own QueryClient (ADR 0006). A 401 from any call refetches
+ * the session, which then finds none, so App falls back to sign-in.
+ */
+function SignedIn({ onUnauthenticated }: { onUnauthenticated(): void }) {
+  const [queryClient] = useState(() => createQueryClient(onUnauthenticated));
   return (
-    <main className="home">
-      <header className="home__bar">
-        <span className="home__brand">Ping</span>
-        <button
-          className="button"
-          type="button"
-          onClick={() => void signOut()}
-          disabled={signingOut}
-        >
-          Sign out
-        </button>
-      </header>
-      <section className="home__body">
-        <h1 className="home__greeting">Signed in as {name}</h1>
-        <p className="home__note">Channels, Threads and Pings arrive in the next slices.</p>
-        {signOutFailed && (
-          <p className="sign-in__error" role="alert">
-            Signing out didn’t work. Try again.
-          </p>
-        )}
-      </section>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <RouterProvider router={router} />
+    </QueryClientProvider>
   );
+}
+
+function ServerUnreachableBanner() {
+  const healthz = useQuery({
+    queryKey: ['healthz'],
+    queryFn: () => call(() => api.healthz.$get()),
+  });
+  return healthz.isError ? (
+    <p className="banner" role="alert">
+      Can’t reach the Ping server. Check your connection, then reload.
+    </p>
+  ) : null;
 }

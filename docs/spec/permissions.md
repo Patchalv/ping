@@ -124,8 +124,9 @@ Every one of Ping's tables has RLS enabled and forced, with an explicit policy. 
 
 | Table | `ping_app` policy |
 | --- | --- |
-| `channel`, `thread`, `thread_response`, `reaction`, `mention`, `attachment` (once attached) | **The visibility rule:** a row is visible when its Channel is Public or the current Staff member is a member of it. No Admin exception. Applied `FOR ALL`. |
-| `channel_member` | The visibility rule, through the membership helper function (see [data-model.md](data-model.md#channels)). |
+| `channel` | **The visibility rule**, read only: a Channel is visible when it is Public or the current Staff member is a member of it. No Admin exception. `ping_app` has no INSERT, UPDATE or DELETE grant: `create_channel` is the only way to create one, Channels are never deleted, and the settings slice adds a column-limited UPDATE. |
+| `thread`, `thread_response`, `reaction`, `mention`, `attachment` (once attached) | **The visibility rule:** a row is visible when its Channel is Public or the current Staff member is a member of it. No Admin exception. Applied `FOR ALL`. |
+| `channel_member` | Read: the visibility rule. Insert: your own row, not as Channel admin, in a Public channel (joining), or any row in a Channel you are Channel admin of. Update: Channel admins of that Channel only. Delete: your own row (leaving), or any row in a Channel you are Channel admin of. No Admin exception. The finer rules, such as the last Channel admin not leaving, stay in the permissions module ([ADR 0005](../adr/0005-channel-membership-write-policy.md)). |
 | `attachment` while pending | Its uploader only. |
 | `ping` | Read and delete: the owner's own rows in Channels they can read. Insert and update: none (only the fan-out function). |
 | `saved_thread`, `mute` | Read, insert and delete: the owner's own rows in Channels they can read. Update: none. Clean-up of other people's rows runs through the clean-up function. |
@@ -137,7 +138,9 @@ Every one of Ping's tables has RLS enabled and forced, with an explicit policy. 
 
 Search runs through the same policies.
 
-The visibility rule guards reads, which is what the backstop is for. Write rules (who may edit, delete or resolve) live in the server's permissions module. The one write the rule would wrongly block, creating a Private channel, goes through `create_channel`.
+The visibility rule guards reads, which is what the backstop is for. Most write rules (who may edit, delete or resolve) live only in the server's permissions module. Two writes are guarded in the database too, because a mistake there would hand out access: creating a Channel goes through `create_channel` (`channel` is read-only for `ping_app`), and membership writes have their own `channel_member` policies, so nobody can make themself Channel admin or remove others with raw SQL.
+
+Policies never ask "is the current Staff member a member of this row's Channel?" once per row. They call set-returning helpers (`current_staff_channel_ids()`, `current_staff_admin_channel_ids()`) as `channel_id = ANY (ARRAY(SELECT …))`, which Postgres runs once per statement. Threads, Thread Responses and search copy this. A test reads the query plan to prove it.
 
 ### Belt and braces
 

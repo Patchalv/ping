@@ -6,10 +6,10 @@ import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
 import { haveIBeenPwned } from 'better-auth/plugins';
-import { eq, sql } from 'drizzle-orm';
 import type { ServerConfig } from '../config';
 import { type Database, schema } from '../db';
 import { CLIENT_IP_HEADERS, clientIp } from './client-ip';
+import { findStaffForSignIn, findUserIdByEmail, insertAuditEvent } from './queries';
 
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
@@ -62,13 +62,9 @@ export function createAuth(database: Database, config: ServerConfig['auth']) {
           // staff_member row. Runs after the password has been checked, as that Staff
           // member, so the read goes through the staff_member policy.
           before: async (session) => {
-            const rows = await database.withStaffTx(session.userId, (tx) =>
-              tx
-                .select({ deactivatedAt: schema.staffMember.deactivatedAt })
-                .from(schema.staffMember)
-                .where(eq(schema.staffMember.id, session.userId)),
+            const staff = await database.withStaffTx(session.userId, (tx) =>
+              findStaffForSignIn(tx, session.userId),
             );
-            const staff = rows[0];
             if (!staff || staff.deactivatedAt) {
               throw new APIError('FORBIDDEN', {
                 code: DEACTIVATED_CODE,
@@ -90,7 +86,7 @@ export function createAuth(database: Database, config: ServerConfig['auth']) {
         if (newSession && !isAPIError(ctx.context.returned)) {
           const staffId = newSession.user.id;
           await database.withStaffTx(staffId, (tx) =>
-            tx.insert(schema.auditEvent).values({
+            insertAuditEvent(tx, {
               actorId: staffId,
               kind: 'sign_in_succeeded',
               targetStaffId: staffId,
@@ -102,16 +98,11 @@ export function createAuth(database: Database, config: ServerConfig['auth']) {
 
         // Failed: record the matched Staff member's ID when there is one. Never the email.
         const email = typeof ctx.body?.email === 'string' ? ctx.body.email : '';
-        const matched = email
-          ? await database.authDb
-              .select({ id: schema.user.id })
-              .from(schema.user)
-              .where(sql`lower(${schema.user.email}) = lower(${email})`)
-          : [];
+        const matchedId = email ? await findUserIdByEmail(database.authDb, email) : undefined;
         await database.withAnonymousTx((tx) =>
-          tx.insert(schema.auditEvent).values({
+          insertAuditEvent(tx, {
             kind: 'sign_in_failed',
-            targetStaffId: matched[0]?.id ?? null,
+            targetStaffId: matchedId ?? null,
             ipAddress: ip,
           }),
         );

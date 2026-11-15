@@ -1,31 +1,43 @@
 import { expect } from 'vitest';
-import { databaseSnapshot } from '../../db/test-support';
+import { createStaffMember, databaseSnapshot, insertChannel } from '../../db/test-support';
 import { jsonHeaders, type TestApp } from '../test-app';
-import { createActor } from './actors';
+import { CHANNEL_ROLE, createActor } from './actors';
 import type { ChannelKind, MatrixRow, RowContext } from './matrix';
 
 /**
  * Creates the row's Channel and the actor's relationship to it (author, Channel admin,
- * member, or none). The first Channel slice supplies it.
+ * member, or none).
  */
-export type ChannelFixtures = (
+type ChannelFixtures = (
   kind: ChannelKind,
   ctx: Omit<RowContext, 'channel'>,
 ) => Promise<{ id: string }>;
 
-const noChannelFixturesYet: ChannelFixtures = () => {
-  throw new Error('Channel fixtures arrive with the first Channel slice (#31).');
+/**
+ * The standard Channel fixtures. Every Channel has a Channel admin: the actor, when they
+ * are the Channel admin, or else a fresh Staff member. An Archived channel is Public.
+ */
+const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
+  const role = CHANNEL_ROLE[actor.kind];
+  const members =
+    role === 'channelAdmin'
+      ? [{ staffId: actor.staff.id, channelAdmin: true }]
+      : [
+          { staffId: (await createStaffMember()).id, channelAdmin: true },
+          ...(role === 'member' ? [{ staffId: actor.staff.id }] : []),
+        ];
+  return insertChannel({
+    visibility: kind === 'private' ? 'private' : 'public',
+    archived: kind === 'archived',
+    members,
+  });
 };
 
 /**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
  */
-export async function runRow(
-  testApp: TestApp,
-  row: MatrixRow,
-  channelFixtures: ChannelFixtures = noChannelFixturesYet,
-): Promise<void> {
+export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
   const request = row.request({ actor, channel });

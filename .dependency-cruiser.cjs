@@ -39,6 +39,37 @@ module.exports = {
       to: { path: '^apps/server/', dependencyTypesNot: ['type-only'] },
     },
     {
+      name: 'no-cross-feature-server',
+      comment:
+        'A server feature never imports another feature. Share through permissions/, lib/ or packages/shared.',
+      severity: 'error',
+      from: { path: '^apps/server/src/features/([^/]+)/' },
+      to: { path: '^apps/server/src/features/', pathNot: '^apps/server/src/features/$1/' },
+    },
+    {
+      name: 'no-cross-feature-web',
+      comment: 'A web feature never imports another feature. Share through components/ or lib/.',
+      severity: 'error',
+      from: { path: '^apps/web/src/features/([^/]+)/' },
+      to: { path: '^apps/web/src/features/', pathNot: '^apps/web/src/features/$1/' },
+    },
+    {
+      name: 'drizzle-only-in-queries',
+      comment:
+        'Queries live in queries.ts files, db/ and system-actions/. Routes and everything else call those.',
+      severity: 'error',
+      from: {
+        path: '^apps/server/src/',
+        pathNot: [
+          '^apps/server/src/db/',
+          '^apps/server/src/system-actions/',
+          '/queries\\.ts$',
+          '\\.test\\.ts$',
+        ],
+      },
+      to: { path: '(^|node_modules/)drizzle-orm(/|$)' },
+    },
+    {
       name: 'shared-never-imports-server',
       comment: 'packages/shared is imported by both apps, so it must never depend on server code.',
       severity: 'error',

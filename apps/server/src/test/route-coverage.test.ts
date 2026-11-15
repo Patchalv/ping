@@ -13,12 +13,13 @@ import { uncoveredRoutes } from './route-coverage';
 function realApp() {
   const webDistDir = mkdtempSync(join(tmpdir(), 'ping-route-coverage-'));
   writeFileSync(join(webDistDir, 'index.html'), '<!doctype html><title>Ping</title>');
-  const auth = createAuth(createDatabase('postgres://nobody@localhost:1/none'), {
+  const database = createDatabase('postgres://nobody@localhost:1/none');
+  const auth = createAuth(database, {
     secret: 'route-coverage-test-secret-not-used',
     baseUrl: 'http://localhost:3000',
     trustedOrigins: ['http://localhost:3000'],
   });
-  return createApp({ auth, webDistDir });
+  return createApp({ auth, database, trustedOrigins: ['http://localhost:3000'], webDistDir });
 }
 
 describe('route-coverage guard', () => {
@@ -28,23 +29,25 @@ describe('route-coverage guard', () => {
 
   it('fails on a route with no matrix entry', () => {
     const app = realApp();
-    app.post('/api/channels', (c) => c.json({}));
-    expect(uncoveredRoutes(app.routes, coveredRoutes())).toEqual(['POST /api/channels']);
+    app.post('/api/test-only/example', (c) => c.json({}));
+    expect(uncoveredRoutes(app.routes, coveredRoutes())).toEqual(['POST /api/test-only/example']);
   });
 
   it('passes a route once the matrix covers it', () => {
     const app = realApp();
-    app.post('/api/channels', (c) => c.json({}));
-    expect(uncoveredRoutes(app.routes, new Set(['POST /api/channels']))).toEqual([]);
+    app.post('/api/test-only/example', (c) => c.json({}));
+    expect(
+      uncoveredRoutes(app.routes, new Set([...coveredRoutes(), 'POST /api/test-only/example'])),
+    ).toEqual([]);
   });
 
   it('checks each method of a path apart', () => {
     const app = realApp();
-    app.get('/api/channels', (c) => c.json({}));
-    app.post('/api/channels', (c) => c.json({}));
-    expect(uncoveredRoutes(app.routes, new Set(['GET /api/channels']))).toEqual([
-      'POST /api/channels',
-    ]);
+    app.get('/api/test-only/example', (c) => c.json({}));
+    app.post('/api/test-only/example', (c) => c.json({}));
+    expect(
+      uncoveredRoutes(app.routes, new Set([...coveredRoutes(), 'GET /api/test-only/example'])),
+    ).toEqual(['POST /api/test-only/example']);
   });
 
   it('fails on a handler registered for every method', () => {

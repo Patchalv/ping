@@ -10,6 +10,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `OBS_REVERSE_ENGINEERING.md`: read-only notes on how TECS Obs works, with each claim tagged Observed, Inferred or Unknown. Treat it as background research, not a spec. Its Spanish/Obs vocabulary (observación, seguimiento, responsable, recado) must not leak into Ping's code or docs.
 - `docs/spec/`: the MVP spec (product, screens, data model, permissions, platform, testing, go-live).
 - `docs/adr/`: architecture decisions, created as they are made.
+- `docs/conventions.md`: how code is written, which tool checks each rule, and the exemplar to copy (`apps/server/src/features/channel/`). Read it before writing code.
 
 ## Commands
 
