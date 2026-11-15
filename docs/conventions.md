@@ -160,6 +160,17 @@ The structure ([ADR 0006](adr/0006-web-data-and-routing.md)):
 | A 404 from the API shows "not found", the same for a missing Channel and a hidden one | Playwright |
 | No React component tests. Unit-test pure helpers and routes; Playwright covers the journeys | review only |
 
+Forms ([ADR 0008](adr/0008-forms-on-tanstack-form.md)). Copy `features/channel/CreateChannelDialog.tsx` (with a server call) or `SignIn.tsx` (with one form-level error):
+
+| Rule | Checked by |
+| --- | --- |
+| **Every form** uses `useAppForm` from `#/components/form` with a `formId`, and builds from `form.Form`, the bound fields (`field.TextField`, `field.TextareaField`, `field.RadioGroupField`) and `form.SubmitButton`. Never wire `aria-invalid`, `aria-describedby` or `FieldError` by hand: a new kind of control gets a bound field in `components/form.tsx` built on `useFieldWiring()` | review only |
+| **Validation:** the schema from `packages/shared`, passed straight in: `validationLogic: revalidateLogic()` and `validators: { onDynamic: schema }`. It checks on submit, then on every change after a failed submit. Never copy a rule into the web app | review only |
+| **Server failures:** `onSubmit` awaits the mutation (`mutateAsync`) and catches the `ApiError`. `showServerIssues(formApi, error.issues)` puts field issues on their fields; when none land, the message goes in local state and shows as `FormError`. Never put a form-level failure in the form's error map: it blocks the retry | Playwright (`e2e/channel.spec.ts`) |
+| **Focus and keyboard:** on a failed submit, focus moves to the first field with an error. A custom control (the TipTap editor) puts the wiring's id, `data-field` and aria attributes on the element that takes focus | Playwright |
+| **The submit button** is disabled only while submitting, never for being invalid | Playwright |
+| **Drafts** are restored once, as `defaultValues` through a lazy `useState`, and saved from the form's `listeners.onChange`, debounced, never from an effect. Each key starts `ping:draft:<staffMemberId>:`, an empty form removes its draft, and signing out clears them | review only |
+
 ## Names
 
 | Rule | Checked by |
