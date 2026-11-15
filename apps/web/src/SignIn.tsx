@@ -19,10 +19,7 @@ export function SignIn() {
     validators: { onDynamic: signInBody },
     onSubmit: async ({ value }) => {
       setError(null);
-      const { error: refused } = await authClient.signIn.email({
-        email: value.email.trim(),
-        password: value.password,
-      });
+      const { error: refused } = await authClient.signIn.email(signInBody.parse(value));
       if (refused) setError(signInErrorMessage(refused));
     },
   });

@@ -113,12 +113,15 @@ function TextareaField({ label, ...props }: TextareaControlProps & { label: Reac
 
 /** A set of radio choices. Its children are the RadioGroupItems, laid out as the form needs. */
 function RadioGroupField({ legend, children }: { legend: ReactNode; children: ReactNode }) {
-  const { field, controlProps, errorNode, change } = useFieldWiring<string>();
+  const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<string>();
   return (
-    <FieldSet data-invalid={controlProps['aria-invalid']}>
-      <FieldLegend variant="label">{legend}</FieldLegend>
+    <FieldSet {...fieldProps}>
+      <FieldLegend id={`${id}-legend`} variant="label">
+        {legend}
+      </FieldLegend>
       <RadioGroup
         {...controlProps}
+        aria-labelledby={`${id}-legend`}
         name={field.name}
         value={field.state.value}
         onValueChange={(value) => change(String(value))}
@@ -200,8 +203,9 @@ export const { useAppForm } = createFormHook({
 
 /**
  * Puts the server's field issues (ApiError.issues) on their fields. Call it from the form's
- * onSubmit when the mutation fails; the Form then focuses the first one. Returns whether any
- * landed, so the caller knows whether a form-level message is still needed.
+ * onSubmit when the mutation fails; the Form then focuses the first one. Returns whether every
+ * issue landed on a field. When not (no issues, or one for a path the form has no field
+ * for), the caller still shows the error's message as a form-level failure.
  */
 export function showServerIssues(form: AnyFormApi, issues: readonly FieldIssue[]): boolean {
   const errors = serverFieldErrors(issues, Object.keys(form.fieldInfo));
@@ -211,5 +215,5 @@ export function showServerIssues(form: AnyFormApi, issues: readonly FieldIssue[]
       errorMap: { ...meta.errorMap, onServer: message },
     }));
   }
-  return Object.keys(errors).length > 0;
+  return issues.length > 0 && issues.every((issue) => issue.path in errors);
 }

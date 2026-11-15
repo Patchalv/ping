@@ -53,10 +53,12 @@ export function CreateChannelDialog({ onClose, onCreated }: Props) {
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
       try {
-        onCreated(await create.mutateAsync(value));
+        // value is the form's input; the schema's output is what gets sent (trimmed).
+        onCreated(await create.mutateAsync(createChannelBody.parse(value)));
       } catch (error) {
-        const failure = error instanceof ApiError ? error : new ApiError(0, String(error));
-        if (!showServerIssues(formApi, failure.issues)) setFormError(failure.message);
+        // call() turns every failure into an ApiError; anything else is a bug, for Sentry.
+        if (!(error instanceof ApiError)) throw error;
+        if (!showServerIssues(formApi, error.issues)) setFormError(error.message);
       }
     },
   });
