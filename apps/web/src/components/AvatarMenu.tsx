@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Avatar, AvatarFallback } from '#/components/ui/avatar';
 import {
   DropdownMenu,
@@ -26,8 +26,11 @@ const initials = (name: string) =>
 /** The signed-in Staff member, as Better Auth's session gives it. */
 export type User = { name: string; email: string };
 
-/** The avatar on the right of the top bar: who's signed in, the theme, and sign-out. */
-export function AvatarMenu({ user }: { user: User }) {
+/**
+ * The avatar on the right of the top bar: who's signed in, any links passed as children
+ * (the Admin screens), the theme, and sign-out.
+ */
+export function AvatarMenu({ user, children }: { user: User; children?: ReactNode }) {
   const theme = useThemeChoice();
   const [signingOut, setSigningOut] = useState(false);
   const [signOutFailed, setSignOutFailed] = useState(false);
@@ -60,6 +63,12 @@ export function AvatarMenu({ user }: { user: User }) {
           </DropdownMenuLabel>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
+        {children ? (
+          <>
+            <DropdownMenuGroup>{children}</DropdownMenuGroup>
+            <DropdownMenuSeparator />
+          </>
+        ) : null}
         <DropdownMenuGroup>
           <DropdownMenuLabel>Theme</DropdownMenuLabel>
           <DropdownMenuRadioGroup

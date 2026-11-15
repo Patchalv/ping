@@ -70,6 +70,7 @@ pnpm dlx shadcn@4.23.0 add <component>
 | `pnpm db:down` | Stops them and removes the containers (`docker compose down`). The data volumes stay, so the next `db:up` starts where you left off. |
 | `pnpm db:migrate` | Applies the migrations as the owner role and sets the local passwords of the `ping_app` and `ping_system` roles. |
 | `pnpm db:seed` | Runs `db:migrate`, then loads fake Staff members: one Admin, three Members and one Deactivated. They all use the password `ping-local-dev-password`. Safe to run again. |
+| `pnpm --filter @ping/server exec tsx src/db/cli/bootstrap-admin.ts --email <email> --name <name>` | Invites the first Admin and sends the invite email (locally, printed to the server log). Refuses if any Admin exists. In prod it runs once through `fly ssh console` (docs/deploy-runbook.md). |
 
 `pnpm dev`, the integration tests, Playwright and Claude Code's Stop gate all need them running.
 
@@ -154,6 +155,9 @@ fly.prod.toml      prod's Fly config (fly.staging.toml for staging)
 | `BETTER_AUTH_TRUSTED_ORIGINS` | the auth URL plus ports 5173 and 3000 | Origins allowed to call the auth routes, comma-separated. |
 | `SENTRY_DSN` | unset (Sentry off) | Sentry's EU-region DSN, for the server and the SPA. Any other region is refused. |
 | `SENTRY_ENVIRONMENT` | unset | `production` or `staging`. Required when `SENTRY_DSN` is set. |
+| `PING_ENVIRONMENT` | `local` | `production`, `staging` or `local`. Required in production. On staging, email subjects start with `[Staging]` and only `EMAIL_ALLOWLIST` is sent to. |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | unset; port 587 | Any SMTP provider (Brevo in staging and prod). Set all or none. Without them, local development prints each email (with its link) to the server log, and production or staging marks every invite "Email not sent". |
+| `EMAIL_ALLOWLIST` | empty | Staging only: the addresses it may email, comma-separated. Anything else is logged, without the address, and not sent. |
 
 Set these in your shell, for example `PORT=4000 pnpm start`, or in a gitignored `.env.local` at the repo root, which the server and the db scripts load. Shell variables win. With `NODE_ENV=production` (as `pnpm start` sets) the server refuses to start without the required ones. `.env` and `.env.*` are gitignored, except `.env.example`.
 

@@ -3,9 +3,10 @@
 // screen, and any other route replaces it.
 import type { SidebarChannel } from '@ping/shared';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { HashIcon, LockIcon, PlusIcon, SearchIcon } from 'lucide-react';
+import { HashIcon, LockIcon, PlusIcon, SearchIcon, UsersIcon } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
+import { DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
 import { Input } from '#/components/ui/input';
 import {
   Sidebar,
@@ -23,18 +24,32 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
+import { useCurrentStaffMember } from '../features/staff/api';
 import { authClient } from '../lib/auth-client';
 import { AvatarMenu } from './AvatarMenu';
 
 export function AppShell() {
   const { data: session } = authClient.useSession();
+  // Only to hide the Admin screens' link; the server decides who may use them.
+  const me = useCurrentStaffMember();
   const navigate = useNavigate();
   const isHome = useRouterState({ select: (state) => state.location.pathname === '/' });
   const [creating, setCreating] = useState(false);
 
   return (
     <SidebarProvider className="grid h-dvh grid-rows-[auto_minmax(0,1fr)] bg-chrome">
-      <TopBar>{session ? <AvatarMenu user={session.user} /> : null}</TopBar>
+      <TopBar>
+        {session ? (
+          <AvatarMenu user={session.user}>
+            {me.data?.role === 'admin' ? (
+              <DropdownMenuLinkItem render={<Link to="/staff" />}>
+                <UsersIcon aria-hidden="true" />
+                Staff members
+              </DropdownMenuLinkItem>
+            ) : null}
+          </AvatarMenu>
+        ) : null}
+      </TopBar>
 
       <div className="flex min-h-0">
         <Sidebar className={isHome ? undefined : 'max-md:hidden'}>

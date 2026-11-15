@@ -110,7 +110,7 @@ describe('POST /api/staff/invites', () => {
     expect(rows.staff).toEqual({ role: 'member', invited_by: admin.id, joined_at: null });
     expect(rows.invite?.created_by).toBe(admin.id);
     expect(rows.invite?.email_failed_at).toBeNull();
-    const days = (rows.invite!.expires_at.getTime() - Date.now()) / 86_400_000;
+    const days = ((rows.invite?.expires_at.getTime() ?? 0) - Date.now()) / 86_400_000;
     expect(days).toBeGreaterThan(6.99);
     expect(days).toBeLessThanOrEqual(7);
     expect(rows.audit).toEqual([{ kind: 'staff_invited', actor_id: admin.id }]);
@@ -257,7 +257,7 @@ describe('POST /api/staff/:staffId/invite/resend', () => {
     expect(after.invite?.token_hash).toBe(hashInviteToken(token));
     expect(after.invite?.token_hash).not.toBe(before.invite?.token_hash);
     expect(after.invite?.email_failed_at).toBeNull();
-    expect(after.invite!.expires_at.getTime()).toBeGreaterThan(Date.now() + 6.99 * 86_400_000);
+    expect(after.invite?.expires_at.getTime() ?? 0).toBeGreaterThan(Date.now() + 6.99 * 86_400_000);
     expect(after.audit.map((event) => event.kind)).toEqual([
       'staff_invited',
       'staff_invite_resent',

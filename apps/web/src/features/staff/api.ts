@@ -1,0 +1,93 @@
+// The Staff member feature's API: a query-key factory and hooks only. Components use these
+// hooks and never call hc or read a response themselves. Mutations invalidate by key.
+import type {
+  AcceptInviteBody,
+  CurrentStaffMember,
+  InviteStaffBody,
+  InviteView,
+  StaffMemberView,
+} from '@ping/shared';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { api } from '../../lib/api';
+import { call } from '../../lib/api-client';
+
+const staff = api.api.staff;
+const invites = api.api.invites;
+
+/**
+ * The query keys. Exported so live updates (#47) can refetch the list by key.
+ * @public
+ */
+export const staffKeys = {
+  all: ['staff'] as const,
+  list: () => [...staffKeys.all, 'list'] as const,
+  me: () => [...staffKeys.all, 'me'] as const,
+};
+
+/** The signed-in Staff member's role, to show Admin-only controls. */
+export function useCurrentStaffMember() {
+  return useQuery<CurrentStaffMember>({
+    queryKey: staffKeys.me(),
+    queryFn: () => call(() => staff.me.$get()),
+  });
+}
+
+/** Everyone, Invited people included. Admins only: a Member gets a 403. */
+export function useStaffMembers() {
+  return useQuery<StaffMemberView[]>({
+    queryKey: staffKeys.list(),
+    queryFn: () => call(() => staff.$get()),
+  });
+}
+
+function useStaffMutation<TInput, TResult>(send: (input: TInput) => Promise<TResult>) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: send,
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: staffKeys.list() }),
+  });
+}
+
+export function useInviteStaffMember() {
+  return useStaffMutation(
+    (body: InviteStaffBody): Promise<StaffMemberView> =>
+      call(() => staff.invites.$post({ json: body })),
+  );
+}
+
+export function useResendInvite() {
+  return useStaffMutation(
+    (staffId: string): Promise<StaffMemberView> =>
+      call(() => staff[':staffId'].invite.resend.$post({ param: { staffId } })),
+  );
+}
+
+export function useCancelInvite() {
+  return useStaffMutation(async (staffId: string): Promise<void> => {
+    await call(async () => {
+      const res = await staff[':staffId'].invite.$delete({ param: { staffId } });
+      // 204: no body to read.
+      return {
+        ok: res.ok,
+        status: res.status,
+        json: () => (res.ok ? Promise.resolve() : res.json()),
+      };
+    });
+  });
+}
+
+/** The invite a token belongs to: the set-password page's name and email. */
+export function useInvite(token: string) {
+  return useQuery<InviteView>({
+    queryKey: ['invite', token],
+    queryFn: () => call(() => invites.lookup.$post({ json: { token } })),
+    retry: false,
+  });
+}
+
+/** Sets the password and signs in: the response carries the session cookie. */
+export function useAcceptInvite() {
+  return useMutation({
+    mutationFn: (body: AcceptInviteBody) => call(() => invites.accept.$post({ json: body })),
+  });
+}

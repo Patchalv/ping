@@ -1,6 +1,8 @@
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useState } from 'react';
+import { AcceptInvitePage } from './features/staff/AcceptInvitePage';
+import { ACCEPT_INVITE_PATH, inviteTokenFromHash } from './features/staff/invite-token';
 import { api } from './lib/api';
 import { call } from './lib/api-client';
 import { authClient } from './lib/auth-client';
@@ -15,10 +17,27 @@ const publicQueryClient = createQueryClient(() => undefined);
 
 export function App() {
   const { data: session, isPending, refetch } = authClient.useSession();
+  // An invite link opens the set-password page, signed in or not. Accepting signs the
+  // new Staff member in and lands them on the signed-in home.
+  const [inviteToken, setInviteToken] = useState(() =>
+    window.location.pathname === ACCEPT_INVITE_PATH
+      ? inviteTokenFromHash(window.location.hash)
+      : null,
+  );
   return (
     <QueryClientProvider client={publicQueryClient}>
       <ServerUnreachableBanner />
-      {isPending ? null : session ? (
+      {inviteToken !== null ? (
+        <AcceptInvitePage
+          token={inviteToken}
+          onAccepted={() => {
+            // Through the router, whose history would miss a bare replaceState.
+            void router.navigate({ to: '/', replace: true });
+            setInviteToken(null);
+            void refetch();
+          }}
+        />
+      ) : isPending ? null : session ? (
         // Keyed by Staff member: a new person gets a new, empty cache.
         <SignedIn key={session.user.id} onUnauthenticated={() => void refetch()} />
       ) : (

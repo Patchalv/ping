@@ -10,7 +10,7 @@
 import nodemailer from 'nodemailer';
 import type { EmailSettings } from '../config';
 
-export const FROM_ADDRESS = 'Ping <no-reply@ping.bypatrick.app>';
+const FROM_ADDRESS = 'Ping <no-reply@ping.bypatrick.app>';
 
 /** What a caller asks to send. */
 export type MailMessage = { to: string; subject: string; text: string; html: string };
@@ -57,7 +57,7 @@ export function createMailer(options: {
 export type SmtpSettings = { host: string; port: number; user: string; password: string };
 
 /** Any SMTP provider. Port 465 uses TLS from the start; others upgrade with STARTTLS. */
-export function smtpTransport(settings: SmtpSettings): MailTransport {
+function smtpTransport(settings: SmtpSettings): MailTransport {
   const transporter = nodemailer.createTransport({
     host: settings.host,
     port: settings.port,
@@ -82,7 +82,7 @@ export function smtpTransport(settings: SmtpSettings): MailTransport {
  * Local development without SMTP: prints the subject and text (which holds any link), but
  * never the address, so a developer can follow an invite link from the terminal.
  */
-export function logTransport(log: (line: string) => void = console.log): MailTransport {
+function logTransport(log: (line: string) => void = console.log): MailTransport {
   return {
     async send(mail) {
       log(`Email (not sent, local): ${mail.subject}\n${mail.text}`);
