@@ -54,14 +54,12 @@ export function acceptInvite(
     if (found.status !== 'live') return found;
     const { staffId } = found;
     // Better Auth's credential account: account_id is the user's ID.
-    await tx
-      .insert(account)
-      .values({
-        accountId: staffId,
-        providerId: 'credential',
-        userId: staffId,
-        password: input.passwordHash,
-      });
+    await tx.insert(account).values({
+      accountId: staffId,
+      providerId: 'credential',
+      userId: staffId,
+      password: input.passwordHash,
+    });
     await tx.update(user).set({ emailVerified: true }).where(eq(user.id, staffId));
     await tx
       .update(staffMember)

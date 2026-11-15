@@ -30,6 +30,11 @@ function escapeHtml(value: string): string {
     .replaceAll("'", '&#39;');
 }
 
+/** The set-password page for a token. */
+export function inviteLink(appUrl: string, token: string): string {
+  return `${appUrl.replace(/\/$/, '')}/accept-invite#token=${token}`;
+}
+
 /** The invite email. `appUrl` is the host people open: staging links to staging. */
 export function inviteEmail(input: {
   to: string;
@@ -37,7 +42,7 @@ export function inviteEmail(input: {
   appUrl: string;
   token: string;
 }): MailMessage {
-  const link = `${input.appUrl.replace(/\/$/, '')}/accept-invite#token=${input.token}`;
+  const link = inviteLink(input.appUrl, input.token);
   return {
     to: input.to,
     subject: 'You’re invited to Ping',

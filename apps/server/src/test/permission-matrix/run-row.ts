@@ -15,7 +15,7 @@ import type { ChannelKind, MatrixRow, RowContext } from './matrix';
  */
 type ChannelFixtures = (
   kind: ChannelKind,
-  ctx: Omit<RowContext, 'channel'>,
+  ctx: Pick<RowContext, 'actor'>,
 ) => Promise<{ id: string }>;
 
 /**
