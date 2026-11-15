@@ -8,6 +8,11 @@ import { call } from '../../lib/api-client';
 
 const channels = api.api.channels;
 
+/**
+ * The query keys. Exported so other code can refetch "Channel X everywhere": live updates
+ * (#47) invalidate by these keys.
+ * @public
+ */
 export const channelKeys = {
   all: ['channels'] as const,
   mine: () => [...channelKeys.all, 'mine'] as const,

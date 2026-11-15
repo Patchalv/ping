@@ -21,8 +21,13 @@ export function useOwnClientIp(): void {
 
 export async function signIn(page: Page, email: string): Promise<void> {
   await page.goto('/');
+  await signInHere(page, email);
+}
+
+/** Signs in on the sign-in page already showing, without a page load. */
+export async function signInHere(page: Page, email: string): Promise<void> {
   await page.getByLabel('Email').fill(email);
   await page.getByLabel('Password').fill(PASSWORD);
   await page.getByRole('button', { name: 'Sign in' }).click();
-  await expect(page.getByRole('navigation', { name: 'Channels' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Account: / })).toBeVisible();
 }

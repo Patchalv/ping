@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { SEED, signIn, useOwnClientIp } from './support';
+import { SEED, signIn, signInHere, useOwnClientIp } from './support';
 
 useOwnClientIp();
 
@@ -59,4 +59,69 @@ test('a Staff member creates a Private channel and lands in it', async ({ page }
       .getByRole('navigation', { name: 'Channels' })
       .getByRole('link', { name: `${name}, Private` }),
   ).toBeVisible();
+});
+
+test('the next person to sign in on the same browser never sees the last one’s Private channel', async ({
+  page,
+}) => {
+  // Jordi is in Owners. He opens it, then signs out without a page load.
+  await signIn(page, 'jordi.puig@example.com');
+  await page
+    .getByRole('navigation', { name: 'Channels' })
+    .getByRole('link', { name: 'Owners, Private' })
+    .click();
+  await expect(page.getByRole('region', { name: 'Channel' })).toBeVisible();
+  await page.getByRole('button', { name: 'Account: Jordi Puig' }).click();
+  await page.getByRole('menuitem', { name: 'Sign out' }).click();
+
+  // Marta signs in. Her sidebar request is held, so anything shown now came from a cache.
+  let release: () => void = () => undefined;
+  const held = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  // Both the sidebar and the Channel (the URL still points at Owners) are held.
+  await page.route('**/api/channels**', async (route) => {
+    await held;
+    await route.continue();
+  });
+  await signInHere(page, 'marta.ruiz@example.com');
+  // Not a retrying assertion: Owners must not appear even for a moment.
+  expect(await page.getByText('Owners').count()).toBe(0);
+  release();
+  await expect(page.getByRole('heading', { name: 'Channel not found' })).toBeVisible();
+  expect(await page.getByText('Owners').count()).toBe(0);
+});
+
+test('a Staff member whose session has gone is sent back to sign-in', async ({ page }) => {
+  await signIn(page, 'laura.gomez@example.com');
+  await page.context().clearCookies();
+  await page
+    .getByRole('navigation', { name: 'Channels' })
+    .getByRole('link', { name: /Teaching/ })
+    .click();
+  await expect(page.getByRole('heading', { name: 'Sign in to Ping' })).toBeVisible();
+});
+
+test('creating a Channel without a connection says so and lets the Staff member retry', async ({
+  page,
+}) => {
+  await signIn(page, 'pablo.serra@example.com');
+  await page.route('**/api/channels', (route) =>
+    route.request().method() === 'POST' ? route.abort() : route.continue(),
+  );
+  await page.getByRole('button', { name: 'Create channel' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a Channel' });
+  await dialog.getByLabel('Name').fill('Offline');
+  await dialog.getByRole('button', { name: 'Create channel' }).click();
+  await expect(dialog.getByRole('alert')).toHaveText('Can’t reach Ping. Try again.');
+  await expect(dialog.getByRole('button', { name: 'Create channel' })).toBeEnabled();
+});
+
+test('a form mistake is shown on its field', async ({ page }) => {
+  await signIn(page, 'pablo.serra@example.com');
+  await page.getByRole('button', { name: 'Create channel' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a Channel' });
+  await dialog.getByRole('button', { name: 'Create channel' }).click();
+  await expect(dialog.getByLabel('Name')).toHaveAttribute('aria-invalid', 'true');
+  await expect(dialog.getByText('Give the Channel a name.')).toBeVisible();
 });
