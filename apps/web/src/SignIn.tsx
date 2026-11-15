@@ -1,56 +1,53 @@
-import { type FormEvent, useState } from 'react';
-import { Button } from '#/components/ui/button';
-import { Field, FieldLabel } from '#/components/ui/field';
-import { Input } from '#/components/ui/input';
+import { type SignInBody, signInBody } from '@ping/shared';
+import { revalidateLogic } from '@tanstack/react-form';
+import { useState } from 'react';
+import { useAppForm } from '#/components/form';
 import { FormError } from './components/FormError';
 import { authClient } from './lib/auth-client';
 import { signInErrorMessage } from './lib/sign-in-error';
 
-export function SignIn() {
-  const [error, setError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
+const defaultValues: SignInBody = { email: '', password: '' };
 
-  async function onSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const form = new FormData(event.currentTarget);
-    setSubmitting(true);
-    setError(null);
-    const { error: refused } = await authClient.signIn.email({
-      email: String(form.get('email') ?? ''),
-      password: String(form.get('password') ?? ''),
-    });
-    setSubmitting(false);
-    if (refused) setError(signInErrorMessage(refused));
-  }
+export function SignIn() {
+  // Better Auth's refusal: one message for the whole form, never which field was wrong.
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useAppForm({
+    formId: 'sign-in',
+    defaultValues,
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: signInBody },
+    onSubmit: async ({ value }) => {
+      setError(null);
+      const { error: refused } = await authClient.signIn.email({
+        email: value.email.trim(),
+        password: value.password,
+      });
+      if (refused) setError(signInErrorMessage(refused));
+    },
+  });
 
   return (
     <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
       <div className="grid w-full max-w-sm gap-6">
         <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
-        <form
-          className="grid gap-4 rounded-xl bg-background p-6 shadow-lg"
-          onSubmit={(e) => void onSubmit(e)}
-        >
-          <h1 className="text-xl font-bold">Sign in to Ping</h1>
-          <Field>
-            <FieldLabel htmlFor="sign-in-email">Email</FieldLabel>
-            <Input id="sign-in-email" name="email" type="email" autoComplete="username" required />
-          </Field>
-          <Field>
-            <FieldLabel htmlFor="sign-in-password">Password</FieldLabel>
-            <Input
-              id="sign-in-password"
-              name="password"
-              type="password"
-              autoComplete="current-password"
-              required
-            />
-          </Field>
-          {error ? <FormError>{error}</FormError> : null}
-          <Button type="submit" size="lg" disabled={submitting}>
-            {submitting ? 'Signing in…' : 'Sign in'}
-          </Button>
-        </form>
+        <form.AppForm>
+          <form.Form className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">
+            <h1 className="text-xl font-bold">Sign in to Ping</h1>
+            <form.AppField name="email">
+              {(field) => <field.TextField label="Email" type="email" autoComplete="username" />}
+            </form.AppField>
+            <form.AppField name="password">
+              {(field) => (
+                <field.TextField label="Password" type="password" autoComplete="current-password" />
+              )}
+            </form.AppField>
+            {error ? <FormError>{error}</FormError> : null}
+            <form.SubmitButton size="lg" pending="Signing in…">
+              Sign in
+            </form.SubmitButton>
+          </form.Form>
+        </form.AppForm>
       </div>
     </main>
   );

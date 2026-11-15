@@ -4,6 +4,7 @@ export type HealthzResponse = {
   status: 'ok';
 };
 
+export { type SignInBody, signInBody } from './auth';
 export {
   CHANNEL_DESCRIPTION_MAX,
   CHANNEL_NAME_MAX,

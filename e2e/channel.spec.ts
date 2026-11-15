@@ -123,6 +123,56 @@ test('a form mistake is shown on its field', async ({ page }) => {
   await page.getByRole('button', { name: 'Create channel' }).click();
   const dialog = page.getByRole('dialog', { name: 'Create a Channel' });
   await dialog.getByRole('button', { name: 'Create channel' }).click();
-  await expect(dialog.getByLabel('Name')).toHaveAttribute('aria-invalid', 'true');
-  await expect(dialog.getByText('Give the Channel a name.')).toBeVisible();
+  const name = dialog.getByLabel('Name');
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  await expect(name).toHaveAccessibleDescription('Give the Channel a name.');
+  await expect(name).toBeFocused();
+
+  // Fixing it clears the mistake as the Staff member types.
+  await name.fill('Ops');
+  await expect(name).not.toHaveAttribute('aria-invalid');
+  await expect(dialog.getByText('Give the Channel a name.')).toHaveCount(0);
+});
+
+test('a mistake the server finds is shown on its field, and clears when fixed', async ({
+  page,
+}) => {
+  await signIn(page, 'pablo.serra@example.com');
+  let refused = false;
+  // The first create is refused as the server would refuse a bad name; the retry goes through.
+  await page.route('**/api/channels', async (route) => {
+    if (route.request().method() !== 'POST' || refused) return route.continue();
+    refused = true;
+    await route.fulfill({
+      status: 400,
+      json: {
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'Check the highlighted fields.',
+          issues: [{ path: 'name', message: 'Pick a different name.' }],
+        },
+      },
+    });
+  });
+  await page.getByRole('button', { name: 'Create channel' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Create a Channel' });
+  const name = dialog.getByLabel('Name');
+  await name.fill('Refused');
+  await dialog.getByLabel('Description').focus();
+  await dialog.getByRole('button', { name: 'Create channel' }).click();
+
+  await expect(name).toHaveAttribute('aria-invalid', 'true');
+  await expect(name).toHaveAccessibleDescription('Pick a different name.');
+  await expect(name).toBeFocused();
+  await expect(dialog.getByRole('alert').filter({ hasText: 'Check the highlighted' })).toHaveCount(
+    0,
+  );
+
+  const fixed = `Accepted ${test.info().project.name} ${Date.now()}`;
+  await name.fill(fixed);
+  await expect(name).not.toHaveAttribute('aria-invalid');
+  await dialog.getByRole('button', { name: 'Create channel' }).click();
+  await expect(
+    page.getByRole('region', { name: 'Channel' }).getByRole('heading', { name: fixed }),
+  ).toBeVisible();
 });
