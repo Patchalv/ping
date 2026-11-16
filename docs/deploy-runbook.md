@@ -36,6 +36,8 @@ The pooler smoke test (`apps/server/src/db/cli/pooler-smoke.ts`) connects as `pi
 
 `NODE_ENV`, `PORT`, `BETTER_AUTH_URL`, `SENTRY_ENVIRONMENT` and `PING_ENVIRONMENT` aren't secret and are in the toml files. R2 credentials arrive with their own slice ([#50](https://github.com/Patchalv/ping/issues/50)).
 
+On staging, an invite to an address that isn't on `EMAIL_ALLOWLIST` is logged and not sent, but the list still shows it as sent: if a test invite never arrives, check the allowlist first.
+
 Until the SMTP secrets are set, the app still starts, and every invite shows "Email not sent, Resend" (reported to Sentry). Set them on each app, then send a test invite on staging to an allowlisted address:
 
 ```bash

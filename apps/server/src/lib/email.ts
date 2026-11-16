@@ -56,6 +56,8 @@ export function createMailer(options: {
 
 export type SmtpSettings = { host: string; port: number; user: string; password: string };
 
+const SMTP_TIMEOUT_MS = 10_000;
+
 /** Any SMTP provider. Port 465 uses TLS from the start; others upgrade with STARTTLS. */
 function smtpTransport(settings: SmtpSettings): MailTransport {
   const transporter = nodemailer.createTransport({
@@ -64,6 +66,12 @@ function smtpTransport(settings: SmtpSettings): MailTransport {
     secure: settings.port === 465,
     requireTLS: settings.port !== 465,
     auth: { user: settings.user, pass: settings.password },
+    // The send is inline in the Admin's request: a stalled relay fails within seconds and
+    // the invite shows "Email not sent, Resend", rather than hanging for nodemailer's
+    // default minutes past the proxy's timeout.
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
   });
   return {
     async send(mail) {

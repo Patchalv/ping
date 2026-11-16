@@ -46,6 +46,18 @@ describe('readConfig › email', () => {
     });
   });
 
+  it('refuses an SMTP_PORT that is not a port number', () => {
+    expect(() =>
+      readConfig({
+        ...production,
+        SMTP_HOST: 'smtp-relay.brevo.com',
+        SMTP_USER: 'user@smtp-brevo.com',
+        SMTP_PASSWORD: 'smtp-key',
+        SMTP_PORT: '58 7',
+      }),
+    ).toThrow('SMTP_PORT');
+  });
+
   it('refuses half an SMTP setup', () => {
     expect(() => readConfig({ ...production, SMTP_HOST: 'smtp-relay.brevo.com' })).toThrow(
       'SMTP_HOST, SMTP_USER and SMTP_PASSWORD',

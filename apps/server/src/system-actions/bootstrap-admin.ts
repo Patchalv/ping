@@ -78,10 +78,12 @@ export async function bootstrapAdmin(
     await deps.mailer.send(inviteEmail({ to: email, name, appUrl: deps.appUrl, token }));
     return { staffId, emailSent: true };
   } catch (error) {
+    // Best effort: the link below matters more than the mark, so a failure here is dropped.
     await db
       .update(staffInvite)
       .set({ emailFailedAt: new Date() })
-      .where(eq(staffInvite.staffId, staffId));
+      .where(eq(staffInvite.staffId, staffId))
+      .catch(() => undefined);
     // No Admin can sign in to Resend yet, so the operator gets the link instead. The CLI
     // reports the error (the mailer's, which never holds the address) to Sentry.
     return { staffId, emailSent: false, link: inviteLink(deps.appUrl, token), error };

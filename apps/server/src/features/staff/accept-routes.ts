@@ -6,7 +6,12 @@ import { acceptInviteBody, type InviteView, inviteTokenBody } from '@ping/shared
 import { hashPassword } from 'better-auth/crypto';
 import { Hono } from 'hono';
 import type { Auth } from '../../auth';
-import { ConflictError, NotFoundError, ValidationError } from '../../lib/errors';
+import {
+  ConflictError,
+  NotFoundError,
+  ServiceUnavailableError,
+  ValidationError,
+} from '../../lib/errors';
 import { hashInviteToken } from '../../lib/invite';
 import { rateLimit } from '../../lib/rate-limit';
 import { publish } from '../../lib/sse';
@@ -55,7 +60,13 @@ export function acceptInviteRoutes(options: {
         // Check the token before the slow work, so a dead link answers at once.
         requireLive(await findInvite(systemActions.db, tokenHash));
         // Better Auth checks breached passwords only on its own routes, so Ping does here.
-        if (await options.isPasswordCompromised(password)) {
+        // When the check can't run, refuse rather than accept an unchecked password.
+        const compromised = await options.isPasswordCompromised(password).catch(() => {
+          throw new ServiceUnavailableError(
+            'We couldn’t check your password just now. Try again in a minute.',
+          );
+        });
+        if (compromised) {
           throw new ValidationError(BREACHED, [{ path: 'password', message: BREACHED }]);
         }
         const accepted = requireLive(

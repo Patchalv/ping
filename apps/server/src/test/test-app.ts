@@ -12,6 +12,8 @@ const TEST_ORIGIN = 'http://localhost:5173';
 
 /** A password the fake breach check reports as breached. */
 export const BREACHED_PASSWORD = 'password1234-breached';
+/** A password the fake breach check can't check, as when Have I Been Pwned is down. */
+export const UNCHECKABLE_PASSWORD = 'password1234-unreachable';
 
 /**
  * Every email the app sent, through the real mailer and a fake transport. Nothing in tests
@@ -64,7 +66,10 @@ export function createTestApp(): TestApp {
         mailer: fakeMailer(mailbox),
         systemActions,
         appUrl: TEST_ORIGIN,
-        isPasswordCompromised: async (password) => password === BREACHED_PASSWORD,
+        isPasswordCompromised: async (password) => {
+          if (password === UNCHECKABLE_PASSWORD) throw new Error('Failed to check password');
+          return password === BREACHED_PASSWORD;
+        },
       },
     }),
     auth,

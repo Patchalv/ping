@@ -15,8 +15,13 @@ export type InviteLookup =
 
 type Reader = Pick<SystemDb, 'select'>;
 
-async function lookUp(db: Reader, tokenHash: string, lock: boolean): Promise<InviteLookup> {
-  const query = db
+/**
+ * The invite a token belongs to. Only an Invited person's invite counts: a row left for
+ * someone who has joined (or been Deactivated) reads as unknown, so it can never set a
+ * second password.
+ */
+async function lookUp(db: Reader, tokenHash: string): Promise<InviteLookup> {
+  const rows = await db
     .select({
       staffId: staffInvite.staffId,
       expiresAt: staffInvite.expiresAt,
@@ -25,9 +30,14 @@ async function lookUp(db: Reader, tokenHash: string, lock: boolean): Promise<Inv
     })
     .from(staffInvite)
     .innerJoin(user, eq(user.id, staffInvite.staffId))
-    .where(eq(staffInvite.tokenHash, tokenHash));
-  // A second accept of the same token waits here, then finds the row gone: "used".
-  const rows = lock ? await query.for('update', { of: staffInvite }) : await query;
+    .innerJoin(staffMember, eq(staffMember.id, staffInvite.staffId))
+    .where(
+      and(
+        eq(staffInvite.tokenHash, tokenHash),
+        isNull(staffMember.joinedAt),
+        isNull(staffMember.deactivatedAt),
+      ),
+    );
   const row = rows[0];
   if (!row) return { status: 'unknown' };
   if (row.expiresAt.getTime() <= Date.now()) return { status: 'expired' };
@@ -36,7 +46,7 @@ async function lookUp(db: Reader, tokenHash: string, lock: boolean): Promise<Inv
 
 /** The invite a token belongs to, for the set-password page. */
 export function findInvite(db: SystemDb, tokenHash: string): Promise<InviteLookup> {
-  return lookUp(db, tokenHash, false);
+  return lookUp(db, tokenHash);
 }
 
 /**
@@ -44,13 +54,30 @@ export function findInvite(db: SystemDb, tokenHash: string): Promise<InviteLooku
  * account), marks the email verified, sets joined_at and deletes the invite. Returns what
  * the token found; only a `live` result changed anything. Signing in comes after, once
  * this has committed.
+ *
+ * Locks the Staff member, then the invite: the same order as Resend and Cancel, so they
+ * queue rather than deadlock. A second accept of the same token, or one racing a Resend,
+ * waits on the Staff member's row and then finds the token no longer live.
  */
 export function acceptInvite(
   db: SystemDb,
   input: { tokenHash: string; passwordHash: string },
 ): Promise<InviteLookup> {
   return db.transaction(async (tx) => {
-    const found = await lookUp(tx, input.tokenHash, true);
+    const seen = await lookUp(tx, input.tokenHash);
+    if (seen.status !== 'live') return seen;
+    await tx
+      .select({ id: staffMember.id })
+      .from(staffMember)
+      .where(eq(staffMember.id, seen.staffId))
+      .for('update');
+    await tx
+      .select({ id: staffInvite.staffId })
+      .from(staffInvite)
+      .where(eq(staffInvite.staffId, seen.staffId))
+      .for('update');
+    // Read again under the locks: whatever committed meanwhile is now visible.
+    const found = await lookUp(tx, input.tokenHash);
     if (found.status !== 'live') return found;
     const { staffId } = found;
     // Better Auth's credential account: account_id is the user's ID.

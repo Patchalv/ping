@@ -5,6 +5,7 @@ import { randomUUID } from 'node:crypto';
 import type { StaffMemberView } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asOwner, createStaffMember } from '../../db/test-support';
+import { hashInviteToken } from '../../lib/invite';
 import {
   BREACHED_PASSWORD,
   createTestApp,
@@ -12,6 +13,7 @@ import {
   jsonHeaders,
   signIn,
   type TestApp,
+  UNCHECKABLE_PASSWORD,
 } from '../../test/test-app';
 
 let testApp: TestApp;
@@ -154,6 +156,26 @@ describe('POST /api/invites/accept', () => {
     expect(statuses.sort()).toEqual([200, 404]);
   });
 
+  it('refuses an invite row left for someone who has already joined, adding no password', async () => {
+    const person = await invited();
+    expect((await accept(person.token)).status).toBe(200);
+    // What a Resend racing the accept could leave behind: a live invite for a joined person.
+    const stray = 'a-stray-token-for-a-joined-person';
+    await asOwner((query) =>
+      query(
+        `insert into staff_invite (staff_id, token_hash, expires_at)
+         values ($1, $2, now() + interval '7 days')`,
+        [person.id, hashInviteToken(stray)],
+      ),
+    );
+    expect((await lookup(stray)).status).toBe(404);
+    expect((await accept(stray, 'another-long-password-here')).status).toBe(404);
+    const accounts = await asOwner((query) =>
+      query('select 1 from account where user_id = $1', [person.id]),
+    );
+    expect(accounts.rowCount).toBe(1);
+  });
+
   it('refuses an expired token, and changes nothing', async () => {
     const person = await invited();
     await expire(person.id);
@@ -196,6 +218,19 @@ describe('POST /api/invites/accept', () => {
             message: 'That password has appeared in a data breach. Choose a different one.',
           },
         ],
+      },
+    });
+    expect((await lookup(person.token)).status).toBe(200);
+  });
+
+  it('says so, and keeps the invite, when the breached-password check is down', async () => {
+    const person = await invited();
+    const res = await accept(person.token, UNCHECKABLE_PASSWORD);
+    expect(res.status).toBe(503);
+    expect(await res.json()).toEqual({
+      error: {
+        code: 'unavailable',
+        message: 'We couldn’t check your password just now. Try again in a minute.',
       },
     });
     expect((await lookup(person.token)).status).toBe(200);

@@ -66,12 +66,18 @@ export async function findEmailOwnerState(
   email: string,
 ): Promise<StaffState | undefined> {
   const rows = await tx
-    .select({ joinedAt: staffMember.joinedAt, deactivatedAt: staffMember.deactivatedAt })
+    .select({
+      staffId: staffMember.id,
+      joinedAt: staffMember.joinedAt,
+      deactivatedAt: staffMember.deactivatedAt,
+    })
     .from(user)
     .leftJoin(staffMember, eq(staffMember.id, user.id))
     .where(sql`lower(${user.email}) = lower(${email})`);
   const row = rows[0];
-  return row ? stateOf(row) : undefined;
+  if (!row) return undefined;
+  // A user with no Staff member can't be listed or Resent, so call it taken, not Invited.
+  return row.staffId === null ? 'active' : stateOf(row);
 }
 
 /**
@@ -102,11 +108,31 @@ export async function createInvite(
   return created.id;
 }
 
-/** Replaces an Invited person's token (Resend): the old one stops working. */
+/**
+ * Locks an Invited person's Staff member row for the rest of the transaction, and says
+ * whether they are still Invited. Resend and Cancel take it before touching the invite,
+ * the same order as accepting, so a Resend racing an accept waits and then sees them
+ * joined, instead of leaving a live invite behind.
+ */
+async function lockInvited(tx: ActorTx['tx'], staffId: string): Promise<boolean> {
+  const rows = await tx
+    .select({ joinedAt: staffMember.joinedAt, deactivatedAt: staffMember.deactivatedAt })
+    .from(staffMember)
+    .where(eq(staffMember.id, staffId))
+    .for('update');
+  const row = rows[0];
+  return row !== undefined && row.joinedAt === null && row.deactivatedAt === null;
+}
+
+/**
+ * Replaces an Invited person's token (Resend): the old one stops working. Returns false,
+ * changing nothing, when they are no longer Invited.
+ */
 export async function replaceInvite(
   { tx, actor }: ActorTx,
   input: { staffId: string; tokenHash: string; expiresAt: Date },
-): Promise<void> {
+): Promise<boolean> {
+  if (!(await lockInvited(tx, input.staffId))) return false;
   const fresh = {
     tokenHash: input.tokenHash,
     expiresAt: input.expiresAt,
@@ -121,6 +147,7 @@ export async function replaceInvite(
   await tx
     .insert(auditEvent)
     .values({ actorId: actor.staffId, kind: 'staff_invite_resent', targetStaffId: input.staffId });
+  return true;
 }
 
 /** Records that the invite email didn't go, so the list shows "Email not sent, Resend". */
@@ -138,6 +165,7 @@ export async function markInviteEmailFailed({ tx }: ActorTx, staffId: string): P
  * deleting nothing, when the person has joined.
  */
 export async function cancelInvite({ tx, actor }: ActorTx, staffId: string): Promise<boolean> {
+  if (!(await lockInvited(tx, staffId))) return false;
   await tx.delete(staffInvite).where(eq(staffInvite.staffId, staffId));
   const deleted = await tx
     .delete(staffMember)

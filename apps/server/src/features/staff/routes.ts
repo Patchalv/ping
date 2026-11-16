@@ -92,7 +92,10 @@ export function staffRoutes(options: {
       return true;
     } catch (error) {
       options.reportError(error, c);
-      await withActorTx(c, (ctx) => markInviteEmailFailed(ctx, person.staffId));
+      // The invite exists either way: failing to mark it is reported, not a 500.
+      await withActorTx(c, (ctx) => markInviteEmailFailed(ctx, person.staffId)).catch(
+        (markError: unknown) => options.reportError(markError, c),
+      );
       return false;
     }
   }
@@ -174,7 +177,10 @@ export function staffRoutes(options: {
             const found = await findStaffMember(ctx, staffId);
             if (!found) throw new NotFoundError();
             if (found.state !== 'invited') throw new ConflictError('They’ve already joined Ping.');
-            await replaceInvite(ctx, { staffId, tokenHash, expiresAt: inviteExpiry() });
+            // Checked again under the row lock: they may have joined since `found` was read.
+            if (!(await replaceInvite(ctx, { staffId, tokenHash, expiresAt: inviteExpiry() }))) {
+              throw new ConflictError('They’ve already joined Ping.');
+            }
             return found;
           });
           publish({ kind: 'staff.changed', staffId });

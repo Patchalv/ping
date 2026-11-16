@@ -58,6 +58,10 @@ function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings
   if (given > 0 && given < 3) {
     throw new Error('Set all of SMTP_HOST, SMTP_USER and SMTP_PASSWORD, or none of them');
   }
+  const port = Number(env.SMTP_PORT ?? '587');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('SMTP_PORT must be a port number, such as 587');
+  }
   const allowlist = (env.EMAIL_ALLOWLIST ?? '')
     .split(',')
     .map((address) => address.trim().toLowerCase())
@@ -65,9 +69,7 @@ function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings
 
   return {
     environment: environment ?? 'local',
-    ...(host && user && password
-      ? { smtp: { host, port: Number(env.SMTP_PORT ?? '587'), user, password } }
-      : {}),
+    ...(host && user && password ? { smtp: { host, port, user, password } } : {}),
     allowlist,
   };
 }

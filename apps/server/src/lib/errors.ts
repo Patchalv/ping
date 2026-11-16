@@ -6,7 +6,7 @@ import { HTTPException } from 'hono/http-exception';
 import type { ContentfulStatusCode } from 'hono/utils/http-status';
 
 abstract class AppError extends Error {
-  abstract readonly status: 400 | 401 | 403 | 404 | 409 | 429;
+  abstract readonly status: 400 | 401 | 403 | 404 | 409 | 429 | 503;
   abstract readonly code: string;
 }
 
@@ -61,6 +61,19 @@ export class TooManyRequestsError extends AppError {
   constructor() {
     super('Too many attempts. Wait a minute, then try again.');
     this.name = 'TooManyRequestsError';
+  }
+}
+
+/**
+ * A service Ping depends on is down for a moment (the breached-password check). Expected,
+ * so not reported; the message is shown in the UI.
+ */
+export class ServiceUnavailableError extends AppError {
+  readonly status = 503;
+  readonly code = 'unavailable';
+  constructor(message: string) {
+    super(message);
+    this.name = 'ServiceUnavailableError';
   }
 }
 
