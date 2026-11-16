@@ -31,8 +31,22 @@ The pooler smoke test (`apps/server/src/db/cli/pooler-smoke.ts`) connects as `pi
 | `SYSTEM_DATABASE_URL` | `fly secrets`, both apps: `ping_system` on the **pooled** host | the app |
 | `BETTER_AUTH_SECRET` | `fly secrets`, both apps, a different random value each | the app |
 | `SENTRY_DSN` | `fly secrets`, both apps, the same DSN | the app and the SPA |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | `fly secrets`, both apps, the same Brevo SMTP key | invite emails |
+| `EMAIL_ALLOWLIST` | `fly secrets`, staging only: the addresses staging may email, comma-separated | invite emails on staging |
 
-`NODE_ENV`, `PORT`, `BETTER_AUTH_URL` and `SENTRY_ENVIRONMENT` aren't secret and are in the toml files. Brevo and R2 credentials arrive with their own slices ([#32](https://github.com/Patchalv/ping/issues/32), [#50](https://github.com/Patchalv/ping/issues/50)).
+`NODE_ENV`, `PORT`, `BETTER_AUTH_URL`, `SENTRY_ENVIRONMENT` and `PING_ENVIRONMENT` aren't secret and are in the toml files. R2 credentials arrive with their own slice ([#50](https://github.com/Patchalv/ping/issues/50)).
+
+On staging, an invite to an address that isn't on `EMAIL_ALLOWLIST` is logged and not sent, but the list still shows it as sent: if a test invite never arrives, check the allowlist first.
+
+Until the SMTP secrets are set, the app still starts, and every invite shows "Email not sent, Resend" (reported to Sentry). Set them on each app, then send a test invite on staging to an allowlisted address:
+
+```bash
+fly secrets set --app bypatrick-ping-staging SMTP_HOST=smtp-relay.brevo.com SMTP_PORT=587 SMTP_USER='<Brevo SMTP login>' SMTP_PASSWORD='<Brevo SMTP key>' EMAIL_ALLOWLIST='<you@example.com>'
+```
+
+```bash
+fly secrets set --app bypatrick-ping SMTP_HOST=smtp-relay.brevo.com SMTP_PORT=587 SMTP_USER='<Brevo SMTP login>' SMTP_PASSWORD='<Brevo SMTP key>'
+```
 
 The running app never holds the `neondb_owner` credential, and GitHub never holds the app's.
 
@@ -171,10 +185,10 @@ The app also scrubs before sending: no request bodies, cookies, headers, query s
 After the first prod deploy that includes [Invites, bootstrap-admin and email](https://github.com/Patchalv/ping/issues/32), Patrick creates the first Admin from inside the prod Machine, so the command uses the Machine's own credentials:
 
 ```bash
-fly ssh console --app bypatrick-ping
+fly ssh console --app bypatrick-ping --command "sh -c 'cd /app/apps/server && node --import tsx src/db/cli/bootstrap-admin.ts --email <your email> --name \"<your name>\"'"
 ```
 
-The exact command is added here by that slice.
+It invites an Admin and sends the normal invite email; it never sets a password. It refuses if any Admin exists, active or Invited. If the email can't be sent, it prints the invite link to your terminal instead (nobody can sign in to Resend yet). Open the link, set a password, then invite the other Admins from **Staff members** in the avatar menu.
 
 ## Memory
 

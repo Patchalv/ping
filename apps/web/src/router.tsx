@@ -13,6 +13,7 @@ import {
 import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { ChannelPage } from './features/channel/ChannelPage';
+import { StaffMembersPage } from './features/staff/StaffMembersPage';
 
 const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: PageNotFound });
 
@@ -41,7 +42,15 @@ function ChannelRoute() {
   return <ChannelPage key={channelId} channelId={channelId} />;
 }
 
-const routeTree = rootRoute.addChildren([homeRoute, channelRoute]);
+// The Admins' Staff members screen, from the avatar menu. A Member who opens it gets the
+// server's refusal.
+const staffRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff',
+  component: StaffMembersPage,
+});
+
+const routeTree = rootRoute.addChildren([homeRoute, channelRoute, staffRoute]);
 
 /** The browser's router by default; tests pass a memory history. */
 export function createAppRouter(history?: RouterHistory) {

@@ -1,33 +1,104 @@
 // The real Hono app, in-process, against this worker's database. Used by the auth tests,
 // the permission matrix and the route-coverage guard.
 import { randomUUID } from 'node:crypto';
-import { createApp } from '../app';
+import { createApp, type InviteServices } from '../app';
 import { type Auth, createAuth } from '../auth';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
+import { createMailer, type Mailer, type OutgoingMail } from '../lib/email';
+import { createSystemActions, type SystemActions } from '../system-actions';
 
 const TEST_ORIGIN = 'http://localhost:5173';
+
+/** A password the fake breach check reports as breached. */
+export const BREACHED_PASSWORD = 'password1234-breached';
+/** A password the fake breach check can't check, as when Have I Been Pwned is down. */
+export const UNCHECKABLE_PASSWORD = 'password1234-unreachable';
+
+/**
+ * Every email the app sent, through the real mailer and a fake transport. Nothing in tests
+ * sends real mail. Set `failing` to make the next sends fail as SMTP would.
+ */
+export type Mailbox = { sent: OutgoingMail[]; failing: boolean };
 
 export type TestApp = {
   app: ReturnType<typeof createApp>;
   auth: Auth;
   database: Database;
+  systemActions: SystemActions;
+  mailbox: Mailbox;
+  /** Every error the app reported to Sentry. */
+  reported: unknown[];
   close(): Promise<void>;
 };
 
+/** A mailer whose transport records instead of sending. */
+export function fakeMailer(mailbox: Mailbox): Mailer {
+  return createMailer({
+    environment: 'production',
+    allowlist: [],
+    transport: {
+      async send(mail) {
+        if (mailbox.failing) throw new Error(`550 mailbox unavailable: ${mail.to}`);
+        mailbox.sent.push(mail);
+      },
+    },
+  });
+}
+
 export function createTestApp(): TestApp {
   const database = createDatabase(testUrls().app);
+  const systemActions = createSystemActions(testUrls().system);
   const auth = createAuth(database, {
     secret: 'test-secret-for-integration-tests-only',
     baseUrl: TEST_ORIGIN,
     trustedOrigins: [TEST_ORIGIN],
   });
+  const mailbox: Mailbox = { sent: [], failing: false };
+  const reported: unknown[] = [];
   return {
-    app: createApp({ auth, database, trustedOrigins: [TEST_ORIGIN] }),
+    app: createApp({
+      auth,
+      database,
+      trustedOrigins: [TEST_ORIGIN],
+      captureError: (error) => reported.push(error),
+      invites: {
+        mailer: fakeMailer(mailbox),
+        systemActions,
+        appUrl: TEST_ORIGIN,
+        isPasswordCompromised: async (password) => {
+          if (password === UNCHECKABLE_PASSWORD) throw new Error('Failed to check password');
+          return password === BREACHED_PASSWORD;
+        },
+      },
+    }),
     auth,
     database,
-    close: () => database.close(),
+    systemActions,
+    mailbox,
+    reported,
+    close: async () => {
+      await Promise.all([database.close(), systemActions.close()]);
+    },
   };
+}
+
+/** Invite services for an app that never reaches a database or sends mail (unit tests). */
+export function offlineInviteServices(): InviteServices {
+  return {
+    mailer: fakeMailer({ sent: [], failing: false }),
+    systemActions: createSystemActions('postgres://nobody@localhost:1/none'),
+    appUrl: TEST_ORIGIN,
+    isPasswordCompromised: async () => false,
+  };
+}
+
+/** The token in the latest invite email sent to `email`. */
+export function inviteTokenFor(mailbox: Mailbox, email: string): string {
+  const mail = mailbox.sent.findLast((sent) => sent.to === email);
+  const token = mail?.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1];
+  if (!token) throw new Error('No invite email was sent to that address');
+  return token;
 }
 
 /** A fresh client IP per call, so Better Auth's rate limiter treats each test apart. */

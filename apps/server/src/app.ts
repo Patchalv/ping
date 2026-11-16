@@ -8,14 +8,30 @@ import type { Auth } from './auth';
 import type { SentrySettings } from './config';
 import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
+import { acceptInviteRoutes } from './features/staff/accept-routes';
+import { staffRoutes } from './features/staff/routes';
+import type { Mailer } from './lib/email';
 import { errorResponse } from './lib/errors';
 import { noStoreOnApi, securityHeaders } from './security-headers';
+import type { SystemActions } from './system-actions';
 
 /** The request an unhandled error came from: its route, never its data. */
 export type ErrorRoute = { method: string; path: string };
 
+/** What inviting and accepting an invite need beyond the database. */
+export type InviteServices = {
+  mailer: Mailer;
+  /** The ping_system work: accepting an invite. */
+  systemActions: SystemActions;
+  /** The URL people open, for invite links. Staging links to staging. */
+  appUrl: string;
+  /** The breached-password check (Have I Been Pwned). Tests pass a fake. */
+  isPasswordCompromised(password: string): Promise<boolean>;
+};
+
 type AppOptions = {
   auth: Auth;
+  invites: InviteServices;
   /** The ping_app database. Routes reach it only through withActorTx(). */
   database: Database;
   /** Origins a form-style request may come from: Hono's csrf() refuses any other. */
@@ -63,7 +79,19 @@ export function createApp(options: AppOptions) {
     )
     .get('/healthz', (c) => c.json({ status: 'ok' } satisfies HealthzResponse))
     // Feature routes, chained here so they come before the SPA's catch-all.
-    .route('/api/channels', channelRoutes(options));
+    .route('/api/channels', channelRoutes(options))
+    .route(
+      '/api/staff',
+      staffRoutes({
+        auth: options.auth,
+        database: options.database,
+        mailer: options.invites.mailer,
+        appUrl: options.invites.appUrl,
+        reportError: (error, c) =>
+          options.captureError?.(error, { method: c.req.method, path: c.req.routePath }),
+      }),
+    )
+    .route('/api/invites', acceptInviteRoutes({ auth: options.auth, ...options.invites }));
 
   // Typed errors and Hono's own (a malformed JSON body, the Origin check) become their
   // status and one envelope the UI can show, and aren't reported. Anything else is a bug: a

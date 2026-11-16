@@ -7,6 +7,7 @@
 //
 // Never change an existing expectation unless the issue says so; list any such change
 // under **Permission changes** in the PR.
+import { randomUUID } from 'node:crypto';
 import { type Actor, type ActorKind, CHANNEL_ROLE, STANDARD_ACTORS } from './actors';
 
 export type ChannelKind = 'public' | 'private' | 'archived';
@@ -18,6 +19,8 @@ export type RowContext = {
   actor: Actor;
   /** The row's Channel, created by the Channel fixtures. Undefined when `channel` is null. */
   channel: { id: string } | undefined;
+  /** The row's target Staff member, when `target` asks for one. */
+  target: { id: string } | undefined;
 };
 
 export type MatrixRow = {
@@ -27,6 +30,8 @@ export type MatrixRow = {
   actor: ActorKind;
   /** The Channel the action targets, or null for routes with no Channel. */
   channel: ChannelKind | null;
+  /** A Staff member the action targets, created before the request: an Invited person with a live invite. */
+  target?: 'invited';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -49,6 +54,14 @@ const rowsFor = (base: RowBase, expectFor: (actor: ActorKind) => MatrixRow['expe
 ];
 
 const allowed = (status: number) => (): MatrixRow['expect'] => ({ allow: true, status });
+
+const ADMINS: ReadonlySet<ActorKind> = new Set(['adminNonMember', 'adminMember']);
+
+/** Admins only: everyone else is refused with 403. */
+const adminsOnly =
+  (status: number) =>
+  (actor: ActorKind): MatrixRow['expect'] =>
+    ADMINS.has(actor) ? { allow: true, status } : { allow: false, status: 403 };
 
 /** The rows. The first arrived with "Exemplar: create a Channel and open it" (#31). */
 export const MATRIX: MatrixRow[] = [
@@ -102,6 +115,72 @@ export const MATRIX: MatrixRow[] = [
       request: readChannel,
     },
     (actor) => (CHANNEL_ROLE[actor] ? { allow: true, status: 200 } : { allow: false, status: 404 }),
+  ),
+
+  // Read your own role: anyone. From "Invites, bootstrap-admin and email" (#32).
+  ...rowsFor(
+    {
+      route: 'GET /api/staff/me',
+      action: 'read their own role',
+      channel: null,
+      request: () => ({ path: '/api/staff/me' }),
+    },
+    allowed(200),
+  ),
+
+  // List Staff members, Invited people included: Admins only.
+  ...rowsFor(
+    {
+      route: 'GET /api/staff',
+      action: 'list Staff members, with Invited people',
+      channel: null,
+      target: 'invited',
+      request: () => ({ path: '/api/staff' }),
+    },
+    adminsOnly(200),
+  ),
+
+  // Invite someone: Admins only.
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/invites',
+      action: 'invite a Staff member',
+      channel: null,
+      request: () => ({
+        path: '/api/staff/invites',
+        method: 'POST',
+        body: {
+          name: 'Rosa Ferrer',
+          email: `invitee-${randomUUID()}@example.test`,
+          role: 'member',
+        },
+      }),
+    },
+    adminsOnly(201),
+  ),
+
+  // Resend an invite: Admins only.
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/invite/resend',
+      action: 'resend an invite',
+      channel: null,
+      target: 'invited',
+      request: (ctx) => ({ path: `/api/staff/${ctx.target?.id}/invite/resend`, method: 'POST' }),
+    },
+    adminsOnly(200),
+  ),
+
+  // Cancel an invite: Admins only.
+  ...rowsFor(
+    {
+      route: 'DELETE /api/staff/:staffId/invite',
+      action: 'cancel an invite',
+      channel: null,
+      target: 'invited',
+      request: (ctx) => ({ path: `/api/staff/${ctx.target?.id}/invite`, method: 'DELETE' }),
+    },
+    adminsOnly(204),
   ),
 ];
 

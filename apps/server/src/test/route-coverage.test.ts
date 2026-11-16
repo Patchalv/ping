@@ -7,6 +7,7 @@ import { createAuth } from '../auth';
 import { createDatabase } from '../db';
 import { coveredRoutes } from './permission-matrix/matrix';
 import { uncoveredRoutes } from './route-coverage';
+import { offlineInviteServices } from './test-app';
 
 // The real app, as production builds it: serving a built SPA. Building it never connects
 // to the database.
@@ -19,7 +20,13 @@ function realApp() {
     baseUrl: 'http://localhost:3000',
     trustedOrigins: ['http://localhost:3000'],
   });
-  return createApp({ auth, database, trustedOrigins: ['http://localhost:3000'], webDistDir });
+  return createApp({
+    auth,
+    database,
+    invites: offlineInviteServices(),
+    trustedOrigins: ['http://localhost:3000'],
+    webDistDir,
+  });
 }
 
 describe('route-coverage guard', () => {

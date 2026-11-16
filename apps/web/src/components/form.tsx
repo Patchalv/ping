@@ -25,7 +25,14 @@ import {
 } from '@tanstack/react-form';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
 import { Button } from '#/components/ui/button';
-import { Field, FieldError, FieldLabel, FieldLegend, FieldSet } from '#/components/ui/field';
+import {
+  Field,
+  FieldDescription,
+  FieldError,
+  FieldLabel,
+  FieldLegend,
+  FieldSet,
+} from '#/components/ui/field';
 import { Input } from '#/components/ui/input';
 import { RadioGroup } from '#/components/ui/radio-group';
 import { Textarea } from '#/components/ui/textarea';
@@ -84,19 +91,34 @@ type WiredProps =
 
 type TextControlProps = Omit<ComponentProps<'input'>, WiredProps>;
 
-function TextField({ label, ...props }: TextControlProps & { label: ReactNode }) {
+function TextField({
+  label,
+  description,
+  ...props
+}: TextControlProps & {
+  label: ReactNode;
+  /** A hint under the field, such as a password rule. Read out with the control. */
+  description?: ReactNode;
+}) {
   const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<string>();
+  const descriptionId = `${id}-description`;
+  const describedBy =
+    [controlProps['aria-describedby'], description ? descriptionId : undefined]
+      .filter(Boolean)
+      .join(' ') || undefined;
   return (
     <Field {...fieldProps}>
       <FieldLabel htmlFor={id}>{label}</FieldLabel>
       <Input
         {...props}
         {...controlProps}
+        aria-describedby={describedBy}
         name={field.name}
         value={field.state.value}
         onBlur={field.handleBlur}
         onChange={(event) => change(event.target.value)}
       />
+      {description ? <FieldDescription id={descriptionId}>{description}</FieldDescription> : null}
       {errorNode}
     </Field>
   );

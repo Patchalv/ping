@@ -1,5 +1,10 @@
 import { expect } from 'vitest';
-import { createStaffMember, databaseSnapshot, insertChannel } from '../../db/test-support';
+import {
+  createInvitedStaffMember,
+  createStaffMember,
+  databaseSnapshot,
+  insertChannel,
+} from '../../db/test-support';
 import { jsonHeaders, type TestApp } from '../test-app';
 import { CHANNEL_ROLE, createActor } from './actors';
 import type { ChannelKind, MatrixRow, RowContext } from './matrix';
@@ -10,7 +15,7 @@ import type { ChannelKind, MatrixRow, RowContext } from './matrix';
  */
 type ChannelFixtures = (
   kind: ChannelKind,
-  ctx: Omit<RowContext, 'channel'>,
+  ctx: Pick<RowContext, 'actor'>,
 ) => Promise<{ id: string }>;
 
 /**
@@ -40,7 +45,8 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
 export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
-  const request = row.request({ actor, channel });
+  const target = row.target === 'invited' ? await createInvitedStaffMember() : undefined;
+  const request = row.request({ actor, channel, target });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();
   const res = await testApp.app.request(request.path, {

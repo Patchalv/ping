@@ -3,6 +3,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { RolePasswords } from './db/migrate';
+import type { MailEnvironment, SmtpSettings } from './lib/email';
 
 const envLocal = fileURLToPath(new URL('../../../.env.local', import.meta.url));
 
@@ -25,7 +26,53 @@ export type ServerConfig = {
   };
   /** Error reporting for the server and the SPA. Off when SENTRY_DSN is unset. */
   sentry?: SentrySettings;
+  email: EmailSettings;
 };
+
+/**
+ * How email goes out (platform.md › Email). With no SMTP settings, local development
+ * prints each email, and production or staging fail every send into "Email not sent,
+ * Resend", so a deploy before the secrets are set still boots.
+ */
+export type EmailSettings = {
+  environment: MailEnvironment;
+  smtp?: SmtpSettings;
+  /** Staging only sends to these addresses, lowercased. */
+  allowlist: string[];
+};
+
+const PING_ENVIRONMENTS = ['production', 'staging', 'local'] as const;
+
+function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings {
+  const name = env.PING_ENVIRONMENT;
+  const environment = name ? PING_ENVIRONMENTS.find((known) => known === name) : undefined;
+  if (name && !environment) {
+    throw new Error('PING_ENVIRONMENT must be production, staging or local');
+  }
+  if (!environment && isProduction) {
+    throw new Error('PING_ENVIRONMENT must be set when NODE_ENV=production');
+  }
+
+  const { SMTP_HOST: host, SMTP_USER: user, SMTP_PASSWORD: password } = env;
+  const given = [host, user, password].filter(Boolean).length;
+  if (given > 0 && given < 3) {
+    throw new Error('Set all of SMTP_HOST, SMTP_USER and SMTP_PASSWORD, or none of them');
+  }
+  const port = Number(env.SMTP_PORT ?? '587');
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    throw new Error('SMTP_PORT must be a port number, such as 587');
+  }
+  const allowlist = (env.EMAIL_ALLOWLIST ?? '')
+    .split(',')
+    .map((address) => address.trim().toLowerCase())
+    .filter(Boolean);
+
+  return {
+    environment: environment ?? 'local',
+    ...(host && user && password ? { smtp: { host, port, user, password } } : {}),
+    allowlist,
+  };
+}
 
 const SENTRY_ENVIRONMENTS = ['production', 'staging'] as const;
 
@@ -77,6 +124,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       trustedOrigins,
     },
     sentry: readSentry(env),
+    email: readEmail(env, isProduction),
   };
 }
 
