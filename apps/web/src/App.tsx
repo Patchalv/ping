@@ -17,8 +17,10 @@ const publicQueryClient = createQueryClient(() => undefined);
 
 export function App() {
   const { data: session, isPending, refetch } = authClient.useSession();
-  // An invite link opens the set-password page, signed in or not. Accepting signs the
-  // new Staff member in and lands them on the signed-in home.
+  // An invite link opens the set-password page, signed in or not. It sits outside the
+  // router on purpose: the router lives inside the signed-in app (one per Staff member),
+  // and this page comes before anyone is signed in, like SignIn. Accepting signs the new
+  // Staff member in and lands them on the signed-in home (Browse channels from #36).
   const [inviteToken, setInviteToken] = useState(() =>
     window.location.pathname === ACCEPT_INVITE_PATH
       ? inviteTokenFromHash(window.location.hash)

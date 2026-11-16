@@ -3,7 +3,7 @@
 // validate(), then does its work in withActorTx with a require… helper, like the Channel
 // exemplar. Invite emails go out after the transaction commits, so a rolled-back invite
 // never sends a link; a failed send marks the invite and is reported to Sentry.
-import { type InviteStaffBody, inviteStaffBody, type StaffState, staffParams } from '@ping/shared';
+import { inviteStaffBody, type StaffMemberView, type StaffState, staffParams } from '@ping/shared';
 import { type Context, Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
@@ -37,6 +37,21 @@ const EMAIL_IN_USE: Record<StaffState, string> = {
   deactivated: 'That email belongs to a Deactivated Staff member.',
 };
 
+/** An Invited person as the list shows them, with a fresh invite just sent (or not). */
+function invitedView(
+  person: Pick<StaffMemberView, 'id' | 'name' | 'email' | 'role'>,
+  emailSent: boolean,
+): StaffMemberView {
+  return {
+    id: person.id,
+    name: person.name,
+    email: person.email,
+    role: person.role,
+    state: 'invited',
+    invite: { expired: false, emailFailed: !emailSent },
+  };
+}
+
 /** Postgres's unique_violation: two Admins inviting the same email at once. */
 function isUniqueViolation(error: unknown): boolean {
   for (let e: unknown = error; e instanceof Error; e = e.cause) {
@@ -56,12 +71,15 @@ export function staffRoutes(options: {
 }) {
   const { auth, database, mailer, appUrl } = options;
   const withActorTx = createWithActorTx(database);
-  // Inviting and Resend send email, so they're limited per client IP.
+  // Invite, Resend and Cancel are limited per client IP; the first two send email.
   const inviteLimit = rateLimit({ name: 'staff-invite', max: 30, windowMs: 10 * 60 * 1000 });
 
   /**
-   * Sends the invite email. On failure the invite stays, marked so the list shows "Email
-   * not sent, Resend", and the error goes to Sentry. Returns whether it was sent.
+   * Sends the invite email, after the invite's transaction has committed, so a rolled-back
+   * invite never sends a link and SMTP never holds a pooled connection open. On failure the
+   * invite stays, marked in a second transaction so the list shows "Email not sent,
+   * Resend", and the error goes to Sentry. Returns whether it was sent. This is the one
+   * deliberate exception to "one withActorTx per route".
    */
   async function sendInvite(
     c: Context<{ Variables: { session: { staffId: string } } }>,
@@ -106,7 +124,8 @@ export function staffRoutes(options: {
         inviteLimit,
         validate('json', inviteStaffBody),
         async (c) => {
-          const input: InviteStaffBody = c.req.valid('json');
+          // Parsed: the email is already lowercased.
+          const input = c.req.valid('json');
           const { token, tokenHash } = newInviteToken();
           const staffId = await withActorTx(c, async (ctx) => {
             requireCanManageInvites(ctx.actor);
@@ -125,10 +144,19 @@ export function staffRoutes(options: {
           });
           publish({ kind: 'staff.changed', staffId });
 
-          await sendInvite(c, { staffId, name: input.name, email: input.email, token });
-          const created = await withActorTx(c, (ctx) => findStaffMember(ctx, staffId));
-          if (!created) throw new Error('An invited Staff member did not read back');
-          return c.json(created, 201);
+          const sent = await sendInvite(c, {
+            staffId,
+            name: input.name,
+            email: input.email,
+            token,
+          });
+          return c.json(
+            invitedView(
+              { id: staffId, name: input.name, email: input.email, role: input.role },
+              sent,
+            ),
+            201,
+          );
         },
       )
 
@@ -151,26 +179,35 @@ export function staffRoutes(options: {
           });
           publish({ kind: 'staff.changed', staffId });
 
-          await sendInvite(c, { staffId, name: person.name, email: person.email, token });
-          const updated = await withActorTx(c, (ctx) => findStaffMember(ctx, staffId));
-          if (!updated) throw new Error('A re-invited Staff member did not read back');
-          return c.json(updated);
+          const sent = await sendInvite(c, {
+            staffId,
+            name: person.name,
+            email: person.email,
+            token,
+          });
+          return c.json(invitedView(person, sent));
         },
       )
 
       // Cancel: hard-deletes the Invited person, who has written nothing.
-      .delete('/:staffId/invite', signedIn(auth), validate('param', staffParams), async (c) => {
-        const { staffId } = c.req.valid('param');
-        await withActorTx(c, async (ctx) => {
-          requireCanManageInvites(ctx.actor);
-          const found = await findStaffMember(ctx, staffId);
-          if (!found) throw new NotFoundError();
-          if (!(await cancelInvite(ctx, staffId))) {
-            throw new ConflictError('They’ve already joined Ping. Deactivate them instead.');
-          }
-        });
-        publish({ kind: 'staff.changed', staffId });
-        return c.body(null, 204);
-      })
+      .delete(
+        '/:staffId/invite',
+        signedIn(auth),
+        inviteLimit,
+        validate('param', staffParams),
+        async (c) => {
+          const { staffId } = c.req.valid('param');
+          await withActorTx(c, async (ctx) => {
+            requireCanManageInvites(ctx.actor);
+            const found = await findStaffMember(ctx, staffId);
+            if (!found) throw new NotFoundError();
+            if (!(await cancelInvite(ctx, staffId))) {
+              throw new ConflictError('They’ve already joined Ping. Deactivate them instead.');
+            }
+          });
+          publish({ kind: 'staff.changed', staffId });
+          return c.body(null, 204);
+        },
+      )
   );
 }

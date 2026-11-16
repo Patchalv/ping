@@ -22,6 +22,7 @@ export const staffKeys = {
   all: ['staff'] as const,
   list: () => [...staffKeys.all, 'list'] as const,
   me: () => [...staffKeys.all, 'me'] as const,
+  invite: (token: string) => [...staffKeys.all, 'invite', token] as const,
 };
 
 /** The signed-in Staff member's role, to show Admin-only controls. */
@@ -79,7 +80,7 @@ export function useCancelInvite() {
 /** The invite a token belongs to: the set-password page's name and email. */
 export function useInvite(token: string) {
   return useQuery<InviteView>({
-    queryKey: ['invite', token],
+    queryKey: staffKeys.invite(token),
     queryFn: () => call(() => invites.lookup.$post({ json: { token } })),
     retry: false,
   });

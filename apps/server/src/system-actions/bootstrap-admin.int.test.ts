@@ -95,6 +95,7 @@ describe('bootstrapAdmin', () => {
     expect(result).toEqual({
       staffId: expect.any(String),
       emailSent: false,
+      error: expect.any(Error),
       link: expect.stringMatching(
         /^https:\/\/ping\.bypatrick\.app\/accept-invite#token=[\w-]{43}$/,
       ),
@@ -103,6 +104,14 @@ describe('bootstrapAdmin', () => {
       query('select 1 from staff_invite where email_failed_at is not null'),
     );
     expect(failed.rowCount).toBe(1);
+  });
+
+  it('refuses an email that a Staff member already has, saying whose', async () => {
+    await run({ name: 'Patrick', email: 'patrick@example.com' });
+    await owner((query) => query(`update staff_member set role = 'member', joined_at = now()`));
+    await expect(run({ name: 'Patrick', email: 'Patrick@example.com' })).rejects.toThrow(
+      'That email belongs to an active Staff member.',
+    );
   });
 
   it('refuses a malformed email', async () => {

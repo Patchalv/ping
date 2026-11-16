@@ -15,8 +15,10 @@ const { auditEvent, staffInvite, staffMember, user } = schema;
 const BOOTSTRAP_LOCK = 0x70696e67; // "ping"
 
 export class BootstrapRefusedError extends Error {
-  constructor() {
-    super('An Admin already exists, active or Invited. Invite people from the app instead.');
+  constructor(
+    message = 'An Admin already exists, active or Invited. Invite people from the app instead.',
+  ) {
+    super(message);
     this.name = 'BootstrapRefusedError';
   }
 }
@@ -25,7 +27,8 @@ export async function bootstrapAdmin(
   deps: { systemActions: SystemActions; mailer: Mailer; appUrl: string },
   raw: { name: string; email: string },
 ): Promise<
-  { staffId: string; emailSent: true } | { staffId: string; emailSent: false; link: string }
+  | { staffId: string; emailSent: true }
+  | { staffId: string; emailSent: false; link: string; error: unknown }
 > {
   const parsed = inviteStaffBody.safeParse({ ...raw, role: 'admin' });
   if (!parsed.success) throw new Error(parsed.error.issues.map((i) => i.message).join(' '));
@@ -41,6 +44,21 @@ export async function bootstrapAdmin(
       .where(and(eq(staffMember.role, 'admin'), isNull(staffMember.deactivatedAt)))
       .limit(1);
     if (admins.length > 0) throw new BootstrapRefusedError();
+
+    // Refused like the Admin's invite route: say who already has the email.
+    const [owner] = await tx
+      .select({ joinedAt: staffMember.joinedAt, deactivatedAt: staffMember.deactivatedAt })
+      .from(user)
+      .leftJoin(staffMember, eq(staffMember.id, user.id))
+      .where(sql`lower(${user.email}) = lower(${email})`);
+    if (owner) {
+      const state = owner.deactivatedAt
+        ? 'a Deactivated'
+        : owner.joinedAt
+          ? 'an active'
+          : 'an Invited';
+      throw new BootstrapRefusedError(`That email belongs to ${state} Staff member.`);
+    }
 
     const [created] = await tx
       .insert(user)
@@ -59,12 +77,13 @@ export async function bootstrapAdmin(
   try {
     await deps.mailer.send(inviteEmail({ to: email, name, appUrl: deps.appUrl, token }));
     return { staffId, emailSent: true };
-  } catch {
+  } catch (error) {
     await db
       .update(staffInvite)
       .set({ emailFailedAt: new Date() })
       .where(eq(staffInvite.staffId, staffId));
-    // No Admin can sign in to Resend yet, so the operator gets the link instead.
-    return { staffId, emailSent: false, link: inviteLink(deps.appUrl, token) };
+    // No Admin can sign in to Resend yet, so the operator gets the link instead. The CLI
+    // reports the error (the mailer's, which never holds the address) to Sentry.
+    return { staffId, emailSent: false, link: inviteLink(deps.appUrl, token), error };
   }
 }

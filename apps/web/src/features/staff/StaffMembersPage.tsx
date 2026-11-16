@@ -89,9 +89,14 @@ function StaffRow({ person }: { person: StaffMemberView }) {
 function StateBadge({ person }: { person: StaffMemberView }) {
   if (person.state === 'deactivated') return <Badge variant="tag">Deactivated</Badge>;
   if (!person.invite) return null;
-  if (person.invite.emailFailed) return <Badge variant="destructive">Email not sent</Badge>;
-  if (person.invite.expired) return <Badge variant="tag">Expired</Badge>;
   return <Badge variant="tag">Invited</Badge>;
+}
+
+/** The Resend button says why it's needed (screens.md › Admin screens). */
+function resendLabel(invite: StaffMemberView['invite']): string {
+  if (invite?.emailFailed) return 'Email not sent, Resend';
+  if (invite?.expired) return 'Expired, Resend';
+  return 'Resend';
 }
 
 /** Resend and Cancel for an Invited person, and any failure beside them. */
@@ -108,7 +113,7 @@ function InviteActions({ person }: { person: StaffMemberView }) {
         disabled={resend.isPending}
         onClick={() => resend.mutate(person.id)}
       >
-        {resend.isPending ? 'Resending…' : 'Resend'}
+        {resend.isPending ? 'Resending…' : resendLabel(person.invite)}
       </Button>
       <Button variant="ghost" size="sm" onClick={() => setCancelling(true)}>
         Cancel invite
