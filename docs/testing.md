@@ -89,7 +89,7 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 
 ### The route-coverage guard (`apps/server/src/test/route-coverage.test.ts`)
 
-It lists every registered Hono route and fails if one has neither a matrix row nor an allowlist entry. The allowlist, in `route-coverage.ts`, holds `/healthz`, Better Auth's routes, the security headers and the built SPA (`ALL /*` for the headers and the SPA's files, `GET /*` for client-side routes); invite accept (`POST /api/invites/lookup` and `POST /api/invites/accept`, tested directly in `features/staff/accept-routes.int.test.ts`) is on it too, and password reset joins it in its slice. Hono records `app.use` middleware and `app.all` handlers the same way, with method `ALL`, so every `ALL` entry must be allowlisted: register real handlers on a specific method, with matrix rows.
+It lists every registered Hono route and fails if one has neither a matrix row nor an allowlist entry. The allowlist, in `route-coverage.ts`, holds `/healthz`, Better Auth's routes, the security headers and the built SPA (`ALL /*` for the headers and the SPA's files, `GET /*` for client-side routes); invite accept (`POST /api/invites/lookup` and `POST /api/invites/accept`, tested directly in `features/staff/accept-routes.int.test.ts`) is on it too. Password reset needs no entry of its own: it is Better Auth's `/api/auth/request-password-reset` and `/api/auth/reset-password`, tested directly in `auth/password-reset.int.test.ts`. Hono records `app.use` middleware and `app.all` handlers the same way, with method `ALL`, so every `ALL` entry must be allowlisted: register real handlers on a specific method, with matrix rows.
 
 ### The PgBouncer test (`apps/server/src/db/pgbouncer.int.test.ts`)
 

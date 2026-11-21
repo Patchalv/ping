@@ -2,7 +2,7 @@
 // the permission matrix and the route-coverage guard.
 import { randomUUID } from 'node:crypto';
 import { createApp, type InviteServices } from '../app';
-import { type Auth, createAuth } from '../auth';
+import { type Auth, createAuth, type PasswordResetServices } from '../auth';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
 import { createMailer, type MailEnvironment, type Mailer, type OutgoingMail } from '../lib/email';
@@ -52,16 +52,32 @@ export function fakeMailer(
   });
 }
 
+/** The fake breach check: BREACHED_PASSWORD is breached, UNCHECKABLE_PASSWORD can't be checked. */
+async function fakeIsPasswordCompromised(password: string): Promise<boolean> {
+  if (password === UNCHECKABLE_PASSWORD) throw new Error('Failed to check password');
+  return password === BREACHED_PASSWORD;
+}
+
 export function createTestApp(options: { mail?: MailSettings } = {}): TestApp {
   const database = createDatabase(testUrls().app);
   const systemActions = createSystemActions(testUrls().system);
-  const auth = createAuth(database, {
-    secret: 'test-secret-for-integration-tests-only',
-    baseUrl: TEST_ORIGIN,
-    trustedOrigins: [TEST_ORIGIN],
-  });
   const mailbox: Mailbox = { sent: [], failing: false };
   const reported: unknown[] = [];
+  const mailer = fakeMailer(mailbox, options.mail);
+  const auth = createAuth(
+    database,
+    {
+      secret: 'test-secret-for-integration-tests-only',
+      baseUrl: TEST_ORIGIN,
+      trustedOrigins: [TEST_ORIGIN],
+    },
+    {
+      mailer,
+      appUrl: TEST_ORIGIN,
+      isPasswordCompromised: fakeIsPasswordCompromised,
+      reportError: (error) => reported.push(error),
+    },
+  );
   return {
     app: createApp({
       auth,
@@ -69,13 +85,10 @@ export function createTestApp(options: { mail?: MailSettings } = {}): TestApp {
       trustedOrigins: [TEST_ORIGIN],
       captureError: (error) => reported.push(error),
       invites: {
-        mailer: fakeMailer(mailbox, options.mail),
+        mailer,
         systemActions,
         appUrl: TEST_ORIGIN,
-        isPasswordCompromised: async (password) => {
-          if (password === UNCHECKABLE_PASSWORD) throw new Error('Failed to check password');
-          return password === BREACHED_PASSWORD;
-        },
+        isPasswordCompromised: fakeIsPasswordCompromised,
       },
     }),
     auth,
@@ -99,12 +112,32 @@ export function offlineInviteServices(): InviteServices {
   };
 }
 
+/** Password-reset services for an auth instance that never sends mail (unit tests). */
+export function offlineResetServices(): PasswordResetServices {
+  return {
+    mailer: fakeMailer({ sent: [], failing: false }),
+    appUrl: TEST_ORIGIN,
+    isPasswordCompromised: async () => false,
+    reportError: () => undefined,
+  };
+}
+
+/** The token in the latest email sent to `email` whose link opens `path`. */
+function linkTokenFor(mailbox: Mailbox, email: string, path: string): string {
+  const mail = mailbox.sent.findLast((sent) => sent.to === email && sent.text.includes(path));
+  const token = mail?.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1];
+  if (!token) throw new Error(`No ${path} email was sent to that address`);
+  return token;
+}
+
 /** The token in the latest invite email sent to `email`. */
 export function inviteTokenFor(mailbox: Mailbox, email: string): string {
-  const mail = mailbox.sent.findLast((sent) => sent.to === email);
-  const token = mail?.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1];
-  if (!token) throw new Error('No invite email was sent to that address');
-  return token;
+  return linkTokenFor(mailbox, email, '/accept-invite#');
+}
+
+/** The token in the latest password-reset email sent to `email`. */
+export function resetTokenFor(mailbox: Mailbox, email: string): string {
+  return linkTokenFor(mailbox, email, '/reset-password#');
 }
 
 /** A fresh client IP per call, so Better Auth's rate limiter treats each test apart. */

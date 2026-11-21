@@ -1,16 +1,38 @@
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useState } from 'react';
+import {
+  FORGOT_PASSWORD_PATH,
+  ForgotPasswordPage,
+} from './features/password-reset/ForgotPasswordPage';
+import {
+  RESET_PASSWORD_PATH,
+  ResetPasswordPage,
+} from './features/password-reset/ResetPasswordPage';
 import { AcceptInvitePage } from './features/staff/AcceptInvitePage';
-import { ACCEPT_INVITE_PATH, inviteTokenFromHash } from './features/staff/invite-token';
+import { ACCEPT_INVITE_PATH } from './features/staff/invite-token';
 import { api } from './lib/api';
 import { call } from './lib/api-client';
 import { authClient } from './lib/auth-client';
+import { tokenFromHash } from './lib/link-token';
 import { createQueryClient } from './lib/query-client';
 import { createAppRouter } from './router';
 import { SignIn } from './SignIn';
 
 const router = createAppRouter();
+
+/**
+ * The page a reset link or the sign-in page's "Forgot password?" link opens, signed in or
+ * not. Like the invite page, they sit outside the router, which lives inside the signed-in
+ * app. Their links out are plain, so leaving reloads the app.
+ */
+function passwordResetPage(): { page: 'forgot' } | { page: 'reset'; token: string } | null {
+  if (window.location.pathname === FORGOT_PASSWORD_PATH) return { page: 'forgot' };
+  if (window.location.pathname === RESET_PASSWORD_PATH) {
+    return { page: 'reset', token: tokenFromHash(window.location.hash) };
+  }
+  return null;
+}
 
 // The client for what anyone may ask before signing in: only whether the server answers.
 const publicQueryClient = createQueryClient(() => undefined);
@@ -22,14 +44,17 @@ export function App() {
   // and this page comes before anyone is signed in, like SignIn. Accepting signs the new
   // Staff member in and lands them on the signed-in home (Browse channels from #36).
   const [inviteToken, setInviteToken] = useState(() =>
-    window.location.pathname === ACCEPT_INVITE_PATH
-      ? inviteTokenFromHash(window.location.hash)
-      : null,
+    window.location.pathname === ACCEPT_INVITE_PATH ? tokenFromHash(window.location.hash) : null,
   );
+  const [resetPage] = useState(passwordResetPage);
   return (
     <QueryClientProvider client={publicQueryClient}>
       <ServerUnreachableBanner />
-      {inviteToken !== null ? (
+      {resetPage?.page === 'forgot' ? (
+        <ForgotPasswordPage />
+      ) : resetPage?.page === 'reset' ? (
+        <ResetPasswordPage token={resetPage.token} />
+      ) : inviteToken !== null ? (
         <AcceptInvitePage
           token={inviteToken}
           onAccepted={() => {

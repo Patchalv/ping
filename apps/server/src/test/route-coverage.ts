@@ -7,7 +7,9 @@
 const ROUTE_ALLOWLIST: readonly string[] = [
   // Uptime checks. Never touches the database.
   'GET /healthz',
-  // Better Auth's routes, including sign-in, sign-out, get-session and password reset.
+  // Better Auth's routes, including sign-in, sign-out, get-session and password reset
+  // (POST /api/auth/request-password-reset and POST /api/auth/reset-password, tested
+  // directly in auth/password-reset.int.test.ts with expired, used and unknown tokens).
   'GET /api/auth/*',
   'POST /api/auth/*',
   // Middleware on every path: the security headers, and (production only) the built SPA's
@@ -20,7 +22,6 @@ const ROUTE_ALLOWLIST: readonly string[] = [
   // them directly, with expired, used and unknown tokens.
   'POST /api/invites/lookup',
   'POST /api/invites/accept',
-  // Any password-reset route outside Better Auth arrives with "Password reset" (#33).
 ];
 
 type RegisteredRoute = { method: string; path: string };

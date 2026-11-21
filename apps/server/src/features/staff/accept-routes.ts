@@ -2,7 +2,12 @@
 // have no signedIn or withActorTx: they run through system-actions as ping_system, and sit
 // on the route-coverage allowlist with their own tests. The token travels in the body,
 // never the URL, so it can't reach a log. Both routes are rate limited per client IP.
-import { acceptInviteBody, type InviteView, inviteTokenBody } from '@ping/shared';
+import {
+  acceptInviteBody,
+  type InviteView,
+  inviteTokenBody,
+  PASSWORD_MESSAGES,
+} from '@ping/shared';
 import { hashPassword } from 'better-auth/crypto';
 import { Hono } from 'hono';
 import type { Auth } from '../../auth';
@@ -18,8 +23,6 @@ import { publish } from '../../lib/sse';
 import { validate } from '../../lib/validate';
 import type { SystemActions } from '../../system-actions';
 import { acceptInvite, findInvite, type InviteLookup } from '../../system-actions/accept-invite';
-
-const BREACHED = 'That password has appeared in a data breach. Choose a different one.';
 
 /** The live invite, or the error an expired, used or unknown token answers with. */
 function requireLive(found: InviteLookup): Extract<InviteLookup, { status: 'live' }> {
@@ -67,7 +70,8 @@ export function acceptInviteRoutes(options: {
           );
         });
         if (compromised) {
-          throw new ValidationError(BREACHED, [{ path: 'password', message: BREACHED }]);
+          const message = PASSWORD_MESSAGES.breached;
+          throw new ValidationError(message, [{ path: 'password', message }]);
         }
         const accepted = requireLive(
           await acceptInvite(systemActions.db, {

@@ -2,7 +2,10 @@ import { type SignInBody, signInBody } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
 import { useAppForm } from '#/components/form';
+import { buttonVariants } from '#/components/ui/button';
+import { AuthPage } from './components/AuthPage';
 import { FormError } from './components/FormError';
+import { FORGOT_PASSWORD_PATH } from './features/password-reset/ForgotPasswordPage';
 import { OFFLINE_MESSAGE } from './lib/api-client';
 import { authClient } from './lib/auth-client';
 import { signInErrorMessage } from './lib/sign-in-error';
@@ -31,27 +34,27 @@ export function SignIn() {
   });
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
-      <div className="grid w-full max-w-sm gap-6">
-        <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
-        <form.AppForm>
-          <form.Form className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">
-            <h1 className="text-xl font-bold">Sign in to Ping</h1>
-            <form.AppField name="email">
-              {(field) => <field.TextField label="Email" type="email" autoComplete="username" />}
-            </form.AppField>
-            <form.AppField name="password">
-              {(field) => (
-                <field.TextField label="Password" type="password" autoComplete="current-password" />
-              )}
-            </form.AppField>
-            {error ? <FormError>{error}</FormError> : null}
-            <form.SubmitButton size="lg" pending="Signing in…">
-              Sign in
-            </form.SubmitButton>
-          </form.Form>
-        </form.AppForm>
-      </div>
-    </main>
+    <AuthPage>
+      <form.AppForm>
+        <form.Form className="grid gap-4">
+          <h1 className="text-xl font-bold">Sign in to Ping</h1>
+          <form.AppField name="email">
+            {(field) => <field.TextField label="Email" type="email" autoComplete="username" />}
+          </form.AppField>
+          <form.AppField name="password">
+            {(field) => (
+              <field.TextField label="Password" type="password" autoComplete="current-password" />
+            )}
+          </form.AppField>
+          {error ? <FormError>{error}</FormError> : null}
+          <form.SubmitButton size="lg" pending="Signing in…">
+            Sign in
+          </form.SubmitButton>
+          <a className={buttonVariants({ variant: 'link' })} href={FORGOT_PASSWORD_PATH}>
+            Forgot password?
+          </a>
+        </form.Form>
+      </form.AppForm>
+    </AuthPage>
   );
 }

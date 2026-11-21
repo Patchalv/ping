@@ -33,6 +33,19 @@ export async function findStaffForSignIn(
   return rows[0];
 }
 
+/**
+ * Whether the Staff member has joined and isn't Deactivated: only they can reset a
+ * password. A row the policy hides counts as not active.
+ */
+export async function isActiveStaff(tx: Tx, staffId: string): Promise<boolean> {
+  const rows = await tx
+    .select({ joinedAt: staffMember.joinedAt, deactivatedAt: staffMember.deactivatedAt })
+    .from(staffMember)
+    .where(eq(staffMember.id, staffId));
+  const row = rows[0];
+  return Boolean(row?.joinedAt && !row.deactivatedAt);
+}
+
 export async function insertAuditEvent(
   tx: Tx,
   event: typeof auditEvent.$inferInsert,

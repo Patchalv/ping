@@ -4,7 +4,7 @@
 // A token is 32 random bytes, base64url. Only its SHA-256 is stored. The link carries it
 // in the fragment, which browsers never send to a server, so it can't reach a log.
 import { createHash, randomBytes } from 'node:crypto';
-import type { MailMessage } from './email';
+import { escapeHtml, type MailMessage } from './email';
 
 export const INVITE_LIFETIME_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -19,15 +19,6 @@ export function newInviteToken(): { token: string; tokenHash: string } {
 
 export function inviteExpiry(now: Date = new Date()): Date {
   return new Date(now.getTime() + INVITE_LIFETIME_MS);
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#39;');
 }
 
 /** The set-password page for a token. */
