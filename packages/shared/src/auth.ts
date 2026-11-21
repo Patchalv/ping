@@ -4,6 +4,17 @@ import { z } from 'zod';
 
 /** product.md › Sign-in: at least 12 characters, and not in a known breach. */
 export const PASSWORD_MIN = 12;
+const PASSWORD_MAX = 128;
+
+/**
+ * What the forms say about a refused password. The schema below uses the length ones;
+ * the web app also shows them for the server's own refusals.
+ */
+export const PASSWORD_MESSAGES = {
+  tooShort: `Use at least ${PASSWORD_MIN} characters.`,
+  tooLong: `Keep the password to ${PASSWORD_MAX} characters or fewer.`,
+  breached: 'That password has appeared in a data breach. Choose a different one.',
+} as const;
 
 const email = z
   .string({ error: 'Enter your email address.' })
@@ -17,8 +28,8 @@ const email = z
  */
 export const newPassword = z
   .string({ error: 'Choose a password.' })
-  .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
-  .max(128, 'Keep the password to 128 characters or fewer.');
+  .min(PASSWORD_MIN, PASSWORD_MESSAGES.tooShort)
+  .max(PASSWORD_MAX, PASSWORD_MESSAGES.tooLong);
 
 /** The sign-in form. */
 export const signInBody = z.object({

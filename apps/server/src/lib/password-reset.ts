@@ -4,8 +4,7 @@
 // Better Auth's, which carries the token in a path that reaches server logs. Ping's link
 // carries it in the fragment, which browsers never send to a server.
 import { createHash } from 'node:crypto';
-import type { MailMessage } from './email';
-import { escapeHtml } from './invite';
+import { escapeHtml, type MailMessage } from './email';
 
 export const RESET_LIFETIME_SECONDS = 60 * 60;
 
@@ -45,7 +44,7 @@ export function resetEmail(input: {
   };
 }
 
-type Window = { start: number; count: number };
+type LimitWindow = { start: number; count: number };
 
 /**
  * A fixed-window count per email address, in memory (Ping runs one Machine). Keys are a
@@ -53,7 +52,7 @@ type Window = { start: number; count: number };
  */
 export function perEmailLimit(options: { max: number; windowMs: number; now?: () => number }) {
   const now = options.now ?? Date.now;
-  const windows = new Map<string, Window>();
+  const windows = new Map<string, LimitWindow>();
   return {
     /** Counts a request; false when the address is over its limit. */
     take(email: string): boolean {

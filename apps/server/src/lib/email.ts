@@ -13,6 +13,16 @@ import type { EmailSettings } from '../config';
 
 const FROM_ADDRESS = 'Ping <no-reply@ping.bypatrick.app>';
 
+/** Escapes text for an email's HTML body. */
+export function escapeHtml(value: string): string {
+  return value
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 /** What a caller asks to send. */
 export type MailMessage = { to: string; subject: string; text: string; html: string };
 

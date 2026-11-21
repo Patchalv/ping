@@ -9,6 +9,7 @@ export {
   forgotPasswordBody,
   type NewPasswordBody,
   newPasswordBody,
+  PASSWORD_MESSAGES,
   PASSWORD_MIN,
   type SignInBody,
   signInBody,

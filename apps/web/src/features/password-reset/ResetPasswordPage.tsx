@@ -3,6 +3,7 @@ import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { buttonVariants } from '#/components/ui/button';
+import { AuthPage } from '../../components/AuthPage';
 import { FormError } from '../../components/FormError';
 import { OFFLINE_MESSAGE } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
@@ -54,51 +55,44 @@ export function ResetPasswordPage({ token }: { token: string }) {
   });
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
-      <div className="grid w-full max-w-sm gap-6">
-        <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
-        <div className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">
-          {outcome === 'reset' ? (
-            <>
-              <h1 className="text-xl font-bold">Your password is changed</h1>
-              <p role="status">
-                You’ve been signed out everywhere. Sign in with your new password.
-              </p>
-              <a className={buttonVariants({ size: 'lg' })} href="/">
-                Sign in
-              </a>
-            </>
-          ) : outcome === 'dead-link' ? (
-            <>
-              <h1 className="text-xl font-bold">This reset link can’t be used</h1>
-              <p role="alert">It has expired or has already been used. Ask for a new one.</p>
-              <a className={buttonVariants({ size: 'lg' })} href={FORGOT_PASSWORD_PATH}>
-                Send a new link
-              </a>
-            </>
-          ) : (
-            <form.AppForm>
-              <form.Form className="grid gap-4">
-                <h1 className="text-xl font-bold">Choose a new password</h1>
-                <form.AppField name="password">
-                  {(field) => (
-                    <field.TextField
-                      label="New password"
-                      type="password"
-                      autoComplete="new-password"
-                      description={`At least ${PASSWORD_MIN} characters, and not one that has appeared in a known data breach.`}
-                    />
-                  )}
-                </form.AppField>
-                {error ? <FormError>{error}</FormError> : null}
-                <form.SubmitButton size="lg" pending="Saving…">
-                  Set new password
-                </form.SubmitButton>
-              </form.Form>
-            </form.AppForm>
-          )}
-        </div>
-      </div>
-    </main>
+    <AuthPage>
+      {outcome === 'reset' ? (
+        <>
+          <h1 className="text-xl font-bold">Your password is changed</h1>
+          <p role="status">You’ve been signed out everywhere. Sign in with your new password.</p>
+          <a className={buttonVariants({ size: 'lg' })} href="/">
+            Sign in
+          </a>
+        </>
+      ) : outcome === 'dead-link' ? (
+        <>
+          <h1 className="text-xl font-bold">This reset link can’t be used</h1>
+          <p role="alert">It has expired or has already been used. Ask for a new one.</p>
+          <a className={buttonVariants({ size: 'lg' })} href={FORGOT_PASSWORD_PATH}>
+            Send a new link
+          </a>
+        </>
+      ) : (
+        <form.AppForm>
+          <form.Form className="grid gap-4">
+            <h1 className="text-xl font-bold">Choose a new password</h1>
+            <form.AppField name="password">
+              {(field) => (
+                <field.TextField
+                  label="New password"
+                  type="password"
+                  autoComplete="new-password"
+                  description={`At least ${PASSWORD_MIN} characters, and not one that has appeared in a known data breach.`}
+                />
+              )}
+            </form.AppField>
+            {error ? <FormError>{error}</FormError> : null}
+            <form.SubmitButton size="lg" pending="Saving…">
+              Set new password
+            </form.SubmitButton>
+          </form.Form>
+        </form.AppForm>
+      )}
+    </AuthPage>
   );
 }

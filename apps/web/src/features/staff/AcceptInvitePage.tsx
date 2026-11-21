@@ -5,6 +5,7 @@ import { showServerIssues, useAppForm } from '#/components/form';
 import { buttonVariants } from '#/components/ui/button';
 import { Field, FieldLabel } from '#/components/ui/field';
 import { Input } from '#/components/ui/input';
+import { AuthPage } from '../../components/AuthPage';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { useAcceptInvite, useInvite } from './api';
@@ -19,27 +20,22 @@ const passwordForm = acceptInviteBody.pick({ password: true });
 export function AcceptInvitePage({ token, onAccepted }: { token: string; onAccepted(): void }) {
   const invite = useInvite(token);
   return (
-    <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
-      <div className="grid w-full max-w-sm gap-6">
-        <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
-        <div className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">
-          {invite.isPending ? (
-            <p className="text-muted-foreground">Checking your invite…</p>
-          ) : invite.isError ? (
-            <>
-              <h1 className="text-xl font-bold">This invite can’t be used</h1>
-              <p role="alert">{invite.error.message}</p>
-              {/* A plain link: leaving reloads the app at its home, signed in or not. */}
-              <a className={buttonVariants({ variant: 'outline' })} href="/">
-                Go to Ping
-              </a>
-            </>
-          ) : (
-            <SetPasswordForm token={token} invite={invite.data} onAccepted={onAccepted} />
-          )}
-        </div>
-      </div>
-    </main>
+    <AuthPage>
+      {invite.isPending ? (
+        <p className="text-muted-foreground">Checking your invite…</p>
+      ) : invite.isError ? (
+        <>
+          <h1 className="text-xl font-bold">This invite can’t be used</h1>
+          <p role="alert">{invite.error.message}</p>
+          {/* A plain link: leaving reloads the app at its home, signed in or not. */}
+          <a className={buttonVariants({ variant: 'outline' })} href="/">
+            Go to Ping
+          </a>
+        </>
+      ) : (
+        <SetPasswordForm token={token} invite={invite.data} onAccepted={onAccepted} />
+      )}
+    </AuthPage>
   );
 }
 

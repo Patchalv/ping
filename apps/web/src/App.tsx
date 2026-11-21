@@ -26,10 +26,10 @@ const router = createAppRouter();
  * not. Like the invite page, they sit outside the router, which lives inside the signed-in
  * app. Their links out are plain, so leaving reloads the app.
  */
-function passwordResetPage(): 'forgot' | { token: string } | null {
-  if (window.location.pathname === FORGOT_PASSWORD_PATH) return 'forgot';
+function passwordResetPage(): { page: 'forgot' } | { page: 'reset'; token: string } | null {
+  if (window.location.pathname === FORGOT_PASSWORD_PATH) return { page: 'forgot' };
   if (window.location.pathname === RESET_PASSWORD_PATH) {
-    return { token: tokenFromHash(window.location.hash) };
+    return { page: 'reset', token: tokenFromHash(window.location.hash) };
   }
   return null;
 }
@@ -50,9 +50,9 @@ export function App() {
   return (
     <QueryClientProvider client={publicQueryClient}>
       <ServerUnreachableBanner />
-      {resetPage === 'forgot' ? (
+      {resetPage?.page === 'forgot' ? (
         <ForgotPasswordPage />
-      ) : resetPage ? (
+      ) : resetPage?.page === 'reset' ? (
         <ResetPasswordPage token={resetPage.token} />
       ) : inviteToken !== null ? (
         <AcceptInvitePage

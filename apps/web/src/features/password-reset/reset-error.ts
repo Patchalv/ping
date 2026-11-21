@@ -1,6 +1,6 @@
 // What the password-reset pages say when Better Auth refuses. Better Auth's own messages
 // are English for developers, so each refusal gets Ping's wording here.
-import { PASSWORD_MIN } from '@ping/shared';
+import { PASSWORD_MESSAGES } from '@ping/shared';
 
 type Refused = { status: number; code?: string | undefined };
 
@@ -12,11 +12,11 @@ export function forgotPasswordErrorMessage(error: Refused): string {
   return error.status === 429 ? TOO_MANY : SOMETHING_WRONG;
 }
 
-/** Messages for a password the server refused, shown on the password field. */
+/** Better Auth's codes for a refused password, shown on the password field. */
 const PASSWORD_REFUSALS: Record<string, string> = {
-  PASSWORD_COMPROMISED: 'That password has appeared in a data breach. Choose a different one.',
-  PASSWORD_TOO_SHORT: `Use at least ${PASSWORD_MIN} characters.`,
-  PASSWORD_TOO_LONG: 'Keep the password to 128 characters or fewer.',
+  PASSWORD_COMPROMISED: PASSWORD_MESSAGES.breached,
+  PASSWORD_TOO_SHORT: PASSWORD_MESSAGES.tooShort,
+  PASSWORD_TOO_LONG: PASSWORD_MESSAGES.tooLong,
 };
 
 /**

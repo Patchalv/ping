@@ -1,7 +1,7 @@
 // Better Auth: email and password only, public sign-up off, no admin plugin (ADR 0004).
 // Better Auth reaches its own four tables through the database's auth handle. Everything
 // that touches Ping's tables goes through withStaffTx() or withAnonymousTx().
-import { redactSensitiveText } from '@ping/shared';
+import { PASSWORD_MESSAGES, redactSensitiveText } from '@ping/shared';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { APIError, createAuthMiddleware, isAPIError } from 'better-auth/api';
@@ -16,8 +16,6 @@ import { findStaffForSignIn, findUserIdByEmail, insertAuditEvent, isActiveStaff 
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 const DEACTIVATED_CODE = 'STAFF_MEMBER_DEACTIVATED';
-
-const BREACHED = 'That password has appeared in a data breach. Choose a different one.';
 
 /** What password reset needs beyond the database. */
 export type PasswordResetServices = {
@@ -153,7 +151,10 @@ export function createAuth(
           });
         });
         if (compromised) {
-          throw new APIError('BAD_REQUEST', { code: 'PASSWORD_COMPROMISED', message: BREACHED });
+          throw new APIError('BAD_REQUEST', {
+            code: 'PASSWORD_COMPROMISED',
+            message: PASSWORD_MESSAGES.breached,
+          });
         }
       }),
       after: createAuthMiddleware(async (ctx) => {

@@ -3,6 +3,7 @@ import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
 import { useAppForm } from '#/components/form';
 import { buttonVariants } from '#/components/ui/button';
+import { AuthPage } from '../../components/AuthPage';
 import { FormError } from '../../components/FormError';
 import { OFFLINE_MESSAGE } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
@@ -42,47 +43,40 @@ export function ForgotPasswordPage() {
   });
 
   return (
-    <main className="grid min-h-dvh place-items-center bg-chrome px-4 py-6">
-      <div className="grid w-full max-w-sm gap-6">
-        <p className="text-center text-2xl font-bold tracking-tight text-chrome-foreground">Ping</p>
-        <div className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">
-          {requested ? (
-            <>
-              <h1 className="text-xl font-bold">Check your email</h1>
-              <p role="status">
-                If that account exists, we’ve sent a link to reset your password. It works once and
-                lasts 1 hour.
+    <AuthPage>
+      {requested ? (
+        <>
+          <h1 className="text-xl font-bold">Check your email</h1>
+          <p role="status">
+            If that account exists, we’ve sent a link to reset your password. It works once and
+            lasts 1 hour.
+          </p>
+          <a className={buttonVariants({ variant: 'outline', size: 'lg' })} href="/">
+            Back to sign in
+          </a>
+        </>
+      ) : (
+        <form.AppForm>
+          <form.Form className="grid gap-4">
+            <div className="grid gap-1">
+              <h1 className="text-xl font-bold">Reset your password</h1>
+              <p className="text-muted-foreground">
+                Enter your work email and we’ll send you a link to choose a new password.
               </p>
-              <a className={buttonVariants({ variant: 'outline', size: 'lg' })} href="/">
-                Back to sign in
-              </a>
-            </>
-          ) : (
-            <form.AppForm>
-              <form.Form className="grid gap-4">
-                <div className="grid gap-1">
-                  <h1 className="text-xl font-bold">Reset your password</h1>
-                  <p className="text-muted-foreground">
-                    Enter your work email and we’ll send you a link to choose a new password.
-                  </p>
-                </div>
-                <form.AppField name="email">
-                  {(field) => (
-                    <field.TextField label="Email" type="email" autoComplete="username" />
-                  )}
-                </form.AppField>
-                {error ? <FormError>{error}</FormError> : null}
-                <form.SubmitButton size="lg" pending="Sending…">
-                  Send reset link
-                </form.SubmitButton>
-                <a className={buttonVariants({ variant: 'link' })} href="/">
-                  Back to sign in
-                </a>
-              </form.Form>
-            </form.AppForm>
-          )}
-        </div>
-      </div>
-    </main>
+            </div>
+            <form.AppField name="email">
+              {(field) => <field.TextField label="Email" type="email" autoComplete="username" />}
+            </form.AppField>
+            {error ? <FormError>{error}</FormError> : null}
+            <form.SubmitButton size="lg" pending="Sending…">
+              Send reset link
+            </form.SubmitButton>
+            <a className={buttonVariants({ variant: 'link' })} href="/">
+              Back to sign in
+            </a>
+          </form.Form>
+        </form.AppForm>
+      )}
+    </AuthPage>
   );
 }
