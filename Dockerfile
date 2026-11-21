@@ -4,7 +4,7 @@
 #   docker build -t ping .
 #
 # Keep the Node major in step with .nvmrc.
-FROM node:26-slim AS base
+FROM node:26.13.1-slim AS base
 ENV CI=true
 WORKDIR /app
 # Node 25+ ships without corepack, so install the pnpm version package.json pins.
@@ -33,7 +33,7 @@ RUN pnpm build
 FROM manifests AS prod-deps
 RUN pnpm install --frozen-lockfile --prod --filter "@ping/server..."
 
-FROM node:26-slim
+FROM node:26.13.1-slim
 ENV NODE_ENV=production \
     PORT=8080
 WORKDIR /app
