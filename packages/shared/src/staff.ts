@@ -1,10 +1,9 @@
 // Staff members and invites: the request schemas both apps use, and the shapes the server
 // answers with. Every rule a Staff member can trip has a plain-English message.
 import { z } from 'zod';
+import { newPassword } from './auth';
 
 export const STAFF_NAME_MAX = 80;
-/** product.md › Sign-in: at least 12 characters, and not in a known breach. */
-export const PASSWORD_MIN = 12;
 
 const staffRole = z.enum(['admin', 'member'], { error: 'Choose Admin or Member.' });
 export type StaffRole = z.infer<typeof staffRole>;
@@ -42,11 +41,7 @@ export const inviteTokenBody = z.object({ token: inviteToken });
 /** POST /api/invites/accept, and the set-password form. */
 export const acceptInviteBody = z.object({
   token: inviteToken,
-  // Not trimmed: spaces can be part of a password. The server also refuses a breached one.
-  password: z
-    .string({ error: 'Choose a password.' })
-    .min(PASSWORD_MIN, `Use at least ${PASSWORD_MIN} characters.`)
-    .max(128, 'Keep the password to 128 characters or fewer.'),
+  password: newPassword,
 });
 export type AcceptInviteBody = z.input<typeof acceptInviteBody>;
 

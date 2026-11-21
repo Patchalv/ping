@@ -21,7 +21,8 @@ export function inviteExpiry(now: Date = new Date()): Date {
   return new Date(now.getTime() + INVITE_LIFETIME_MS);
 }
 
-function escapeHtml(value: string): string {
+/** Escapes text for an email's HTML body. Also used by the reset email. */
+export function escapeHtml(value: string): string {
   return value
     .replaceAll('&', '&amp;')
     .replaceAll('<', '&lt;')

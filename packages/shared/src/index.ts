@@ -4,7 +4,15 @@ export type HealthzResponse = {
   status: 'ok';
 };
 
-export { type SignInBody, signInBody } from './auth';
+export {
+  type ForgotPasswordBody,
+  forgotPasswordBody,
+  type NewPasswordBody,
+  newPasswordBody,
+  PASSWORD_MIN,
+  type SignInBody,
+  signInBody,
+} from './auth';
 export {
   CHANNEL_DESCRIPTION_MAX,
   CHANNEL_NAME_MAX,
@@ -29,7 +37,6 @@ export {
   type InviteView,
   inviteStaffBody,
   inviteTokenBody,
-  PASSWORD_MIN,
   STAFF_NAME_MAX,
   type StaffMemberView,
   type StaffRole,

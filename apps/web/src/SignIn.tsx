@@ -2,7 +2,9 @@ import { type SignInBody, signInBody } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
 import { useAppForm } from '#/components/form';
+import { buttonVariants } from '#/components/ui/button';
 import { FormError } from './components/FormError';
+import { FORGOT_PASSWORD_PATH } from './features/password-reset/ForgotPasswordPage';
 import { OFFLINE_MESSAGE } from './lib/api-client';
 import { authClient } from './lib/auth-client';
 import { signInErrorMessage } from './lib/sign-in-error';
@@ -49,6 +51,9 @@ export function SignIn() {
             <form.SubmitButton size="lg" pending="Signing in…">
               Sign in
             </form.SubmitButton>
+            <a className={buttonVariants({ variant: 'link' })} href={FORGOT_PASSWORD_PATH}>
+              Forgot password?
+            </a>
           </form.Form>
         </form.AppForm>
       </div>

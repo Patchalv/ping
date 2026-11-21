@@ -7,17 +7,21 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { createDatabase } from './db';
 import { ForbiddenError, NotFoundError, ValidationError } from './lib/errors';
-import { offlineInviteServices } from './test/test-app';
+import { offlineInviteServices, offlineResetServices } from './test/test-app';
 
 // Never connects: these routes don't touch the database.
 const database = createDatabase('postgres://nobody@localhost:1/none');
 const trustedOrigins = ['http://localhost:3000'];
 const invites = offlineInviteServices();
-const auth = createAuth(database, {
-  secret: 'unit-test-secret-not-used-for-anything',
-  baseUrl: 'http://localhost:3000',
-  trustedOrigins,
-});
+const auth = createAuth(
+  database,
+  {
+    secret: 'unit-test-secret-not-used-for-anything',
+    baseUrl: 'http://localhost:3000',
+    trustedOrigins,
+  },
+  offlineResetServices(),
+);
 
 describe('GET /healthz', () => {
   it('answers ok', async () => {

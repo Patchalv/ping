@@ -7,7 +7,7 @@ import { createAuth } from '../auth';
 import { createDatabase } from '../db';
 import { coveredRoutes } from './permission-matrix/matrix';
 import { uncoveredRoutes } from './route-coverage';
-import { offlineInviteServices } from './test-app';
+import { offlineInviteServices, offlineResetServices } from './test-app';
 
 // The real app, as production builds it: serving a built SPA. Building it never connects
 // to the database.
@@ -15,11 +15,15 @@ function realApp() {
   const webDistDir = mkdtempSync(join(tmpdir(), 'ping-route-coverage-'));
   writeFileSync(join(webDistDir, 'index.html'), '<!doctype html><title>Ping</title>');
   const database = createDatabase('postgres://nobody@localhost:1/none');
-  const auth = createAuth(database, {
-    secret: 'route-coverage-test-secret-not-used',
-    baseUrl: 'http://localhost:3000',
-    trustedOrigins: ['http://localhost:3000'],
-  });
+  const auth = createAuth(
+    database,
+    {
+      secret: 'route-coverage-test-secret-not-used',
+      baseUrl: 'http://localhost:3000',
+      trustedOrigins: ['http://localhost:3000'],
+    },
+    offlineResetServices(),
+  );
   return createApp({
     auth,
     database,

@@ -19,13 +19,21 @@ const webDistDir =
 
 const database = createDatabase(config.databaseUrl);
 const systemActions = createSystemActions(config.systemDatabaseUrl);
-const auth = createAuth(database, config.auth);
+const mailer = createMailerFromConfig(config.email);
+const auth = createAuth(database, config.auth, {
+  mailer,
+  appUrl: config.auth.baseUrl,
+  isPasswordCompromised,
+  // Sentry is a no-op until initSentry has a DSN.
+  reportError: (error) =>
+    captureError(error, { method: 'POST', path: '/api/auth/request-password-reset' }),
+});
 
 const app = createApp({
   auth,
   database,
   invites: {
-    mailer: createMailerFromConfig(config.email),
+    mailer,
     systemActions,
     appUrl: config.auth.baseUrl,
     isPasswordCompromised,
