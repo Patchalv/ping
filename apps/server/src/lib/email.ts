@@ -4,7 +4,8 @@
 //
 // - Every message goes from Ping's no-reply address, with no Reply-To.
 // - On staging, subjects start with [Staging], and only addresses on EMAIL_ALLOWLIST are
-//   sent to; any other is logged, without the address, and dropped.
+//   sent to; any other is logged, without the address, and held back. The caller hears
+//   `held`, so an invite shows "Email not sent" rather than looking sent.
 // - A failure reaches the caller as an error that never holds the address, so the caller
 //   can mark the invite and report to Sentry.
 import nodemailer from 'nodemailer';
@@ -20,30 +21,50 @@ export type OutgoingMail = MailMessage & { from: string };
 
 export type MailTransport = { send(mail: OutgoingMail): Promise<void> };
 
-export type Mailer = { send(message: MailMessage): Promise<void> };
+/**
+ * `sent`: handed to the transport. `held`: staging kept it back because the recipient is
+ * not on EMAIL_ALLOWLIST. Callers treat `held` like a failed send (the invite shows
+ * "Email not sent"), without reporting it, since it's working as configured.
+ */
+export type SendResult = 'sent' | 'held';
+
+export type Mailer = { send(message: MailMessage): Promise<SendResult> };
 
 export type MailEnvironment = 'production' | 'staging' | 'local';
+
+/**
+ * Whether staging may email `address`. Each allowlist entry is `*` (everyone), `@domain`
+ * (any address at exactly that domain) or an exact address. Case is ignored.
+ */
+function isAllowlisted(allowlist: readonly string[], address: string): boolean {
+  const to = address.trim().toLowerCase();
+  const domain = to.slice(to.lastIndexOf('@'));
+  return allowlist.some((raw) => {
+    const entry = raw.trim().toLowerCase();
+    return entry === '*' || entry === to || (entry.startsWith('@') && entry === domain);
+  });
+}
 
 export function createMailer(options: {
   transport: MailTransport;
   environment: MailEnvironment;
-  /** Staging only: the addresses it may send to. */
+  /** Staging only: who it may send to (see isAllowlisted). */
   allowlist: readonly string[];
   log?: (line: string) => void;
 }): Mailer {
-  const allowed = new Set(options.allowlist.map((address) => address.trim().toLowerCase()));
   const log = options.log ?? ((line: string) => console.log(line));
   const staging = options.environment === 'staging';
 
   return {
     async send(message) {
-      if (staging && !allowed.has(message.to.trim().toLowerCase())) {
+      if (staging && !isAllowlisted(options.allowlist, message.to)) {
         log('Email not sent: the recipient is not on EMAIL_ALLOWLIST.');
-        return;
+        return 'held';
       }
       const subject = staging ? `[Staging] ${message.subject}` : message.subject;
       try {
         await options.transport.send({ ...message, subject, from: FROM_ADDRESS });
+        return 'sent';
       } catch (error) {
         // SMTP errors often quote the address; the cause stays out of logs and Sentry.
         throw new Error(

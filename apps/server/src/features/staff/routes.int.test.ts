@@ -315,3 +315,42 @@ describe('DELETE /api/staff/:staffId/invite', () => {
     expect(res.status).toBe(404);
   });
 });
+
+describe('on staging', () => {
+  let staging: TestApp;
+  let stagingAdminCookie: string;
+  beforeAll(async () => {
+    staging = createTestApp({ mail: { environment: 'staging', allowlist: ['@allowed.test'] } });
+    stagingAdminCookie = await signIn(staging, await createStaffMember({ role: 'admin' }));
+  });
+  afterAll(async () => {
+    await staging.close();
+  });
+
+  const inviteOnStaging = (email: string) =>
+    staging.app.request('/api/staff/invites', {
+      method: 'POST',
+      headers: jsonHeaders({ cookie: stagingAdminCookie }),
+      body: JSON.stringify({ name: 'Staging Test', email, role: 'member' }),
+    });
+
+  it('shows "Email not sent" for an address off the allowlist, without reporting it', async () => {
+    const res = await inviteOnStaging(`held-${randomUUID()}@elsewhere.test`);
+    expect(res.status).toBe(201);
+    expect(((await res.json()) as StaffMemberView).invite).toEqual({
+      expired: false,
+      emailFailed: true,
+    });
+    expect(staging.mailbox.sent).toHaveLength(0);
+    expect(staging.reported).toEqual([]);
+  });
+
+  it('sends to an allowlisted domain, with [Staging] in the subject', async () => {
+    const email = `ok-${randomUUID()}@allowed.test`;
+    const res = await inviteOnStaging(email);
+    expect(((await res.json()) as StaffMemberView).invite?.emailFailed).toBe(false);
+    expect(staging.mailbox.sent.findLast((mail) => mail.to === email)?.subject).toBe(
+      '[Staging] You’re invited to Ping',
+    );
+  });
+});

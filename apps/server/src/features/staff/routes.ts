@@ -8,7 +8,7 @@ import { type Context, Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
-import type { Mailer } from '../../lib/email';
+import type { Mailer, SendResult } from '../../lib/email';
 import { ConflictError, NotFoundError } from '../../lib/errors';
 import { inviteEmail, inviteExpiry, newInviteToken } from '../../lib/invite';
 import { rateLimit } from '../../lib/rate-limit';
@@ -85,19 +85,22 @@ export function staffRoutes(options: {
     c: Context<{ Variables: { session: { staffId: string } } }>,
     person: { staffId: string; name: string; email: string; token: string },
   ): Promise<boolean> {
+    let result: SendResult;
     try {
-      await mailer.send(
+      result = await mailer.send(
         inviteEmail({ to: person.email, name: person.name, appUrl, token: person.token }),
       );
-      return true;
     } catch (error) {
       options.reportError(error, c);
-      // The invite exists either way: failing to mark it is reported, not a 500.
-      await withActorTx(c, (ctx) => markInviteEmailFailed(ctx, person.staffId)).catch(
-        (markError: unknown) => options.reportError(markError, c),
-      );
-      return false;
+      result = 'held';
     }
+    if (result === 'sent') return true;
+    // Failed, or held back by staging's allowlist (working as configured, so not reported).
+    // The invite exists either way: failing to mark it is reported, not a 500.
+    await withActorTx(c, (ctx) => markInviteEmailFailed(ctx, person.staffId)).catch(
+      (markError: unknown) => options.reportError(markError, c),
+    );
+    return false;
   }
 
   return (

@@ -157,7 +157,7 @@ fly.prod.toml      prod's Fly config (fly.staging.toml for staging)
 | `SENTRY_ENVIRONMENT` | unset | `production` or `staging`. Required when `SENTRY_DSN` is set. |
 | `PING_ENVIRONMENT` | `local` | `production`, `staging` or `local`. Required in production. On staging, email subjects start with `[Staging]` and only `EMAIL_ALLOWLIST` is sent to. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | unset; port 587 | Any SMTP provider (Brevo in staging and prod). Set all or none. Without them, local development prints each email (with its link) to the server log, and production or staging marks every invite "Email not sent". |
-| `EMAIL_ALLOWLIST` | empty | Staging only: the addresses it may email, comma-separated. Anything else is logged, without the address, and not sent. |
+| `EMAIL_ALLOWLIST` | empty (nobody) | Staging only: who it may email, comma-separated. Each entry is an exact address, `@domain` for everyone at that domain, or `*` for everyone. Anything else is logged, without the address, not sent, and shown as "Email not sent". |
 
 Set these in your shell, for example `PORT=4000 pnpm start`, or in a gitignored `.env.local` at the repo root, which the server and the db scripts load. Shell variables win. With `NODE_ENV=production` (as `pnpm start` sets) the server refuses to start without the required ones. `.env` and `.env.*` are gitignored, except `.env.example`.
 

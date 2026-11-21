@@ -33,7 +33,7 @@ A password must be at least 12 characters, and Better Auth's breached-password c
 ### The first Admin
 
 - A one-time CLI command, `bootstrap-admin --email --name`, run by Patrick through `fly ssh console`, creates an Admin invite and sends the normal invite email. The CLI never sets a password.
-- It refuses to run if any Admin exists, whether active or Invited.
+- It refuses to run if any Admin exists, whether active or Invited. Run again for the same Admin while still Invited, it issues a fresh link instead (their email went missing, and no Admin can Resend yet).
 - Patrick is the bootstrap Admin and stays an Admin. He invites Doug and Inge as Admins through the app.
 
 ### Invites
