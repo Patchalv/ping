@@ -73,7 +73,7 @@ Source: [Set up and verify an EU Cloudflare R2 bucket for Attachments](https://g
 - **Promote** is a manual run on the same commit. It migrates and deploys prod, and is blocked if the staging smoke test failed.
 - There's no Fly `release_command`.
 - **Migrations** run from Actions as `neondb_owner`. They must stay backward-compatible with the previous release (expand first, contract in a later PR), because the old code briefly runs against the new schema.
-- **First Admin:** after the first prod deploy, Patrick runs `bootstrap-admin` through `fly ssh console`.
+- **First Admin:** after the first prod deploy, Patrick runs `bootstrap-admin` through `fly console`, on a temporary Machine.
 
 ## Secrets
 

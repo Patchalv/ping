@@ -182,11 +182,15 @@ The app also scrubs before sending: no request bodies, cookies, headers, query s
 
 ## First Admin (`bootstrap-admin`)
 
-After the first prod deploy that includes [Invites, bootstrap-admin and email](https://github.com/Patchalv/ping/issues/32), Patrick creates the first Admin from inside the prod Machine, so the command uses the Machine's own credentials:
+After the first prod deploy that includes [Invites, bootstrap-admin and email](https://github.com/Patchalv/ping/issues/32), Patrick creates the first Admin from a temporary Machine that `fly console` starts from the app's image, so the command uses the app's own secrets and `[env]`:
 
 ```bash
-fly ssh console --app bypatrick-ping --command "sh -c 'cd /app/apps/server && node --import tsx src/db/cli/bootstrap-admin.ts --email <your email> --name \"<your name>\"'"
+fly console --app bypatrick-ping --vm-size shared-cpu-1x --vm-memory 512 --command "sh -c 'cd /app/apps/server && node --import tsx src/db/cli/bootstrap-admin.ts --email <your email> --name \"<your name>\"'"
 ```
+
+For staging, use `--app bypatrick-ping-staging`. The temporary Machine is removed when the command ends.
+
+Don't use `fly ssh console` for this. It runs the command inside the app's own 256 MB Machine, where Ping already uses about 120 MB and a second `node --import tsx` needs about 100 MB more. On staging on 2026-11-21 that left the Machine out of memory: the site stopped answering, database logins timed out, and the command hung. Stopping `fly ssh console` on your side doesn't stop the command on the Machine, so it can go on to issue a second link and void the first. `fly ssh console` also fails with "no started VMs" while the Machine is stopped for being idle.
 
 It invites an Admin and sends the normal invite email; it never sets a password. It refuses if any Admin exists, active or Invited, except that running it again for the same, still Invited, email issues a fresh link. If the email can't be sent, it prints the invite link to your terminal instead (nobody can sign in to Resend yet). Open the link, set a password, then invite the other Admins from **Staff members** in the avatar menu.
 

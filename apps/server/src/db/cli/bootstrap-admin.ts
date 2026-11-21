@@ -1,8 +1,10 @@
 // `bootstrap-admin --email <email> --name <name>`: invites the first Admin and sends the
 // normal invite email (product.md › The first Admin). It never sets a password, and it
-// refuses if any Admin exists, active or Invited. In prod, Patrick runs it once:
+// refuses if any Admin exists, active or Invited. In prod, Patrick runs it once, on a
+// temporary 512 MB Machine, not inside the 256 MB app Machine (docs/deploy-runbook.md ›
+// First Admin):
 //
-//   fly ssh console --app bypatrick-ping --command \
+//   fly console --app bypatrick-ping --vm-size shared-cpu-1x --vm-memory 512 --command \
 //     "sh -c 'cd /app/apps/server && node --import tsx src/db/cli/bootstrap-admin.ts --email … --name …'"
 //
 // Locally: pnpm --filter @ping/server exec tsx src/db/cli/bootstrap-admin.ts --email … --name …

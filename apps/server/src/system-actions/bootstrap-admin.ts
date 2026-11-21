@@ -2,7 +2,7 @@
 // because no Staff member exists to do it. It sends the normal invite email and never sets
 // a password. It refuses if any Admin exists, active or Invited; a Deactivated one doesn't
 // count. The one exception: run again for the same, still Invited, Admin, it issues a
-// fresh link. Run by Patrick through `fly ssh console` (src/db/cli/bootstrap-admin.ts).
+// fresh link. Run by Patrick through `fly console` (src/db/cli/bootstrap-admin.ts).
 import { inviteStaffBody } from '@ping/shared';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 import { schema } from '../db';

@@ -70,7 +70,7 @@ pnpm dlx shadcn@4.23.0 add <component>
 | `pnpm db:down` | Stops them and removes the containers (`docker compose down`). The data volumes stay, so the next `db:up` starts where you left off. |
 | `pnpm db:migrate` | Applies the migrations as the owner role and sets the local passwords of the `ping_app` and `ping_system` roles. |
 | `pnpm db:seed` | Runs `db:migrate`, then loads fake Staff members: one Admin, three Members and one Deactivated. They all use the password `ping-local-dev-password`. Safe to run again. |
-| `pnpm --filter @ping/server exec tsx src/db/cli/bootstrap-admin.ts --email <email> --name <name>` | Invites the first Admin and sends the invite email (locally, printed to the server log). Refuses if any Admin exists. In prod it runs once through `fly ssh console` (docs/deploy-runbook.md). |
+| `pnpm --filter @ping/server exec tsx src/db/cli/bootstrap-admin.ts --email <email> --name <name>` | Invites the first Admin and sends the invite email (locally, printed to the server log). Refuses if any Admin exists. In prod it runs once through `fly console` on a temporary Machine (docs/deploy-runbook.md). |
 
 `pnpm dev`, the integration tests, Playwright and Claude Code's Stop gate all need them running.
 
