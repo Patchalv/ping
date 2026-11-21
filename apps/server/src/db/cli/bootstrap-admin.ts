@@ -32,15 +32,22 @@ try {
     { systemActions, mailer: createMailerFromConfig(config.email), appUrl: config.auth.baseUrl },
     { email: values.email, name: values.name },
   );
+  const done = result.reissued
+    ? 'A fresh invite link was issued; the old one no longer works.'
+    : 'Admin invited.';
   if (result.emailSent) {
-    console.log('Admin invited. The invite email has been sent.');
+    console.log(`${done} The invite email has been sent.`);
   } else {
-    // Reported like any failed invite email. The link goes only to this terminal: no
-    // Admin can sign in to Resend yet.
-    captureError(result.error, route);
-    const cause = result.error instanceof Error ? result.error.message : 'unknown error';
+    // A failed send is reported like any failed invite email; one held back by staging's
+    // allowlist is working as configured. The link goes only to this terminal: no Admin
+    // can sign in to Resend yet.
+    let cause = 'the address is not on EMAIL_ALLOWLIST';
+    if (result.error !== undefined) {
+      captureError(result.error, route);
+      cause = result.error instanceof Error ? result.error.message : 'unknown error';
+    }
     console.log(
-      `Admin invited, but the email was not sent (${cause}). Open this link to set the password; it works once and lasts 7 days:\n${result.link}`,
+      `${done} The email was not sent (${cause}). Open this link to set the password; it works once and lasts 7 days:\n${result.link}`,
     );
   }
 } catch (error) {

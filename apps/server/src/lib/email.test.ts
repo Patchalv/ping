@@ -41,10 +41,54 @@ describe('createMailer', () => {
     expect(sent.map((mail) => mail.subject)).toEqual(['[Staging] You’re invited to Ping']);
   });
 
+  it('says an email was sent when it went out', async () => {
+    const { transport } = recordingTransport();
+    const mailer = createMailer({ transport, environment: 'production', allowlist: [] });
+    expect(await mailer.send(message)).toBe('sent');
+  });
+
+  it.each([
+    ['everyone, with *', ['*'], 'rosa.ferrer@example.com', true],
+    ['a whole domain, with @domain', ['@example.com'], 'Rosa.Ferrer@Example.com', true],
+    ['not a look-alike domain', ['@example.com'], 'rosa@evil-example.com', false],
+    [
+      'not a domain that only starts the same',
+      ['@example.com'],
+      'rosa@example.com.evil.net',
+      false,
+    ],
+    [
+      'an exact address among others',
+      ['@spark.test', 'rosa.ferrer@example.com'],
+      'rosa.ferrer@example.com',
+      true,
+    ],
+    ['nobody, with an empty list', [], 'rosa.ferrer@example.com', false],
+  ])('on staging, lets the allowlist allow %s', async (_name, allowlist, to, delivered) => {
+    const { sent, transport } = recordingTransport();
+    const result = await createMailer({
+      transport,
+      environment: 'staging',
+      allowlist,
+      log: vi.fn(),
+    }).send({
+      ...message,
+      to,
+    });
+    expect(result).toBe(delivered ? 'sent' : 'held');
+    expect(sent).toHaveLength(delivered ? 1 : 0);
+  });
+
   it('logs, without the address, and sends nothing to an address off the staging allowlist', async () => {
     const { sent, transport } = recordingTransport();
     const log = vi.fn();
-    await createMailer({ transport, environment: 'staging', allowlist: [], log }).send(message);
+    const result = await createMailer({
+      transport,
+      environment: 'staging',
+      allowlist: [],
+      log,
+    }).send(message);
+    expect(result).toBe('held');
     expect(sent).toEqual([]);
     expect(log).toHaveBeenCalledOnce();
     expect(String(log.mock.calls[0]?.[0])).not.toMatch(/rosa/i);

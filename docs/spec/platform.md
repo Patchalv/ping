@@ -51,7 +51,7 @@ Patrick owns `bypatrick.app`, with DNS on Cloudflare. (The `bypatrick.com` menti
   - Brevo domain authentication: the DKIM CNAMEs and the Brevo code TXT;
   - SPF: `v=spf1 include:spf.brevo.com ~all`;
   - DMARC: `p=none`, with `rua` sent to Cloudflare DMARC Management.
-- **Staging** uses the same Brevo account and sender, starts subjects with `[Staging]`, and links to the staging host. It only sends to addresses in `EMAIL_ALLOWLIST`; anything else is logged and not sent.
+- **Staging** uses the same Brevo account and sender, starts subjects with `[Staging]`, and links to the staging host. It only sends to addresses `EMAIL_ALLOWLIST` allows (exact addresses, `@domain` entries, or `*` for everyone; empty means nobody). Anything else is logged and not sent, and the invite shows "Email not sent".
 - **Deliverability check for the POC:** at least 9/10 on mail-tester.com, and a test invite that lands in a Gmail inbox.
 
 Source: [How do the first Admins get in, and how do invite and reset emails arrive?](https://github.com/Patchalv/ping/issues/15#issuecomment-6863586131)

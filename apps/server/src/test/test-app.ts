@@ -5,7 +5,7 @@ import { createApp, type InviteServices } from '../app';
 import { type Auth, createAuth } from '../auth';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
-import { createMailer, type Mailer, type OutgoingMail } from '../lib/email';
+import { createMailer, type MailEnvironment, type Mailer, type OutgoingMail } from '../lib/email';
 import { createSystemActions, type SystemActions } from '../system-actions';
 
 const TEST_ORIGIN = 'http://localhost:5173';
@@ -32,11 +32,17 @@ export type TestApp = {
   close(): Promise<void>;
 };
 
+/** How the fake mailer behaves: production by default, or staging with an allowlist. */
+type MailSettings = { environment: MailEnvironment; allowlist: string[] };
+
 /** A mailer whose transport records instead of sending. */
-export function fakeMailer(mailbox: Mailbox): Mailer {
+export function fakeMailer(
+  mailbox: Mailbox,
+  settings: MailSettings = { environment: 'production', allowlist: [] },
+): Mailer {
   return createMailer({
-    environment: 'production',
-    allowlist: [],
+    ...settings,
+    log: () => undefined,
     transport: {
       async send(mail) {
         if (mailbox.failing) throw new Error(`550 mailbox unavailable: ${mail.to}`);
@@ -46,7 +52,7 @@ export function fakeMailer(mailbox: Mailbox): Mailer {
   });
 }
 
-export function createTestApp(): TestApp {
+export function createTestApp(options: { mail?: MailSettings } = {}): TestApp {
   const database = createDatabase(testUrls().app);
   const systemActions = createSystemActions(testUrls().system);
   const auth = createAuth(database, {
@@ -63,7 +69,7 @@ export function createTestApp(): TestApp {
       trustedOrigins: [TEST_ORIGIN],
       captureError: (error) => reported.push(error),
       invites: {
-        mailer: fakeMailer(mailbox),
+        mailer: fakeMailer(mailbox, options.mail),
         systemActions,
         appUrl: TEST_ORIGIN,
         isPasswordCompromised: async (password) => {

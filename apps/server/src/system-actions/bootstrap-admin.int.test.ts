@@ -38,7 +38,7 @@ const owner = <T>(fn: (query: Query) => Promise<T>) => asOwner(fn, database);
 describe('bootstrapAdmin', () => {
   it('creates an Admin invite with no password, and sends the normal invite email', async () => {
     const result = await run({ name: 'Patrick', email: 'Patrick@Example.com' });
-    expect(result).toEqual({ staffId: expect.any(String), emailSent: true });
+    expect(result).toEqual({ staffId: expect.any(String), emailSent: true, reissued: false });
 
     const rows = await owner(async (query) => ({
       user: (await query('select name, email, email_verified from "user"')).rows,
@@ -72,6 +72,52 @@ describe('bootstrapAdmin', () => {
     expect(mailbox.sent).toHaveLength(1);
   });
 
+  it('issues a fresh link when run again for the same Invited Admin', async () => {
+    const first = await run({ name: 'Patrick', email: 'patrick@example.com' });
+    const firstToken = inviteTokenFor(mailbox, 'patrick@example.com');
+    const again = await run({ name: 'Patrick', email: 'Patrick@Example.com' });
+    expect(again).toEqual({ staffId: first.staffId, emailSent: true, reissued: true });
+
+    const newToken = inviteTokenFor(mailbox, 'patrick@example.com');
+    expect(newToken).not.toBe(firstToken);
+    const rows = await owner(async (query) => ({
+      staff: (await query('select id from staff_member')).rowCount,
+      hashes: (await query<{ token_hash: string }>('select token_hash from staff_invite')).rows,
+      audit: (await query<{ kind: string }>('select kind from audit_event order by created_at'))
+        .rows,
+    }));
+    expect(rows.staff).toBe(1);
+    expect(rows.hashes).toEqual([{ token_hash: hashInviteToken(newToken) }]);
+    expect(rows.audit.map((event) => event.kind)).toEqual(['staff_invited', 'staff_invite_resent']);
+  });
+
+  it('refuses the same email once that Admin has joined', async () => {
+    await run({ name: 'Patrick', email: 'patrick@example.com' });
+    await owner((query) => query('update staff_member set joined_at = now()'));
+    await expect(run({ name: 'Patrick', email: 'patrick@example.com' })).rejects.toThrow(
+      'An Admin already exists',
+    );
+  });
+
+  it('gives the link, without an error, when staging holds the email back', async () => {
+    const held = await bootstrapAdmin(
+      {
+        systemActions,
+        mailer: fakeMailer(mailbox, { environment: 'staging', allowlist: [] }),
+        appUrl: 'https://staging.ping.bypatrick.app',
+      },
+      { name: 'Patrick', email: 'patrick@example.com' },
+    );
+    expect(held).toEqual({
+      staffId: expect.any(String),
+      emailSent: false,
+      reissued: false,
+      error: undefined,
+      link: expect.stringMatching(/^https:\/\/staging\.ping\.bypatrick\.app\/accept-invite#token=/),
+    });
+    expect(mailbox.sent).toEqual([]);
+  });
+
   it('refuses while an active Admin exists', async () => {
     await run({ name: 'Patrick', email: 'patrick@example.com' });
     await owner((query) => query('update staff_member set joined_at = now()'));
@@ -95,6 +141,7 @@ describe('bootstrapAdmin', () => {
     expect(result).toEqual({
       staffId: expect.any(String),
       emailSent: false,
+      reissued: false,
       error: expect.any(Error),
       link: expect.stringMatching(
         /^https:\/\/ping\.bypatrick\.app\/accept-invite#token=[\w-]{43}$/,
