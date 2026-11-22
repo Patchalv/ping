@@ -12,6 +12,7 @@ import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 import type { AuditEventKind } from '../../db/schema';
+import type { ChannelAdminTarget } from '../../permissions/channel';
 
 const { auditEvent, channel, channelMember, staffMember, user } = schema;
 
@@ -204,13 +205,7 @@ export async function findMemberTarget(
   { tx }: ActorTx,
   channelId: string,
   staffId: string,
-): Promise<{
-  staffId: string;
-  isActiveStaff: boolean;
-  isMember: boolean;
-  isChannelAdmin: boolean;
-  otherActiveChannelAdmins: number;
-}> {
+): Promise<ChannelAdminTarget> {
   const [person] = await tx
     .select({
       isActiveStaff: sql<boolean>`${staffMember.joinedAt} is not null and ${staffMember.deactivatedAt} is null`,

@@ -13,6 +13,7 @@ import {
   canSetChannelAdmin,
   channelMemberActions,
   LAST_CHANNEL_ADMIN_MESSAGE,
+  needsCompanyAdminPower,
   ONLY_MEMBER_ARCHIVED_MESSAGE,
   ONLY_MEMBER_MESSAGE,
   requireCanCreateChannel,
@@ -411,6 +412,19 @@ describe('canSetChannelAdmin', () => {
     expect(
       canSetChannelAdmin(member, place('public', 'channelAdmin'), nonMemberTarget, false),
     ).toEqual(deny({ kind: 'refused', message: 'They’re not a member of this Channel.' }));
+  });
+});
+
+describe('needsCompanyAdminPower', () => {
+  it('uses the ordinary policy for a Channel admin changing a member', () => {
+    expect(needsCompanyAdminPower(place('public', 'channelAdmin'), { isMember: true })).toBe(false);
+  });
+
+  it.each([
+    ['a company Admin who is not Channel admin', place('public', 'member'), true],
+    ['someone outside the Channel', place('public', 'channelAdmin'), false],
+  ])('takes the company Admin power for %s', (_name, channel, isMember) => {
+    expect(needsCompanyAdminPower(channel, { isMember })).toBe(true);
   });
 });
 

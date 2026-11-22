@@ -1,6 +1,6 @@
 // Channels (permissions.md › Channels). "Can read a Channel" means the Channel is Public,
 // or the actor is a member of it. This is the same for everyone, Admins included.
-import type { ChannelVisibility } from '@ping/shared';
+import type { ChannelMembers, ChannelVisibility } from '@ping/shared';
 import type { Actor } from './actor';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
@@ -120,13 +120,9 @@ function canChangeMembers(actor: Actor, channel: MembershipAccess): Decision {
 
 /**
  * Any member adds people to a Public channel; only Channel admins add them to a Private
- * one. Company Admins get no exception. Only active Staff members can be added.
+ * one. Company Admins get no exception. Also gates the add-members picker.
  */
-export function canAddChannelMember(
-  actor: Actor,
-  channel: MembershipAccess,
-  target: { isActiveStaff: boolean },
-): Decision {
+function canAddMembers(actor: Actor, channel: MembershipAccess): Decision {
   const base = canChangeMembers(actor, channel);
   if (!base.allow) return base;
   if (channel.visibility === 'private' && !channel.isChannelAdmin) {
@@ -138,6 +134,17 @@ export function canAddChannelMember(
   if (!channel.isMember) {
     return deny({ kind: 'refused', message: 'Join this Channel before you add people to it.' });
   }
+  return allow();
+}
+
+/** Adding one person: as canAddMembers, and only active Staff members can be added. */
+export function canAddChannelMember(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: { isActiveStaff: boolean },
+): Decision {
+  const base = canAddMembers(actor, channel);
+  if (!base.allow) return base;
   if (!target.isActiveStaff) {
     return deny({
       kind: 'refused',
@@ -157,11 +164,8 @@ export function canRemoveChannelMember(
   channel: MembershipAccess,
   target: { staffId: string; isMember: boolean },
 ): Decision {
-  const base = canChangeMembers(actor, channel);
+  const base = canRemoveMembers(actor, channel);
   if (!base.allow) return base;
-  if (!channel.isChannelAdmin) {
-    return deny({ kind: 'refused', message: 'Only Channel admins remove members.' });
-  }
   if (target.staffId === actor.staffId) {
     return deny({ kind: 'refused', message: 'To leave this Channel yourself, use Leave.' });
   }
@@ -169,8 +173,18 @@ export function canRemoveChannelMember(
   return allow();
 }
 
+/** Only Channel admins remove members, company Admins included. */
+function canRemoveMembers(actor: Actor, channel: MembershipAccess): Decision {
+  const base = canChangeMembers(actor, channel);
+  if (!base.allow) return base;
+  if (!channel.isChannelAdmin) {
+    return deny({ kind: 'refused', message: 'Only Channel admins remove members.' });
+  }
+  return allow();
+}
+
 /** Who a Channel admin change is about. `otherActiveChannelAdmins` leaves them out. */
-type ChannelAdminTarget = {
+export type ChannelAdminTarget = {
   staffId: string;
   isActiveStaff: boolean;
   isMember: boolean;
@@ -179,8 +193,33 @@ type ChannelAdminTarget = {
 };
 
 /** A company Admin's one power over a Public channel: its Channel admins. */
-export function actsAsCompanyAdmin(actor: Actor, channel: ChannelAccess): boolean {
+function actsAsCompanyAdmin(actor: Actor, channel: ChannelAccess): boolean {
   return actor.role === 'admin' && channel.visibility === 'public';
+}
+
+/** Channel admins of the Channel, and company Admins on a Public one. */
+function canSetChannelAdmins(actor: Actor, channel: MembershipAccess): Decision {
+  const base = canChangeMembers(actor, channel);
+  if (!base.allow) return base;
+  if (!channel.isChannelAdmin && !actsAsCompanyAdmin(actor, channel)) {
+    return deny({
+      kind: 'refused',
+      message: 'Only Channel admins appoint or remove Channel admins.',
+    });
+  }
+  return allow();
+}
+
+/**
+ * For an allowed Channel admin change: whether it takes a company Admin's power, which
+ * only the admin_set_channel_admin system function has. A Channel admin changing a
+ * member's row uses the ordinary policy; anything else allowed is the company Admin's.
+ */
+export function needsCompanyAdminPower(
+  channel: MembershipAccess,
+  target: Pick<ChannelAdminTarget, 'isMember'>,
+): boolean {
+  return !(channel.isChannelAdmin && target.isMember);
 }
 
 /**
@@ -194,15 +233,9 @@ export function canSetChannelAdmin(
   target: ChannelAdminTarget,
   makeChannelAdmin: boolean,
 ): Decision {
-  const base = canChangeMembers(actor, channel);
+  const base = canSetChannelAdmins(actor, channel);
   if (!base.allow) return base;
   const asCompanyAdmin = actsAsCompanyAdmin(actor, channel);
-  if (!channel.isChannelAdmin && !asCompanyAdmin) {
-    return deny({
-      kind: 'refused',
-      message: 'Only Channel admins appoint or remove Channel admins.',
-    });
-  }
   if (makeChannelAdmin) {
     if (!target.isActiveStaff) {
       return deny({ kind: 'refused', message: 'Only active Staff members can be Channel admins.' });
@@ -227,18 +260,21 @@ export function canSetChannelAdmin(
 
 /**
  * Which member controls the Members tab shows, so the SPA hides the ones the server would
- * refuse. Each matches its decision for an ordinary target; the server still decides.
+ * refuse. The server still decides each change, about its target.
  */
 export function channelMemberActions(
   actor: Actor,
   channel: MembershipAccess,
-): { add: boolean; remove: boolean; setChannelAdmin: boolean } {
-  const base = canChangeMembers(actor, channel).allow;
+): ChannelMembers['can'] {
   return {
-    add: canAddChannelMember(actor, channel, { isActiveStaff: true }).allow,
-    remove: base && channel.isChannelAdmin,
-    setChannelAdmin: base && (channel.isChannelAdmin || actsAsCompanyAdmin(actor, channel)),
+    add: canAddMembers(actor, channel).allow,
+    remove: canRemoveMembers(actor, channel).allow,
+    setChannelAdmin: canSetChannelAdmins(actor, channel).allow,
   };
+}
+
+export function requireCanAddMembers(actor: Actor, channel: MembershipAccess): void {
+  requireAllowed(canAddMembers(actor, channel));
 }
 
 export function requireCanAddChannelMember(

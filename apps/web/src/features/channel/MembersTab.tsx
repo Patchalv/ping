@@ -62,7 +62,7 @@ export function MembersTab({ channel }: { channel: ChannelView }) {
               <MemberRow
                 key={member.staffId}
                 channel={channel}
-                data={members.data}
+                access={members.data}
                 member={member}
               />
             ))}
@@ -76,19 +76,19 @@ export function MembersTab({ channel }: { channel: ChannelView }) {
 
 function MemberRow({
   channel,
-  data,
+  access,
   member,
 }: {
   channel: ChannelView;
-  data: ChannelMembers;
+  access: ChannelMembers;
   member: ChannelMemberView;
 }) {
-  const isSelf = member.staffId === data.actorStaffId;
+  const isSelf = member.staffId === access.actorStaffId;
   // You leave through Leave in the Channel bar, not by removing yourself. Only active Staff
   // members can be made Channel admin.
-  const canRemove = data.can.remove && !isSelf;
+  const canRemove = access.can.remove && !isSelf;
   const canSetChannelAdmin =
-    data.can.setChannelAdmin && (member.isChannelAdmin || !member.isDeactivated);
+    access.can.setChannelAdmin && (member.isChannelAdmin || !member.isDeactivated);
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
       <StaffAvatar

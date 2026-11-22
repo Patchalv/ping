@@ -17,9 +17,10 @@ import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse';
 import { validate } from '../../lib/validate';
 import {
-  actsAsCompanyAdmin,
   channelMemberActions,
+  needsCompanyAdminPower,
   requireCanAddChannelMember,
+  requireCanAddMembers,
   requireCanBrowseChannels,
   requireCanCreateChannel,
   requireCanJoinChannel,
@@ -164,7 +165,7 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           const candidates = await withActorTx(c, async (ctx) => {
             const found = await findChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
-            requireCanAddChannelMember(ctx.actor, found, { isActiveStaff: true });
+            requireCanAddMembers(ctx.actor, found);
             return listMemberCandidates(ctx, channelId);
           });
           return c.json(candidates);
@@ -235,10 +236,7 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
             if (!found) throw new NotFoundError();
             const target = await findMemberTarget(ctx, channelId, staffId);
             requireCanSetChannelAdmin(ctx.actor, found, target, isChannelAdmin);
-            // A Channel admin changes a member's row under row-level security. Anything
-            // else allowed is a company Admin's power, which only the system function has.
-            const viaCompanyAdmin =
-              !(found.isChannelAdmin && target.isMember) && actsAsCompanyAdmin(ctx.actor, found);
+            const viaCompanyAdmin = needsCompanyAdminPower(found, target);
             const done = viaCompanyAdmin
               ? await adminSetChannelAdmin(ctx.tx, {
                   channelId,
@@ -247,6 +245,10 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
                 })
               : await setChannelAdminRole(ctx, channelId, staffId, isChannelAdmin);
             if (done) {
+              // A company Admin appointing someone outside the Channel adds them too.
+              if (!target.isMember) {
+                await recordMembershipChange(ctx, 'channel_member_added', channelId, staffId);
+              }
               await recordMembershipChange(
                 ctx,
                 isChannelAdmin ? 'channel_admin_appointed' : 'channel_admin_removed',

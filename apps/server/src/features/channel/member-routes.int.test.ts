@@ -320,8 +320,10 @@ describe('Channel member routes', () => {
         isDeactivated: false,
       });
       expect(listed.can).toEqual({ add: true, remove: true, setChannelAdmin: true });
-      expect(await auditOf(channel.id)).toEqual([
-        { kind: 'channel_admin_appointed', actor_id: admin.id, target_staff_id: admin.id },
+      // Appointing someone outside the Channel adds them, so both are recorded.
+      expect((await auditOf(channel.id)).map((e) => [e.kind, e.target_staff_id]).sort()).toEqual([
+        ['channel_admin_appointed', admin.id],
+        ['channel_member_added', admin.id],
       ]);
     });
 
