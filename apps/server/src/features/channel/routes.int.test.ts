@@ -178,6 +178,16 @@ describe('Channel routes', () => {
 
   const post = { method: 'POST' };
 
+  /** The Channel's audit events, as the owner. */
+  const auditOf = (channelId: string) =>
+    asOwner(async (query) => {
+      const { rows } = await query<{ kind: string; actor_id: string; target_staff_id: string }>(
+        'select kind, actor_id, target_staff_id from audit_event where channel_id = $1',
+        [channelId],
+      );
+      return rows;
+    });
+
   describe('GET /api/channels/browse', () => {
     it('lists every Public channel by name, with member counts and whether the actor is in it', async () => {
       const member = await createStaffMember();
@@ -271,6 +281,26 @@ describe('Channel routes', () => {
       expect((await request(`/api/channels/${channel.id}/leave`, post)).status).toBe(204);
       expect((await request(`/api/channels/${channel.id}/join`, post)).status).toBe(200);
       expect((await joinedAt(channel.id, member.id))?.getFullYear()).toBeGreaterThan(2020);
+    });
+  });
+
+  describe('membership changes in audit_event', () => {
+    it('records joining, but not joining again, and leaving', async () => {
+      const member = await createStaffMember();
+      const channel = await insertChannel({
+        members: [{ staffId: (await createStaffMember()).id, channelAdmin: true }],
+      });
+      const request = await as(member);
+      await request(`/api/channels/${channel.id}/join`, post);
+      await request(`/api/channels/${channel.id}/join`, post);
+      expect(await auditOf(channel.id)).toEqual([
+        { kind: 'channel_joined', actor_id: member.id, target_staff_id: member.id },
+      ]);
+      await request(`/api/channels/${channel.id}/leave`, post);
+      expect((await auditOf(channel.id)).map((e) => e.kind).sort()).toEqual([
+        'channel_joined',
+        'channel_left',
+      ]);
     });
   });
 

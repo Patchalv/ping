@@ -149,7 +149,7 @@ Ping, Saved and mute rows belong to one Staff member, and `ping_app` can only to
 
 **`audit_event`**
 
-- `id`, `created_at`, `actor_id` (null for system actions and failed sign-ins), `kind`, `target` columns or a `jsonb` payload of IDs.
+- `id`, `created_at`, `actor_id` (null for system actions and failed sign-ins), `kind`, and target columns: `target_staff_id`, and `channel_id` for Channel membership changes (joining, leaving, adding and removing members, appointing and removing Channel admins).
 - Never holds message bodies or email addresses. A failed sign-in records the matched Staff member's ID when there is one, and the request IP.
 - Kept for one year; a sweeper deletes older rows.
 

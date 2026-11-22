@@ -32,9 +32,10 @@ export type MatrixRow = {
   channel: ChannelKind | null;
   /**
    * A Staff member the action targets, created before the request: an Invited person with
-   * a live invite, another active Staff member, or a Deactivated one.
+   * a live invite, another active Staff member, or a Deactivated one; someone in the row's
+   * Channel as a plain member or as a second Channel admin; or the actor themself.
    */
-  target?: 'invited' | 'active' | 'deactivated';
+  target?: 'invited' | 'active' | 'deactivated' | 'member' | 'channelAdmin' | 'self';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -68,6 +69,38 @@ const adminsOnly =
 
 /** Nobody: every active actor is refused with 403. */
 const refused = (): MatrixRow['expect'] => ({ allow: false, status: 403 });
+
+const CHANNEL_KIND_NAME: Record<ChannelKind, string> = {
+  public: 'Public',
+  private: 'Private',
+  archived: 'Archived Public',
+};
+
+/**
+ * Members change only outside an Archived channel. A Private channel the actor isn't in
+ * answers 404; any other refusal is 403. `allowed` says who may act in a Public or
+ * Private channel.
+ */
+const membershipChange =
+  (channel: ChannelKind, status: number, allowed: (actor: ActorKind) => boolean) =>
+  (actor: ActorKind): MatrixRow['expect'] => {
+    if (channel === 'private' && !CHANNEL_ROLE[actor]) return { allow: false, status: 404 };
+    if (channel !== 'archived' && allowed(actor)) return { allow: true, status };
+    return { allow: false, status: 403 };
+  };
+
+/** Add members: any member of a Public channel; Channel admins of a Private one. */
+const mayAdd = (channel: ChannelKind) => (actor: ActorKind) =>
+  channel === 'private' ? CHANNEL_ROLE[actor] === 'channelAdmin' : CHANNEL_ROLE[actor] !== null;
+
+/** Appoint or remove a Channel admin: Channel admins; company Admins on a Public channel. */
+const maySetChannelAdmin = (channel: ChannelKind) => (actor: ActorKind) =>
+  CHANNEL_ROLE[actor] === 'channelAdmin' || (channel === 'public' && ADMINS.has(actor));
+
+const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdmin';
+const CHANNEL_KINDS = ['public', 'private', 'archived'] as const;
+const memberPath = (ctx: RowContext) =>
+  `/api/channels/${ctx.channel?.id}/members/${ctx.target?.id}`;
 
 /** The rows. The first arrived with "Exemplar: create a Channel and open it" (#31). */
 export const MATRIX: MatrixRow[] = [
@@ -185,6 +218,129 @@ export const MATRIX: MatrixRow[] = [
         if (role === 'channelAdmin') return { allow: false, status: 403 };
         return { allow: false, status: channel === 'private' ? 404 : 403 };
       },
+    ),
+  ),
+
+  // Members and Channel admins. From "Channel members and Channel admins" (#37).
+
+  // The Members tab: anyone who can read the Channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/members',
+        action: `list the members of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/members` }),
+      },
+      (actor) =>
+        channel === 'private' && !CHANNEL_ROLE[actor]
+          ? { allow: false, status: 404 }
+          : { allow: true, status: 200 },
+    ),
+  ),
+
+  // The add-members picker: whoever may add members.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/member-candidates',
+        action: `list who can be added to a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/member-candidates` }),
+      },
+      membershipChange(channel, 200, mayAdd(channel)),
+    ),
+  ),
+
+  // Add an active Staff member: any member of a Public channel, Channel admins of a
+  // Private one. Company Admins get no exception.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/members',
+        action: `add an active Staff member to a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/members`,
+          method: 'POST',
+          body: { staffId: ctx.target?.id },
+        }),
+      },
+      membershipChange(channel, 204, mayAdd(channel)),
+    ),
+  ),
+
+  // Add an Invited or Deactivated person: nobody.
+  ...(['invited', 'deactivated'] as const).flatMap((target) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/members',
+        action: `add ${target === 'invited' ? 'an Invited' : 'a Deactivated'} person to a Public channel`,
+        channel: 'public',
+        target,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/members`,
+          method: 'POST',
+          body: { staffId: ctx.target?.id },
+        }),
+      },
+      refused,
+    ),
+  ),
+
+  // Remove a member: Channel admins only, company Admins included.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'DELETE /api/channels/:channelId/members/:staffId',
+        action: `remove a member from a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'member',
+        request: (ctx) => ({ path: memberPath(ctx), method: 'DELETE' }),
+      },
+      membershipChange(channel, 204, isChannelAdmin),
+    ),
+  ),
+
+  // Appoint a member as Channel admin, and remove a second Channel admin's role: Channel
+  // admins, and company Admins on a Public channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    (
+      [
+        ['appoint a member as Channel admin of', 'member', true],
+        ['remove the Channel admin role from a second Channel admin of', 'channelAdmin', false],
+      ] as const
+    ).flatMap(([action, target, isChannelAdmin]) =>
+      rowsFor(
+        {
+          route: 'PATCH /api/channels/:channelId/members/:staffId',
+          action: `${action} a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          target,
+          request: (ctx) => ({ path: memberPath(ctx), method: 'PATCH', body: { isChannelAdmin } }),
+        },
+        membershipChange(channel, 204, maySetChannelAdmin(channel)),
+      ),
+    ),
+  ),
+
+  // Make yourself Channel admin: a company Admin of a Public channel, member or not. A
+  // Channel admin already is one, so it changes nothing.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/members/:staffId',
+        action: `make themself Channel admin of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'self',
+        request: (ctx) => ({
+          path: memberPath(ctx),
+          method: 'PATCH',
+          body: { isChannelAdmin: true },
+        }),
+      },
+      membershipChange(channel, 204, maySetChannelAdmin(channel)),
     ),
   ),
 

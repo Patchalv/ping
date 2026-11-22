@@ -31,6 +31,18 @@ describe('routes', () => {
     });
   });
 
+  it('reads a Channel’s Members tab path', async () => {
+    expect(await resolve(`/channels/${id}/members`)).toMatchObject({
+      notFound: false,
+      routeId: '/channels/$channelId/members',
+      params: { channelId: id },
+    });
+  });
+
+  it('reads a Members tab path with a bad Channel ID as not found', async () => {
+    expect(await resolve('/channels/front-desk/members')).toMatchObject({ notFound: true });
+  });
+
   it('tolerates a trailing slash', async () => {
     expect(await resolve(`/channels/${id}/`)).toMatchObject({
       notFound: false,

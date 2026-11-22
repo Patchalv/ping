@@ -1,12 +1,19 @@
 // The Channel feature's queries. Each takes the request's ActorTx from withActorTx, so
 // row-level security applies to every one and the actor always matches app.staff_id: a
 // Private channel the actor isn't in reads as missing.
-import type { BrowseChannel, ChannelView, SidebarChannel } from '@ping/shared';
-import { and, asc, eq, isNull, ne, sql } from 'drizzle-orm';
+import type {
+  BrowseChannel,
+  ChannelMemberView,
+  ChannelView,
+  MemberCandidate,
+  SidebarChannel,
+} from '@ping/shared';
+import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import type { AuditEventKind } from '../../db/schema';
 
-const { channel, channelMember, staffMember } = schema;
+const { auditEvent, channel, channelMember, staffMember, user } = schema;
 
 /** A Channel's active members: "member" means an active member, so Deactivated ones don't count. */
 const memberCount = sql<number>`(
@@ -130,4 +137,169 @@ export async function leaveChannel({ tx, actor }: ActorTx, channelId: string): P
   await tx
     .delete(channelMember)
     .where(and(eq(channelMember.channelId, channelId), eq(channelMember.staffId, actor.staffId)));
+}
+
+// Members and Channel admins (#37).
+
+/**
+ * A Channel's members for its Members tab: Channel admins first, then by name. Deactivated
+ * members stay listed, flagged, so the tab can grey them. The caller has checked the actor
+ * can read the Channel; row-level security would hide a Private one anyway.
+ */
+export async function listChannelMembers(
+  { tx }: ActorTx,
+  channelId: string,
+): Promise<ChannelMemberView[]> {
+  return tx
+    .select({
+      staffId: channelMember.staffId,
+      name: user.name,
+      isChannelAdmin: channelMember.isChannelAdmin,
+      isDeactivated: sql<boolean>`${staffMember.deactivatedAt} is not null`,
+    })
+    .from(channelMember)
+    .innerJoin(staffMember, eq(staffMember.id, channelMember.staffId))
+    .innerJoin(user, eq(user.id, channelMember.staffId))
+    .where(eq(channelMember.channelId, channelId))
+    .orderBy(
+      desc(channelMember.isChannelAdmin),
+      sql`${staffMember.deactivatedAt} is not null`,
+      asc(user.name),
+      asc(channelMember.staffId),
+    );
+}
+
+/**
+ * Who the add-members picker offers, by name: active Staff members (not Invited, not
+ * Deactivated) who aren't in the Channel.
+ */
+export async function listMemberCandidates(
+  { tx }: ActorTx,
+  channelId: string,
+): Promise<MemberCandidate[]> {
+  return tx
+    .select({ staffId: staffMember.id, name: user.name })
+    .from(staffMember)
+    .innerJoin(user, eq(user.id, staffMember.id))
+    .leftJoin(
+      channelMember,
+      and(eq(channelMember.channelId, channelId), eq(channelMember.staffId, staffMember.id)),
+    )
+    .where(
+      and(
+        isNotNull(staffMember.joinedAt),
+        isNull(staffMember.deactivatedAt),
+        isNull(channelMember.staffId),
+      ),
+    )
+    .orderBy(asc(user.name), asc(staffMember.id));
+}
+
+/**
+ * Someone a membership change is about: whether they're an active Staff member (an unknown
+ * ID isn't), and their place in the Channel. `otherActiveChannelAdmins` counts the
+ * Channel's active Channel admins apart from them.
+ */
+export async function findMemberTarget(
+  { tx }: ActorTx,
+  channelId: string,
+  staffId: string,
+): Promise<{
+  staffId: string;
+  isActiveStaff: boolean;
+  isMember: boolean;
+  isChannelAdmin: boolean;
+  otherActiveChannelAdmins: number;
+}> {
+  const [person] = await tx
+    .select({
+      isActiveStaff: sql<boolean>`${staffMember.joinedAt} is not null and ${staffMember.deactivatedAt} is null`,
+    })
+    .from(staffMember)
+    .where(eq(staffMember.id, staffId));
+  const [membership] = await tx
+    .select({ isChannelAdmin: channelMember.isChannelAdmin })
+    .from(channelMember)
+    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.staffId, staffId)));
+  const [admins] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(channelMember)
+    .innerJoin(staffMember, eq(staffMember.id, channelMember.staffId))
+    .where(
+      and(
+        eq(channelMember.channelId, channelId),
+        ne(channelMember.staffId, staffId),
+        eq(channelMember.isChannelAdmin, true),
+        isNull(staffMember.deactivatedAt),
+      ),
+    );
+  return {
+    staffId,
+    isActiveStaff: person?.isActiveStaff ?? false,
+    isMember: membership !== undefined,
+    isChannelAdmin: membership?.isChannelAdmin ?? false,
+    otherActiveChannelAdmins: admins?.count ?? 0,
+  };
+}
+
+/**
+ * Adds someone as a plain member, at the transaction's time (row-level security insists).
+ * Someone already in it is left as they were. Returns whether they were added.
+ */
+export async function addChannelMember(
+  { tx }: ActorTx,
+  channelId: string,
+  staffId: string,
+): Promise<boolean> {
+  const added = await tx
+    .insert(channelMember)
+    .values({ channelId, staffId })
+    .onConflictDoNothing()
+    .returning({ staffId: channelMember.staffId });
+  return added.length > 0;
+}
+
+/** Deletes someone's membership. */
+export async function removeChannelMember(
+  { tx }: ActorTx,
+  channelId: string,
+  staffId: string,
+): Promise<void> {
+  await tx
+    .delete(channelMember)
+    .where(and(eq(channelMember.channelId, channelId), eq(channelMember.staffId, staffId)));
+}
+
+/**
+ * Appoints a member as Channel admin or removes the role, as the Channel's Channel admin.
+ * Returns whether it changed anything.
+ */
+export async function setChannelAdminRole(
+  { tx }: ActorTx,
+  channelId: string,
+  staffId: string,
+  isChannelAdmin: boolean,
+): Promise<boolean> {
+  const changed = await tx
+    .update(channelMember)
+    .set({ isChannelAdmin })
+    .where(
+      and(
+        eq(channelMember.channelId, channelId),
+        eq(channelMember.staffId, staffId),
+        ne(channelMember.isChannelAdmin, isChannelAdmin),
+      ),
+    )
+    .returning({ staffId: channelMember.staffId });
+  return changed.length > 0;
+}
+
+/** Records a membership change in audit_event, as the actor. */
+export async function recordMembershipChange(
+  { tx, actor }: ActorTx,
+  kind: Extract<AuditEventKind, `channel_${string}`>,
+  channelId: string,
+  targetStaffId: string,
+): Promise<void> {
+  await tx.insert(auditEvent).values({ actorId: actor.staffId, kind, channelId, targetStaffId });
 }

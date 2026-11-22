@@ -15,15 +15,21 @@ export {
   signInBody,
 } from './auth';
 export {
+  addChannelMemberBody,
   type BrowseChannel,
   CHANNEL_DESCRIPTION_MAX,
   CHANNEL_NAME_MAX,
+  type ChannelMembers,
+  type ChannelMemberView,
   type ChannelView,
   type ChannelVisibility,
   type CreateChannelBody,
+  channelMemberParams,
   channelParams,
   createChannelBody,
+  type MemberCandidate,
   type SidebarChannel,
+  setChannelAdminBody,
 } from './channel';
 export {
   redactSensitiveText,

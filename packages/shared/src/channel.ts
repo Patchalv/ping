@@ -33,6 +33,43 @@ export const channelParams = z.object({
   channelId: z.uuid({ error: 'That isn’t a Channel link.' }),
 });
 
+const staffId = z.uuid({ error: 'That isn’t a Staff member.' });
+
+/** Routes under /api/channels/:channelId/members/:staffId. */
+export const channelMemberParams = channelParams.extend({ staffId });
+
+/** POST /api/channels/:channelId/members: add someone. */
+export const addChannelMemberBody = z.object({
+  staffId: z.uuid({ error: 'Choose a Staff member to add.' }),
+});
+
+/** PATCH /api/channels/:channelId/members/:staffId: appoint a Channel admin or remove the role. */
+export const setChannelAdminBody = z.object({
+  isChannelAdmin: z.boolean({ error: 'Say whether they should be Channel admin.' }),
+});
+
+/** A row in a Channel's Members tab. Deactivated members stay listed, greyed. */
+export type ChannelMemberView = {
+  staffId: string;
+  name: string;
+  isChannelAdmin: boolean;
+  isDeactivated: boolean;
+};
+
+/**
+ * A Channel's Members tab: its members, and which controls the acting Staff member gets.
+ * The server still decides every change.
+ */
+export type ChannelMembers = {
+  members: ChannelMemberView[];
+  /** Who is asking, so the tab can mark them and target "Make me Channel admin". */
+  actorStaffId: string;
+  can: { add: boolean; remove: boolean; setChannelAdmin: boolean };
+};
+
+/** Someone the add-members picker offers: an active Staff member who isn't in the Channel. */
+export type MemberCandidate = { staffId: string; name: string };
+
 /** A Channel as the acting Staff member sees it. */
 export type ChannelView = {
   id: string;

@@ -12,7 +12,7 @@ ADR 0004 makes row-level security a backstop for reads: the visibility rule, app
   - **Insert:** your own row, not as Channel admin, in a Public channel (joining); or any row in a Channel you are Channel admin of (adding members and Channel admins).
   - **Update:** Channel admins of that Channel only.
   - **Delete:** your own row (leaving); or any row in a Channel you are Channel admin of (removing a member).
-- **No Admin exception**, as everywhere else. A company Admin who may appoint Channel admins of a Public channel does it through a system function when that slice arrives, not through a policy exception.
+- **No Admin exception**, as everywhere else. A company Admin who may appoint Channel admins of a Public channel does it through a system function (`admin_set_channel_admin`, #37), not through a policy exception.
 - **The finer rules stay in the server.** "The last active Channel admin can't leave" and "Archived channels refuse changes" need context a policy shouldn't carry.
 - **Set-returning helpers.** The policies call `current_staff_channel_ids()` and `current_staff_admin_channel_ids()`, both `SECURITY DEFINER` with a pinned `search_path`, as `channel_id = ANY (ARRAY(SELECT …))`. Postgres evaluates them once per statement, as an InitPlan, rather than once per row; a test reads the query plan to prove it. They also avoid the recursion a policy on `channel_member` would hit by querying `channel_member`.
 - **Other Channel-scoped tables keep the plain visibility rule.** Who may edit or delete a Thread is the permissions module's call, as before.
@@ -21,6 +21,12 @@ ADR 0004 makes row-level security a backstop for reads: the visibility rule, app
 
 - **Nobody chooses `joined_at`.** It decides who is auto-promoted when a sole Channel admin is Deactivated, so a backdated row would win. Every insert's `joined_at` must equal `now()`, the transaction's start time and the column default, in the insert policy's `WITH CHECK`. A policy can't compare old and new values on UPDATE, so `ping_app` may update only `is_channel_admin` (a column grant), as 0004 does for `staff_member`. We chose the policy check over a column-level INSERT grant because an insert that names `joined_at` as `DEFAULT` counts as writing it, and a grant would refuse it.
 - **Changes that could remove the last Channel admin take a per-Channel lock first** (`pg_advisory_xact_lock` on the Channel ID, in `lockChannelMembership`), then read who is Channel admin. Without it, two Channel admins leaving at once each see the other staying. `ping_app` can't `SELECT … FOR UPDATE` on `channel`, which is SELECT only. Removing members and Channel admin roles (#37) reuses the lock.
+
+## Amendment: adding members and the company Admin's power (#37)
+
+- **Any active member of a Public channel may insert a plain row for someone else** (adding people), as the spec allows. The insert policy's Public-channel branch now accepts your own row or, when you're an active member, anyone's, always with `NOT is_channel_admin` and `joined_at = now()`. Making someone Channel admin still needs Channel admin of that Channel. That only active Staff members can be added stays in the server.
+- **A company Admin's Channel admin power runs through `admin_set_channel_admin`**, a system function, as planned above. It appoints anyone, themself included, as Channel admin of a Public channel that isn't Archived (inserting the row at the transaction's time when they aren't a member) or removes the role. Any `ping_app` connection can call it, so it guards itself: an active Admin in `app.staff_id`, an active target when appointing, and never removing the last active Channel admin. A Channel admin, Admin or not, changes a member's row through the ordinary UPDATE policy.
+- **Removing a member and removing the Channel admin role take the membership lock** before reading who is Channel admin, as leaving does, so two Channel admins removing or demoting each other at once can't both succeed.
 
 ## Considered options
 

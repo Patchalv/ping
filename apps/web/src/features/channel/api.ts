@@ -1,7 +1,13 @@
 // The Channel feature's API: a query-key factory and hooks only. Components use these
 // hooks and never call hc or read a response themselves. A mutation invalidates by key,
 // so every screen showing that data refetches; live updates (#47) will do the same.
-import type { BrowseChannel, ChannelView, CreateChannelBody } from '@ping/shared';
+import type {
+  BrowseChannel,
+  ChannelMembers,
+  ChannelView,
+  CreateChannelBody,
+  MemberCandidate,
+} from '@ping/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { call, callNoContent } from '../../lib/api-client';
@@ -18,6 +24,8 @@ export const channelKeys = {
   mine: () => [...channelKeys.all, 'mine'] as const,
   browse: () => [...channelKeys.all, 'browse'] as const,
   detail: (channelId: string) => [...channelKeys.all, 'detail', channelId] as const,
+  members: (channelId: string) => [...channelKeys.detail(channelId), 'members'] as const,
+  candidates: (channelId: string) => [...channelKeys.detail(channelId), 'candidates'] as const,
 };
 
 /** The Channels the signed-in Staff member is a member of, for the sidebar. */
@@ -93,5 +101,81 @@ export function useLeaveChannel({ onLeft }: { onLeft(): void }) {
           : queryClient.invalidateQueries({ queryKey: detail }),
       ]);
     },
+  });
+}
+
+/** A Channel's Members tab: its members, and which member controls to show. */
+export function useChannelMembers(channelId: string) {
+  return useQuery({
+    queryKey: channelKeys.members(channelId),
+    queryFn: (): Promise<ChannelMembers> =>
+      call(() => channels[':channelId'].members.$get({ param: { channelId } })),
+  });
+}
+
+/** The add-members picker: active Staff members who aren't in the Channel. */
+export function useMemberCandidates(channelId: string) {
+  return useQuery({
+    queryKey: channelKeys.candidates(channelId),
+    queryFn: (): Promise<MemberCandidate[]> =>
+      call(() => channels[':channelId']['member-candidates'].$get({ param: { channelId } })),
+  });
+}
+
+/**
+ * After a membership change the Channel refetches, and with it (by key prefix) its
+ * members, the picker and the member count. So do the sidebar and Browse channels, where
+ * a company Admin who made themself Channel admin now shows as a member.
+ */
+function refetchAfterMembershipChange(
+  queryClient: ReturnType<typeof useQueryClient>,
+  channelId: string,
+) {
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: channelKeys.detail(channelId) }),
+    queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
+    queryClient.invalidateQueries({ queryKey: channelKeys.browse() }),
+  ]);
+}
+
+/** Adds an active Staff member to the Channel as a plain member. */
+export function useAddChannelMember(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (staffId: string): Promise<void> => {
+      await callNoContent(() =>
+        channels[':channelId'].members.$post({ param: { channelId }, json: { staffId } }),
+      );
+    },
+    onSuccess: () => refetchAfterMembershipChange(queryClient, channelId),
+  });
+}
+
+/** Removes someone from the Channel (Channel admins only). */
+export function useRemoveChannelMember(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (staffId: string): Promise<void> => {
+      await callNoContent(() =>
+        channels[':channelId'].members[':staffId'].$delete({ param: { channelId, staffId } }),
+      );
+    },
+    onSuccess: () => refetchAfterMembershipChange(queryClient, channelId),
+  });
+}
+
+/** Appoints someone as Channel admin, or removes the role. */
+export function useSetChannelAdmin(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { staffId: string; isChannelAdmin: boolean }): Promise<void> => {
+      await callNoContent(() =>
+        channels[':channelId'].members[':staffId'].$patch({
+          param: { channelId, staffId: input.staffId },
+          json: { isChannelAdmin: input.isChannelAdmin },
+        }),
+      );
+    },
+    onSuccess: () => refetchAfterMembershipChange(queryClient, channelId),
   });
 }

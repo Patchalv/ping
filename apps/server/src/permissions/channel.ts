@@ -100,6 +100,172 @@ export function canLeaveChannel(actor: Actor, channel: LeaveAccess): Decision {
   return allow();
 }
 
+// Members and Channel admins (product.md › Members and Channel admins, › What company
+// Admins can do to a Channel). From "Channel members and Channel admins" (#37).
+
+/** The actor's place in a Channel, for changing its members. */
+type MembershipAccess = ChannelAccess & { isArchived: boolean; isChannelAdmin: boolean };
+
+const ARCHIVED_MEMBERS_MESSAGE =
+  'This Channel is archived, so its members can’t change. Unarchive it first.';
+const NOT_A_MEMBER_MESSAGE = 'They’re not a member of this Channel.';
+
+/** Can read it, and it isn't Archived: what every membership change needs first. */
+function canChangeMembers(actor: Actor, channel: MembershipAccess): Decision {
+  const read = canReadChannel(actor, channel);
+  if (!read.allow) return read;
+  if (channel.isArchived) return deny({ kind: 'refused', message: ARCHIVED_MEMBERS_MESSAGE });
+  return allow();
+}
+
+/**
+ * Any member adds people to a Public channel; only Channel admins add them to a Private
+ * one. Company Admins get no exception. Only active Staff members can be added.
+ */
+export function canAddChannelMember(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: { isActiveStaff: boolean },
+): Decision {
+  const base = canChangeMembers(actor, channel);
+  if (!base.allow) return base;
+  if (channel.visibility === 'private' && !channel.isChannelAdmin) {
+    return deny({
+      kind: 'refused',
+      message: 'Only Channel admins add people to a Private channel.',
+    });
+  }
+  if (!channel.isMember) {
+    return deny({ kind: 'refused', message: 'Join this Channel before you add people to it.' });
+  }
+  if (!target.isActiveStaff) {
+    return deny({
+      kind: 'refused',
+      message: 'Only active Staff members can be added. Invited and Deactivated people can’t.',
+    });
+  }
+  return allow();
+}
+
+/**
+ * Only Channel admins remove members, company Admins included. Removing yourself is
+ * leaving, which has its own rule about the last Channel admin, so it goes through Leave.
+ * The remover stays, so the Channel keeps an active Channel admin.
+ */
+export function canRemoveChannelMember(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: { staffId: string; isMember: boolean },
+): Decision {
+  const base = canChangeMembers(actor, channel);
+  if (!base.allow) return base;
+  if (!channel.isChannelAdmin) {
+    return deny({ kind: 'refused', message: 'Only Channel admins remove members.' });
+  }
+  if (target.staffId === actor.staffId) {
+    return deny({ kind: 'refused', message: 'To leave this Channel yourself, use Leave.' });
+  }
+  if (!target.isMember) return deny({ kind: 'refused', message: NOT_A_MEMBER_MESSAGE });
+  return allow();
+}
+
+/** Who a Channel admin change is about. `otherActiveChannelAdmins` leaves them out. */
+type ChannelAdminTarget = {
+  staffId: string;
+  isActiveStaff: boolean;
+  isMember: boolean;
+  isChannelAdmin: boolean;
+  otherActiveChannelAdmins: number;
+};
+
+/** A company Admin's one power over a Public channel: its Channel admins. */
+export function actsAsCompanyAdmin(actor: Actor, channel: ChannelAccess): boolean {
+  return actor.role === 'admin' && channel.visibility === 'public';
+}
+
+/**
+ * Channel admins appoint members as Channel admins and remove the role. A company Admin
+ * does both on a Public channel, for anyone including themself, member or not. A Channel
+ * always keeps an active Channel admin.
+ */
+export function canSetChannelAdmin(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: ChannelAdminTarget,
+  makeChannelAdmin: boolean,
+): Decision {
+  const base = canChangeMembers(actor, channel);
+  if (!base.allow) return base;
+  const asCompanyAdmin = actsAsCompanyAdmin(actor, channel);
+  if (!channel.isChannelAdmin && !asCompanyAdmin) {
+    return deny({
+      kind: 'refused',
+      message: 'Only Channel admins appoint or remove Channel admins.',
+    });
+  }
+  if (makeChannelAdmin) {
+    if (!target.isActiveStaff) {
+      return deny({ kind: 'refused', message: 'Only active Staff members can be Channel admins.' });
+    }
+    if (!target.isMember && !asCompanyAdmin) {
+      return deny({
+        kind: 'refused',
+        message: 'Add them to the Channel before you make them Channel admin.',
+      });
+    }
+    return allow();
+  }
+  if (!target.isMember) return deny({ kind: 'refused', message: NOT_A_MEMBER_MESSAGE });
+  if (target.isChannelAdmin && target.isActiveStaff && target.otherActiveChannelAdmins === 0) {
+    return deny({
+      kind: 'refused',
+      message: 'A Channel needs an active Channel admin. Make someone else Channel admin first.',
+    });
+  }
+  return allow();
+}
+
+/**
+ * Which member controls the Members tab shows, so the SPA hides the ones the server would
+ * refuse. Each matches its decision for an ordinary target; the server still decides.
+ */
+export function channelMemberActions(
+  actor: Actor,
+  channel: MembershipAccess,
+): { add: boolean; remove: boolean; setChannelAdmin: boolean } {
+  const base = canChangeMembers(actor, channel).allow;
+  return {
+    add: canAddChannelMember(actor, channel, { isActiveStaff: true }).allow,
+    remove: base && channel.isChannelAdmin,
+    setChannelAdmin: base && (channel.isChannelAdmin || actsAsCompanyAdmin(actor, channel)),
+  };
+}
+
+export function requireCanAddChannelMember(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: { isActiveStaff: boolean },
+): void {
+  requireAllowed(canAddChannelMember(actor, channel, target));
+}
+
+export function requireCanRemoveChannelMember(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: { staffId: string; isMember: boolean },
+): void {
+  requireAllowed(canRemoveChannelMember(actor, channel, target));
+}
+
+export function requireCanSetChannelAdmin(
+  actor: Actor,
+  channel: MembershipAccess,
+  target: ChannelAdminTarget,
+  makeChannelAdmin: boolean,
+): void {
+  requireAllowed(canSetChannelAdmin(actor, channel, target, makeChannelAdmin));
+}
+
 export function requireCanBrowseChannels(actor: Actor): void {
   requireAllowed(canBrowseChannels(actor));
 }
