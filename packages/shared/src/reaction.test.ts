@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emojiSchema, isSingleEmoji, threadReactionParams } from './reaction';
+import { isSingleEmoji, reactionEmojiBody, threadReactionParams } from './reaction';
 
 describe('isSingleEmoji', () => {
   it.each([
@@ -28,13 +28,13 @@ describe('isSingleEmoji', () => {
   });
 });
 
-describe('emojiSchema', () => {
-  it('accepts one emoji', () => {
-    expect(emojiSchema.parse('🎉')).toBe('🎉');
+describe('reactionEmojiBody', () => {
+  it('accepts one emoji, ignoring spaces around it', () => {
+    expect(reactionEmojiBody.parse({ emoji: ' 🎉 ' })).toEqual({ emoji: '🎉' });
   });
 
-  it('says what to do when it is not one emoji', () => {
-    const result = emojiSchema.safeParse('hello');
+  it.each([['hello'], [''], ['👍🎉']])('says what to do when %j is not one emoji', (emoji) => {
+    const result = reactionEmojiBody.safeParse({ emoji });
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe('Pick a single emoji to react with.');
   });

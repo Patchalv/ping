@@ -1,6 +1,13 @@
-import { isSingleEmoji, type ReactionSummary, THUMBS_UP } from '@ping/shared';
+import {
+  type ReactionEmojiBody,
+  type ReactionSummary,
+  reactionEmojiBody,
+  THUMBS_UP,
+} from '@ping/shared';
+import { revalidateLogic } from '@tanstack/react-form';
 import { SmilePlusIcon, ThumbsUpIcon } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { useState } from 'react';
+import { useAppForm } from '#/components/form';
 import { Button } from '#/components/ui/button';
 import {
   Dialog,
@@ -18,9 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu';
-import { Input } from '#/components/ui/input';
 import { cn } from '#/lib/utils';
-import { FormError } from '../../components/FormError';
 import { useReact } from './api';
 
 /** The quick picks. "Other emoji…" reaches the rest of Unicode. */
@@ -144,19 +149,17 @@ const chipClass = (reacted: boolean) =>
 
 /** Type or paste any emoji: the keyboard's own emoji picker does the choosing. */
 function OtherEmojiDialog({ onPick, onClose }: { onPick(emoji: string): void; onClose(): void }) {
-  const [value, setValue] = useState('');
-  const [error, setError] = useState<string | null>(null);
-
-  const submit = (event: FormEvent) => {
-    event.preventDefault();
-    const emoji = value.trim();
-    if (!isSingleEmoji(emoji)) {
-      setError('Pick a single emoji to react with.');
-      return;
-    }
-    onPick(emoji);
-    onClose();
-  };
+  const defaultValues: ReactionEmojiBody = { emoji: '' };
+  const form = useAppForm({
+    formId: 'react-with-other-emoji',
+    defaultValues,
+    validationLogic: revalidateLogic(),
+    validators: { onDynamic: reactionEmojiBody },
+    onSubmit: ({ value }) => {
+      onPick(reactionEmojiBody.parse(value).emoji);
+      onClose();
+    },
+  });
 
   return (
     <Dialog
@@ -166,31 +169,24 @@ function OtherEmojiDialog({ onPick, onClose }: { onPick(emoji: string): void; on
       }}
     >
       <DialogContent>
-        <form onSubmit={submit} className="grid gap-4">
-          <DialogHeader>
-            <DialogTitle>React with another emoji</DialogTitle>
-            <DialogDescription>
-              Open your keyboard’s emoji picker (Control + Command + Space on a Mac, Windows key +
-              period on Windows) and choose one.
-            </DialogDescription>
-          </DialogHeader>
-          <Input
-            aria-label="Emoji"
-            aria-invalid={error ? true : undefined}
-            autoFocus
-            value={value}
-            onChange={(event) => {
-              setValue(event.target.value);
-              setError(null);
-            }}
-            className="text-lg"
-          />
-          {error ? <FormError>{error}</FormError> : null}
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-            <Button type="submit">React</Button>
-          </DialogFooter>
-        </form>
+        <form.AppForm>
+          <form.Form className="grid gap-4">
+            <DialogHeader>
+              <DialogTitle>React with another emoji</DialogTitle>
+              <DialogDescription>
+                Open your keyboard’s emoji picker (Control + Command + Space on a Mac, Windows key +
+                period on Windows) and choose one.
+              </DialogDescription>
+            </DialogHeader>
+            <form.AppField name="emoji">
+              {(field) => <field.TextField label="Emoji" autoComplete="off" className="text-lg" />}
+            </form.AppField>
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+              <form.SubmitButton pending="Reacting…">React</form.SubmitButton>
+            </DialogFooter>
+          </form.Form>
+        </form.AppForm>
       </DialogContent>
     </Dialog>
   );

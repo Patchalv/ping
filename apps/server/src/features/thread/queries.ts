@@ -153,9 +153,10 @@ export async function listThreads(
     .orderBy(desc(thread.latestActivityAt), desc(thread.id))
     .limit(THREAD_PAGE_SIZE + 1);
   const page = rows.slice(0, THREAD_PAGE_SIZE);
+  const mayReact = canReact(actor, access).allow;
   return {
     threads: page.map(({ preview, ...row }) => ({
-      ...toThread(row, canReact(actor, access).allow),
+      ...toThread(row, mayReact),
       preview,
     })),
     nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,

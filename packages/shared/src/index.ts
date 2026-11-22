@@ -33,9 +33,10 @@ export {
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
-  isSingleEmoji,
+  type ReactionEmojiBody,
   type ReactionList,
   type ReactionSummary,
+  reactionEmojiBody,
   THUMBS_UP,
   threadReactionParams,
   threadResponseReactionParams,

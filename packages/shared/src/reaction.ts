@@ -21,9 +21,14 @@ export function isSingleEmoji(text: string): boolean {
 }
 
 /** Any Unicode emoji, once. A word, a letter or several emoji are refused. */
-export const emojiSchema = z
+const emojiSchema = z
   .string({ error: EMOJI_MESSAGE })
+  .trim()
   .refine(isSingleEmoji, { error: EMOJI_MESSAGE });
+
+/** The "Other emoji…" form: one emoji, typed or pasted. */
+export const reactionEmojiBody = z.object({ emoji: emojiSchema });
+export type ReactionEmojiBody = z.input<typeof reactionEmojiBody>;
 
 /** Routes …/threads/:threadId/reactions/:emoji (the emoji, URL-encoded). */
 export const threadReactionParams = threadParams.extend({ emoji: emojiSchema });
