@@ -10,6 +10,7 @@ import {
   customType,
   foreignKey,
   index,
+  integer,
   jsonb,
   pgEnum,
   pgTable,
@@ -342,6 +343,36 @@ export const reaction = pgTable(
     uniqueIndex('reaction_thread_response_staff_emoji_unique')
       .on(t.threadResponseId, t.staffId, t.emoji)
       .where(sql`${t.threadResponseId} is not null`),
+  ],
+);
+
+/**
+ * A Ping (data-model.md › Attention): one Staff member's open notice of other people's new
+ * activity in one Thread, with a count. A row exists only while the Ping is open; the
+ * fan-out upserts it and Acknowledging deletes it. Deleting the Thread cascades here, but
+ * deleting a Thread Response changes nothing.
+ */
+export const ping = pgTable(
+  'ping',
+  {
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    threadId: uuid('thread_id').notNull(),
+    channelId: uuid('channel_id').notNull(),
+    count: integer('count').notNull().default(1),
+    firstAt: timestamp('first_at', { withTimezone: true }).notNull().defaultNow(),
+    lastAt: timestamp('last_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.staffId, t.threadId] }),
+    index('ping_staff_id_last_at_idx').on(t.staffId, t.lastAt),
+    foreignKey({
+      name: 'ping_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+    check('ping_count_positive', sql`${t.count} >= 1`),
   ],
 );
 
