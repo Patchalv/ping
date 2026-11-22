@@ -2,7 +2,7 @@
 // the permission matrix and the route-coverage guard.
 import { randomUUID } from 'node:crypto';
 import { createApp, type InviteServices } from '../app';
-import { type Auth, createAuth, type PasswordResetServices } from '../auth';
+import { type Auth, type AuthEmailServices, createAuth } from '../auth';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
 import { createMailer, type MailEnvironment, type Mailer, type OutgoingMail } from '../lib/email';
@@ -112,8 +112,8 @@ export function offlineInviteServices(): InviteServices {
   };
 }
 
-/** Password-reset services for an auth instance that never sends mail (unit tests). */
-export function offlineResetServices(): PasswordResetServices {
+/** Auth email services (reset, email change) for an auth instance that never sends mail (unit tests). */
+export function offlineAuthEmailServices(): AuthEmailServices {
   return {
     mailer: fakeMailer({ sent: [], failing: false }),
     appUrl: TEST_ORIGIN,

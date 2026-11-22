@@ -7,7 +7,7 @@ import { createAuth } from '../auth';
 import { createDatabase } from '../db';
 import { coveredRoutes } from './permission-matrix/matrix';
 import { uncoveredRoutes } from './route-coverage';
-import { offlineInviteServices, offlineResetServices } from './test-app';
+import { offlineAuthEmailServices, offlineInviteServices } from './test-app';
 
 // The real app, as production builds it: serving a built SPA. Building it never connects
 // to the database.
@@ -22,7 +22,7 @@ function realApp() {
       baseUrl: 'http://localhost:3000',
       trustedOrigins: ['http://localhost:3000'],
     },
-    offlineResetServices(),
+    offlineAuthEmailServices(),
   );
   return createApp({
     auth,

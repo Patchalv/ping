@@ -44,6 +44,7 @@ export {
   type InviteView,
   inviteStaffBody,
   inviteTokenBody,
+  type NameChanged,
   STAFF_NAME_MAX,
   type StaffMemberView,
   type StaffRole,

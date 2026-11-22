@@ -163,6 +163,7 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 - **Ink Text** (ink-text; night-text in dark): all body text (16.5:1 on white).
 - **Slate Muted** (slate-muted; night-muted in dark): descriptions, timestamps, member counts and hints (5.7:1 on white, 5.3:1 on Feed Mist).
 - **Hairline** (hairline): borders between surfaces. **Field Edge** (field-edge): the stronger outline on inputs, textareas and radios, so fields are findable.
+- **Avatar tints** (`--avatar-1` to `--avatar-6` in `index.css`): coloured initials, the one place colour tells people apart rather than signalling. Each is a pale tint with deep text of the same hue (a deep fill with pale text in dark), AA in both themes, picked by Staff member ID so a rename never changes it. The hues (45, 85, 195, 240, 285, 315) stay clear of Ping Pink and Saved Green.
 
 ### Named Rules
 **The Signal Rule.** Pink, green, indigo and red each mean one thing. Never use Ping Pink for decoration, a brand moment or an error, and never use a signal colour as a large fill.
@@ -250,7 +251,7 @@ Soft, compact and plain.
 - **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text.
 - **Section labels:** 13px medium Sidebar Muted, such as "Channels".
 - **Tabs (Channel bar):** 13px semibold, the current tab underlined 2px in Ink Indigo.
-- **Avatar menu:** the avatar opens a menu with the name and email, the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
+- **Avatar menu:** the avatar opens a menu with the name and email, Edit profile (a dialog for the display name and email), the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
 
 ### Toasts
 Short confirmations and failures ("Thread Saved", "Can't reach Ping. Try again.") use Base UI's Toast from the shadcn base registry, not Sonner. The first slice that needs one installs it.

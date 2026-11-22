@@ -7,6 +7,7 @@ import {
   changeEmailBody,
   changeNameBody,
   inviteStaffBody,
+  type NameChanged,
   type StaffMemberView,
   type StaffState,
   staffParams,
@@ -153,7 +154,7 @@ export function staffRoutes(options: {
             await changeOwnName(ctx, name);
           });
           publish({ kind: 'staff.changed', staffId });
-          return c.json({ id: staffId, name });
+          return c.json({ id: staffId, name } satisfies NameChanged);
         },
       )
 

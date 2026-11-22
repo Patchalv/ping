@@ -12,20 +12,25 @@ type Props = {
   shape?: 'round' | 'square';
 };
 
+const CORNERS = {
+  round: { root: undefined, fallback: undefined },
+  square: { root: 'rounded-md after:rounded-md', fallback: 'rounded-md' },
+} as const;
+
 /**
  * Decorative: the name always sits beside it, or in the control's label, so screen
  * readers skip it.
  */
 export function StaffAvatar({ staff, size, shape = 'round' }: Props) {
-  const corners = shape === 'square' ? 'rounded-md after:rounded-md' : undefined;
+  const corners = CORNERS[shape];
   return (
-    <Avatar aria-hidden="true" size={size} className={cn('after:border-0', corners)}>
+    <Avatar aria-hidden="true" size={size} className={cn('after:border-0', corners.root)}>
       <AvatarFallback
         className={cn(
           'font-bold',
           size === 'sm' ? undefined : 'text-small',
           avatarColour(staff.id),
-          shape === 'square' ? 'rounded-md' : undefined,
+          corners.fallback,
         )}
       >
         {initials(staff.name)}

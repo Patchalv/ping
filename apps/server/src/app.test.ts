@@ -7,7 +7,7 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { createDatabase } from './db';
 import { ForbiddenError, NotFoundError, ValidationError } from './lib/errors';
-import { offlineInviteServices, offlineResetServices } from './test/test-app';
+import { offlineAuthEmailServices, offlineInviteServices } from './test/test-app';
 
 // Never connects: these routes don't touch the database.
 const database = createDatabase('postgres://nobody@localhost:1/none');
@@ -20,7 +20,7 @@ const auth = createAuth(
     baseUrl: 'http://localhost:3000',
     trustedOrigins,
   },
-  offlineResetServices(),
+  offlineAuthEmailServices(),
 );
 
 describe('GET /healthz', () => {

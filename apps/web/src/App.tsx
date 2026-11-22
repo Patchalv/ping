@@ -24,8 +24,8 @@ const router = createAppRouter();
 
 /**
  * The page a reset or email-change link, or the sign-in page's "Forgot password?" link,
- * opens, signed in or not. Like the invite page, they sit outside the router, which lives inside the signed-in
- * app. Their links out are plain, so leaving reloads the app.
+ * opens, signed in or not. Like the invite page, they sit outside the router, which lives
+ * inside the signed-in app. Their links out are plain, so leaving reloads the app.
  */
 function linkPage():
   | { page: 'forgot' }

@@ -8,42 +8,48 @@ export const STAFF_NAME_MAX = 80;
 const staffRole = z.enum(['admin', 'member'], { error: 'Choose Admin or Member.' });
 export type StaffRole = z.infer<typeof staffRole>;
 
-/** POST /api/staff/invites. Emails are stored lowercased, as Better Auth signs in with them. */
-export const inviteStaffBody = z.object({
-  name: z
-    .string({ error: 'Enter their name.' })
+/** A display name, with the messages for whoever's typing (their own, or someone else's). */
+const displayName = (messages: { empty: string; tooLong: string }) =>
+  z
+    .string({ error: messages.empty })
     .trim()
-    .min(1, 'Enter their name.')
-    .max(STAFF_NAME_MAX, `Keep the name to ${STAFF_NAME_MAX} characters or fewer.`),
-  email: z
-    .string({ error: 'Enter their email address.' })
+    .min(1, messages.empty)
+    .max(STAFF_NAME_MAX, messages.tooLong);
+
+/** An email address, stored lowercased, as Better Auth signs in with them. */
+const emailAddress = (empty: string) =>
+  z
+    .string({ error: empty })
     .trim()
-    .min(1, 'Enter their email address.')
+    .min(1, empty)
     .pipe(z.email({ error: 'Enter an email address like name@example.com.' }))
-    .transform((email) => email.toLowerCase()),
+    .transform((email) => email.toLowerCase());
+
+/** POST /api/staff/invites. */
+export const inviteStaffBody = z.object({
+  name: displayName({
+    empty: 'Enter their name.',
+    tooLong: `Keep the name to ${STAFF_NAME_MAX} characters or fewer.`,
+  }),
+  email: emailAddress('Enter their email address.'),
   role: staffRole,
 });
 export type InviteStaffBody = z.input<typeof inviteStaffBody>;
 
 /** PATCH /api/staff/:staffId/name: your own display name. */
 export const changeNameBody = z.object({
-  name: z
-    .string({ error: 'Enter your name.' })
-    .trim()
-    .min(1, 'Enter your name.')
-    .max(STAFF_NAME_MAX, `Keep your name to ${STAFF_NAME_MAX} characters or fewer.`),
+  name: displayName({
+    empty: 'Enter your name.',
+    tooLong: `Keep your name to ${STAFF_NAME_MAX} characters or fewer.`,
+  }),
 });
 export type ChangeNameBody = z.input<typeof changeNameBody>;
 
+/** What changing your display name answers. */
+export type NameChanged = { id: string; name: string };
+
 /** POST /api/staff/:staffId/email: asks for a link to the new address. */
-export const changeEmailBody = z.object({
-  email: z
-    .string({ error: 'Enter your new email address.' })
-    .trim()
-    .min(1, 'Enter your new email address.')
-    .pipe(z.email({ error: 'Enter an email address like name@example.com.' }))
-    .transform((email) => email.toLowerCase()),
-});
+export const changeEmailBody = z.object({ email: emailAddress('Enter your new email address.') });
 export type ChangeEmailBody = z.input<typeof changeEmailBody>;
 
 /** POST /api/email-change/confirm. The token travels in the body, never the URL. */

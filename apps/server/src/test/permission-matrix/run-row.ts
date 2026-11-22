@@ -38,6 +38,12 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
   });
 };
 
+/** The row's target Staff member, by kind. */
+const targetFixtures: Record<NonNullable<MatrixRow['target']>, () => Promise<{ id: string }>> = {
+  invited: () => createInvitedStaffMember(),
+  active: () => createStaffMember(),
+};
+
 /**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
@@ -45,12 +51,7 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
 export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
-  const target =
-    row.target === 'invited'
-      ? await createInvitedStaffMember()
-      : row.target === 'active'
-        ? await createStaffMember()
-        : undefined;
+  const target = row.target ? await targetFixtures[row.target]() : undefined;
   const request = row.request({ actor, channel, target });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();

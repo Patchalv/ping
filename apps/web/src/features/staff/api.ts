@@ -8,6 +8,7 @@ import type {
   EmailChangeConfirmed,
   InviteStaffBody,
   InviteView,
+  NameChanged,
   StaffMemberView,
 } from '@ping/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -86,7 +87,7 @@ export function useCancelInvite() {
  */
 export function useChangeName(staffId: string) {
   return useStaffMutation(
-    (body: ChangeNameBody): Promise<{ id: string; name: string }> =>
+    (body: ChangeNameBody): Promise<NameChanged> =>
       call(() => staff[':staffId'].name.$patch({ param: { staffId }, json: body })),
   );
 }

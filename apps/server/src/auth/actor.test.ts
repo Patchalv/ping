@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { createDatabase } from '../db';
-import { offlineResetServices } from '../test/test-app';
+import { offlineAuthEmailServices } from '../test/test-app';
 import { createWithActorTx, signedIn } from './actor';
 import { createAuth } from './index';
 
@@ -14,7 +14,7 @@ const auth = createAuth(
     baseUrl: 'http://localhost:3000',
     trustedOrigins: ['http://localhost:3000'],
   },
-  offlineResetServices(),
+  offlineAuthEmailServices(),
 );
 const withActorTx = createWithActorTx(database);
 

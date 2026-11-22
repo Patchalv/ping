@@ -30,13 +30,13 @@ const SEVEN_DAYS = 60 * 60 * 24 * 7;
 const DEACTIVATED_CODE = 'STAFF_MEMBER_DEACTIVATED';
 
 /** What password reset and changing your email need beyond the database. */
-export type PasswordResetServices = {
+export type AuthEmailServices = {
   mailer: Mailer;
-  /** The URL people open, for reset links. Staging links to staging. */
+  /** The URL people open, for reset and email-change links. Staging links to staging. */
   appUrl: string;
   /** The breached-password check (Have I Been Pwned). Tests pass a fake. */
   isPasswordCompromised(password: string): Promise<boolean>;
-  /** Sentry, for a reset email that couldn't be sent. */
+  /** Sentry, for a reset or email-change email that couldn't be sent. */
   reportError(error: unknown): void;
 };
 
@@ -48,7 +48,7 @@ function invalidToken() {
 export function createAuth(
   database: Database,
   config: ServerConfig['auth'],
-  reset: PasswordResetServices,
+  services: AuthEmailServices,
 ) {
   // product.md › Password reset: 3 links per email per hour, on top of Better Auth's
   // per-IP limiter (3 a minute on /request-password-reset).
@@ -64,11 +64,11 @@ export function createAuth(
       const active = await database.withStaffTx(user.id, (tx) => isActiveStaff(tx, user.id));
       if (!active || !resetLimit.take(user.email)) return;
       // `held` (staging, not on the allowlist) is working as configured: not reported.
-      await reset.mailer.send(
-        resetEmail({ to: user.email, name: user.name, appUrl: reset.appUrl, token }),
+      await services.mailer.send(
+        resetEmail({ to: user.email, name: user.name, appUrl: services.appUrl, token }),
       );
     } catch (error) {
-      reset.reportError(error);
+      services.reportError(error);
       console.error(
         `Password reset email not sent (${error instanceof Error ? error.name : 'unknown error'})`,
       );
@@ -86,8 +86,8 @@ export function createAuth(
     token: string,
   ) {
     try {
-      const result = await reset.mailer.send(
-        emailChangeEmail({ to: user.email, name: user.name, appUrl: reset.appUrl, token }),
+      const result = await services.mailer.send(
+        emailChangeEmail({ to: user.email, name: user.name, appUrl: services.appUrl, token }),
       );
       // `held` (staging, not on the allowlist) is working as configured: not reported.
       if (result === 'held') return reportEmailChangeSend('held');
@@ -98,7 +98,7 @@ export function createAuth(
       });
       reportEmailChangeSend('sent');
     } catch (error) {
-      reset.reportError(error);
+      services.reportError(error);
       reportEmailChangeSend('failed');
     }
   }
@@ -200,7 +200,7 @@ export function createAuth(
         );
         if (!active) throw invalidToken();
         // When the breach check can't run, refuse rather than accept an unchecked password.
-        const compromised = await reset.isPasswordCompromised(newPassword).catch(() => {
+        const compromised = await services.isPasswordCompromised(newPassword).catch(() => {
           throw new APIError('SERVICE_UNAVAILABLE', {
             message: 'We couldn’t check your password just now. Try again in a minute.',
           });
