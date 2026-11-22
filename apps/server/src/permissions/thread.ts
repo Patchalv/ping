@@ -37,23 +37,18 @@ export function canStartThread(actor: Actor, channel: ThreadChannelAccess): Deci
   return allow();
 }
 
-/** Who started the Thread, as the edit and delete decisions need it. */
-export type ThreadAuthorship = { authorId: string | null; isSystem: boolean };
+/** Who started the Thread: null for a System thread, which Ping started. */
+export type ThreadAuthorship = { authorId: string | null };
 
 /**
  * Its author, or a company Admin in a Channel they can read; never in an Archived
- * channel. Nobody edits a System thread: Ping wrote it.
+ * channel. A System thread has no author, so only Admins edit it.
  */
 export function canEditThread(
   actor: Actor,
   channel: ThreadChannelAccess,
   thread: ThreadAuthorship,
 ): Decision {
-  const read = canReadChannel(actor, channel);
-  if (!read.allow) return read;
-  if (thread.isSystem) {
-    return deny({ kind: 'refused', message: 'Ping started this Thread, so nobody can edit it.' });
-  }
   return canEditContent(actor, channel, thread.authorId, 'Thread');
 }
 

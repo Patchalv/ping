@@ -15,7 +15,12 @@ import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 import type { AuditEventKind } from '../../db/schema';
-import { canDeleteThread, canEditThread, type ThreadChannelAccess } from '../../permissions/thread';
+import {
+  canDeleteThread,
+  canEditThread,
+  type ThreadAuthorship,
+  type ThreadChannelAccess,
+} from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
 const { auditEvent, channel, channelMember, staffMember, thread, threadResponse, user } = schema;
@@ -170,7 +175,7 @@ export async function findThread(
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
   const { body, editedAt, editedBy, editorName, ...rest } = row;
-  const authorship = { authorId: rest.authorId, isSystem: rest.isSystem };
+  const authorship = { authorId: rest.authorId };
   return {
     ...toThread(rest),
     // Written only through the allowlist, so it reads back as one.
@@ -187,9 +192,9 @@ export async function findThreadAuthorship(
   { tx }: ActorTx,
   channelId: string,
   threadId: string,
-): Promise<{ authorId: string | null; isSystem: boolean } | undefined> {
+): Promise<ThreadAuthorship | undefined> {
   const [row] = await tx
-    .select({ authorId: thread.authorId, isSystem: thread.isSystem })
+    .select({ authorId: thread.authorId })
     .from(thread)
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   return row;
@@ -225,7 +230,7 @@ export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<v
 /**
  * Records a company Admin changing someone else's Thread (product.md › Audit log). Only
  * the author or an Admin gets this far, so a change by anyone else is an Admin's. A System
- * thread is nobody's content, so deleting one records nothing.
+ * thread is nobody's content, so editing or deleting one records nothing.
  */
 export async function auditAdminChange(
   { tx, actor }: ActorTx,

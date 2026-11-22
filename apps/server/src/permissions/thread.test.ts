@@ -61,8 +61,8 @@ describe('canReadThreads', () => {
   });
 });
 
-const byMember = { authorId: member.staffId, isSystem: false };
-const bySomeoneElse = { authorId: '00000000-0000-4000-8000-0000000000b1', isSystem: false };
+const byMember = { authorId: member.staffId };
+const bySomeoneElse = { authorId: '00000000-0000-4000-8000-0000000000b1' };
 
 describe('canEditThread', () => {
   it.each([
@@ -107,11 +107,16 @@ describe('canEditThread', () => {
     expect(canEditThread(admin, channel('public', true, true), bySomeoneElse)).toEqual(refusal);
   });
 
-  it('refuses a System thread, even to a company Admin', () => {
-    expect(
-      canEditThread(admin, channel('public', true), { authorId: null, isSystem: true }),
-    ).toEqual(
-      deny({ kind: 'refused', message: 'Ping started this Thread, so nobody can edit it.' }),
+  it('lets a company Admin edit a System thread: Admins edit any Thread', () => {
+    expect(canEditThread(admin, channel('public', true), { authorId: null })).toEqual(allow());
+  });
+
+  it('refuses a member editing a System thread: it has no author', () => {
+    expect(canEditThread(member, channel('public', true), { authorId: null })).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'Only its author or a company Admin can edit this Thread.',
+      }),
     );
   });
 });
@@ -126,12 +131,7 @@ describe('canDeleteThread', () => {
       bySomeoneElse,
       channel('public', false, true),
     ],
-    [
-      'a company Admin, a System thread',
-      admin,
-      { authorId: null, isSystem: true },
-      channel('public', true),
-    ],
+    ['a company Admin, a System thread', admin, { authorId: null }, channel('public', true)],
   ])('allows %s', (_name, actor, thread, target) => {
     expect(canDeleteThread(actor, target, thread)).toEqual(allow());
   });
