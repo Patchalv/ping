@@ -36,6 +36,7 @@ import { useCurrentStaffMember } from '../features/staff/api';
 import { ProfileDialog } from '../features/staff/ProfileDialog';
 import { authClient } from '../lib/auth-client';
 import { AvatarMenu } from './AvatarMenu';
+import { EnvironmentBadge } from './EnvironmentBadge';
 import { PingMark } from './PingMark';
 
 export function AppShell() {
@@ -106,6 +107,7 @@ function TopBar({ children }: { children: ReactNode }) {
       <span className="flex items-center gap-1.5 px-1 text-lg font-bold tracking-tight">
         <PingMark className="size-6" />
         Ping
+        <EnvironmentBadge />
       </span>
       <div className="relative mx-auto w-full max-w-xl max-md:hidden">
         <SearchIcon

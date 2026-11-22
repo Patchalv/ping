@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { RolePasswords } from './db/migrate';
-import type { MailEnvironment, SmtpSettings } from './lib/email';
+import type { SmtpSettings } from './lib/email';
 
 const envLocal = fileURLToPath(new URL('../../../.env.local', import.meta.url));
 
@@ -24,6 +24,8 @@ export type ServerConfig = {
     baseUrl: string;
     trustedOrigins: string[];
   };
+  /** Which deployment this is (PING_ENVIRONMENT). Staging marks its email and its UI. */
+  environment: PingEnvironment;
   /** Error reporting for the server and the SPA. Off when SENTRY_DSN is unset. */
   sentry?: SentrySettings;
   email: EmailSettings;
@@ -35,7 +37,7 @@ export type ServerConfig = {
  * Resend", so a deploy before the secrets are set still boots.
  */
 export type EmailSettings = {
-  environment: MailEnvironment;
+  environment: PingEnvironment;
   smtp?: SmtpSettings;
   /** Staging only sends to these addresses, lowercased. */
   allowlist: string[];
@@ -43,7 +45,9 @@ export type EmailSettings = {
 
 const PING_ENVIRONMENTS = ['production', 'staging', 'local'] as const;
 
-function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings {
+export type PingEnvironment = (typeof PING_ENVIRONMENTS)[number];
+
+function readEnvironment(env: NodeJS.ProcessEnv, isProduction: boolean): PingEnvironment {
   const name = env.PING_ENVIRONMENT;
   const environment = name ? PING_ENVIRONMENTS.find((known) => known === name) : undefined;
   if (name && !environment) {
@@ -52,7 +56,10 @@ function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings
   if (!environment && isProduction) {
     throw new Error('PING_ENVIRONMENT must be set when NODE_ENV=production');
   }
+  return environment ?? 'local';
+}
 
+function readEmail(env: NodeJS.ProcessEnv, environment: PingEnvironment): EmailSettings {
   const { SMTP_HOST: host, SMTP_USER: user, SMTP_PASSWORD: password } = env;
   const given = [host, user, password].filter(Boolean).length;
   if (given > 0 && given < 3) {
@@ -68,7 +75,7 @@ function readEmail(env: NodeJS.ProcessEnv, isProduction: boolean): EmailSettings
     .filter(Boolean);
 
   return {
-    environment: environment ?? 'local',
+    environment,
     ...(host && user && password ? { smtp: { host, port, user, password } } : {}),
     allowlist,
   };
@@ -112,6 +119,8 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       ? [baseUrl]
       : [baseUrl, 'http://localhost:5173', 'http://localhost:3000'];
 
+  const environment = readEnvironment(env, isProduction);
+
   return {
     databaseUrl: required('DATABASE_URL', 'postgres://ping_app:ping_app@localhost:6432/ping'),
     systemDatabaseUrl: required(
@@ -123,8 +132,9 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
       baseUrl,
       trustedOrigins,
     },
+    environment,
     sentry: readSentry(env),
-    email: readEmail(env, isProduction),
+    email: readEmail(env, environment),
   };
 }
 

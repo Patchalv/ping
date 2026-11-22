@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { EnvironmentBadge } from './EnvironmentBadge';
 import { PingMark } from './PingMark';
 
 /**
@@ -12,6 +13,7 @@ export function AuthPage({ children }: { children: ReactNode }) {
         <p className="flex items-center justify-center gap-2 text-2xl font-bold tracking-tight text-chrome-foreground">
           <PingMark className="size-8" />
           Ping
+          <EnvironmentBadge />
         </p>
         <div className="grid gap-4 rounded-xl bg-background p-6 shadow-lg">{children}</div>
       </div>

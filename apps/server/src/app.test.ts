@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from './app';
@@ -200,6 +201,61 @@ describe('Sentry settings for the SPA', () => {
       'content="https://a@o1.ingest.de.sentry.io/1?&quot;&gt;&lt;script&gt;"',
     );
   });
+});
+
+describe('the environment in the SPA', () => {
+  it.each(['/', '/index.html', '/channels/123'])(
+    'marks %s as staging, in the title and a meta tag',
+    async (path) => {
+      const res = await createApp({
+        auth,
+        database,
+        trustedOrigins,
+        invites,
+        environment: 'staging',
+        webDistDir: builtSpa(),
+      }).request(path);
+      const html = await res.text();
+      expect(html).toContain('<title>Ping (Staging)</title>');
+      expect(html).not.toContain('<title>Ping</title>');
+      expect(html).toContain('<meta name="ping-environment" content="staging">');
+    },
+  );
+
+  it("marks the web app's real index.html", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ping-web-dist-'));
+    copyFileSync(
+      fileURLToPath(new URL('../../web/index.html', import.meta.url)),
+      join(dir, 'index.html'),
+    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      environment: 'staging',
+      webDistDir: dir,
+    }).request('/');
+    expect(await res.text()).toContain('<title>Ping (Staging)</title>');
+  });
+
+  it.each(['production', 'local'] as const)(
+    'leaves index.html as it is in %s',
+    async (environment) => {
+      const res = await createApp({
+        auth,
+        database,
+        trustedOrigins,
+        invites,
+        environment,
+        webDistDir: builtSpa(),
+      }).request('/');
+      const html = await res.text();
+      expect(html).toContain('<title>Ping</title>');
+      expect(html).not.toContain('ping-environment');
+      expect(html).not.toContain('Staging');
+    },
+  );
 });
 
 describe('errors', () => {

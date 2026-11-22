@@ -242,6 +242,7 @@ Soft, compact and plain.
 - **Tag** (Badge, `variant="tag"`): a pill with a Hairline border and Slate Muted 12px text, such as "Private" with a lock icon in the Channel bar. Later: "Archived", "Deactivated".
 - **Ping count** (Badge `variant="ping"`, or SidebarMenuBadge at the end of a sidebar row): a solid Ping Pink pill with white 12px bold tabular numbers.
 - **Saved** (Badge `variant="saved"`): Saved Green text in a pill with a faint green border.
+- **Chrome tag** (Badge `variant="chrome"`): chrome text in a pill with a 40% chrome-text border, for a quiet label on the navy chrome. Its one use is "Staging" beside the wordmark on staging (top bar and auth pages); production and local show nothing there.
 
 ### Cards / Containers
 - **Inset panel:** 10px corners, Feed Mist behind content, no shadow.
@@ -264,7 +265,7 @@ Soft, compact and plain.
 Short confirmations and failures ("Thread Saved", "Can't reach Ping. Try again.") use Base UI's Toast from the shadcn base registry, not Sonner. The first slice that needs one installs it.
 
 ### Top bar
-44px of ink navy chrome: the sidebar toggle (laptop), the Ping logo (the 24px mark and an 18px wordmark), a centred search field tinted 10% with the chrome text colour (behind an icon on a phone), and the avatar on the right.
+44px of ink navy chrome: the sidebar toggle (laptop), the Ping logo (the 24px mark and an 18px wordmark, then a Chrome tag reading "Staging" on staging only), a centred search field tinted 10% with the chrome text colour (behind an icon on a phone), and the avatar on the right.
 
 ## Do's and Don'ts
 

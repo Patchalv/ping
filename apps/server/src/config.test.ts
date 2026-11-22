@@ -10,6 +10,22 @@ const production = {
   PING_ENVIRONMENT: 'production',
 };
 
+describe('readConfig › environment', () => {
+  it('is local in development', () => {
+    expect(readConfig({}).environment).toBe('local');
+  });
+
+  it('reads PING_ENVIRONMENT', () => {
+    expect(readConfig({ ...production, PING_ENVIRONMENT: 'staging' }).environment).toBe('staging');
+  });
+
+  it('refuses an unknown PING_ENVIRONMENT', () => {
+    expect(() => readConfig({ ...production, PING_ENVIRONMENT: 'stage' })).toThrow(
+      'PING_ENVIRONMENT',
+    );
+  });
+});
+
 describe('readConfig › email', () => {
   it('needs PING_ENVIRONMENT in production', () => {
     expect(() => readConfig(production)).not.toThrow();

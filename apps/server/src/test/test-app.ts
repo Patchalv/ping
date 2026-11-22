@@ -3,9 +3,10 @@
 import { randomUUID } from 'node:crypto';
 import { createApp, type InviteServices } from '../app';
 import { type Auth, type AuthEmailServices, createAuth } from '../auth';
+import type { PingEnvironment } from '../config';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
-import { createMailer, type MailEnvironment, type Mailer, type OutgoingMail } from '../lib/email';
+import { createMailer, type Mailer, type OutgoingMail } from '../lib/email';
 import { createSystemActions, type SystemActions } from '../system-actions';
 
 const TEST_ORIGIN = 'http://localhost:5173';
@@ -33,7 +34,7 @@ export type TestApp = {
 };
 
 /** How the fake mailer behaves: production by default, or staging with an allowlist. */
-type MailSettings = { environment: MailEnvironment; allowlist: string[] };
+type MailSettings = { environment: PingEnvironment; allowlist: string[] };
 
 /** A mailer whose transport records instead of sending. */
 export function fakeMailer(
