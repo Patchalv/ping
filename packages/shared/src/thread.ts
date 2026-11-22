@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { channelParams } from './channel';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
+import type { ContentActions, EditedMark } from './thread-response';
 
 export const THREAD_TITLE_MAX = 200;
 /** How many Threads a Thread list loads at a time (screens.md › Baseline behaviours). */
@@ -17,6 +18,10 @@ export const startThreadBody = z.object({
   body: richTextDoc.default(EMPTY_RICH_TEXT),
 });
 export type StartThreadBody = z.input<typeof startThreadBody>;
+
+/** PATCH /api/channels/:channelId/threads/:threadId: edit a Thread's title and description. */
+export const editThreadBody = startThreadBody;
+export type EditThreadBody = StartThreadBody;
 
 /** Routes under /api/channels/:channelId/threads/:threadId, and the SPA's Thread route. */
 export const threadParams = channelParams.extend({
@@ -45,6 +50,8 @@ export type ThreadRow = {
   isSystem: boolean;
   createdAt: string;
   latestActivityAt: string;
+  /** "N Thread Responses": deleted ones count, because their placeholders still show. */
+  responseCount: number;
 };
 
 /** A page of a Channel's Thread list, by Latest activity, newest first. */
@@ -54,5 +61,13 @@ export type ThreadPage = {
   nextCursor: string | null;
 };
 
-/** A Thread as the Thread view shows it. */
-export type ThreadView = Omit<ThreadRow, 'preview'> & { body: RichTextDoc };
+/**
+ * A Thread as the Thread view shows it, and what the viewer may do with it. Its Thread
+ * Responses load separately.
+ */
+export type ThreadView = Omit<ThreadRow, 'preview'> & {
+  body: RichTextDoc;
+  edited: EditedMark | null;
+  /** Whether the viewer may send a Thread Response here. */
+  canRespond: boolean;
+} & ContentActions;

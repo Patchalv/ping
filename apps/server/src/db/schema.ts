@@ -8,6 +8,7 @@ import {
   boolean,
   check,
   customType,
+  foreignKey,
   index,
   jsonb,
   pgEnum,
@@ -246,6 +247,56 @@ export const thread = pgTable(
   ],
 );
 
+/**
+ * A Thread Response (data-model.md › Threads and Thread Responses). Deleting one keeps
+ * the row as the "Thread Response deleted" placeholder with its body and body_text
+ * nulled. The composite foreign key keeps the copied channel_id in step with its Thread,
+ * and deleting the Thread cascades here.
+ */
+export const threadResponse = pgTable(
+  'thread_response',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    threadId: uuid('thread_id').notNull(),
+    channelId: uuid('channel_id').notNull(),
+    authorId: uuid('author_id')
+      .notNull()
+      .references(() => staffMember.id),
+    body: jsonb('body'),
+    bodyText: text('body_text'),
+    createdAt: createdAt(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    editedBy: uuid('edited_by').references(() => staffMember.id),
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
+    deletedBy: uuid('deleted_by').references(() => staffMember.id),
+    search: tsvector('search').generatedAlwaysAs(
+      sql`to_tsvector('english', coalesce(body_text, ''))`,
+    ),
+  },
+  (t) => [
+    foreignKey({
+      name: 'thread_response_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+    index('thread_response_thread_id_created_at_idx').on(t.threadId, t.createdAt),
+    index('thread_response_search_idx').using('gin', t.search),
+    check(
+      'thread_response_body_unless_deleted',
+      sql`(${t.deletedAt} is null and ${t.body} is not null and ${t.bodyText} is not null)
+        or (${t.deletedAt} is not null and ${t.body} is null and ${t.bodyText} is null)`,
+    ),
+    check(
+      'thread_response_edited_by_with_at',
+      sql`(${t.editedAt} is null) = (${t.editedBy} is null)`,
+    ),
+    check(
+      'thread_response_deleted_by_with_at',
+      sql`(${t.deletedAt} is null) = (${t.deletedBy} is null)`,
+    ),
+  ],
+);
+
 /** Every kind of audit_event. Later slices add the rest. */
 export type AuditEventKind =
   | 'sign_in_succeeded'
@@ -263,7 +314,13 @@ export type AuditEventKind =
   | 'channel_member_added'
   | 'channel_member_removed'
   | 'channel_admin_appointed'
-  | 'channel_admin_removed';
+  | 'channel_admin_removed'
+  // A company Admin edited or deleted someone else's content. target_staff_id is its
+  // author; channel_id its Channel.
+  | 'admin_edited_thread'
+  | 'admin_deleted_thread'
+  | 'admin_edited_thread_response'
+  | 'admin_deleted_thread_response';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email

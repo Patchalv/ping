@@ -1,7 +1,13 @@
 // The Thread routes, mounted at /api/channels/:channelId/threads. Each follows the
 // exemplar (features/channel/routes.ts): signedIn, validate(), all the work in
 // withActorTx with a require… helper inside it, then publish() after a change commits.
-import { channelParams, listThreadsQuery, startThreadBody, threadParams } from '@ping/shared';
+import {
+  channelParams,
+  editThreadBody,
+  listThreadsQuery,
+  startThreadBody,
+  threadParams,
+} from '@ping/shared';
 import { Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
@@ -9,8 +15,22 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse';
 import { validate } from '../../lib/validate';
-import { requireCanReadThreads, requireCanStartThread } from '../../permissions/thread';
-import { findThread, findThreadChannel, listThreads, startThread } from './queries';
+import {
+  requireCanDeleteThread,
+  requireCanEditThread,
+  requireCanReadThreads,
+  requireCanStartThread,
+} from '../../permissions/thread';
+import {
+  auditAdminChange,
+  deleteThread,
+  editThread,
+  findThread,
+  findThreadAuthorship,
+  findThreadChannel,
+  listThreads,
+  startThread,
+} from './queries';
 
 export function threadRoutes({ auth, database }: { auth: Auth; database: Database }) {
   const withActorTx = createWithActorTx(database);
@@ -51,7 +71,7 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             if (!found) throw new NotFoundError();
             requireCanStartThread(ctx.actor, found);
             const id = await startThread(ctx, channelId, input);
-            return findThread(ctx, channelId, id);
+            return findThread(ctx, found, channelId, id);
           });
           // Just started, in the same transaction, by a member: it can't be hidden.
           if (!started) throw new Error('A started Thread did not read back');
@@ -67,11 +87,62 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
           const channel = await findThreadChannel(ctx, channelId);
           if (!channel) throw new NotFoundError();
           requireCanReadThreads(ctx.actor, channel);
-          const view = await findThread(ctx, channelId, threadId);
+          const view = await findThread(ctx, channel, channelId, threadId);
           if (!view) throw new NotFoundError();
           return view;
         });
         return c.json(found);
+      })
+
+      // Edit a Thread's title and description: its author, or a company Admin in a
+      // Channel they can read. Latest activity doesn't move.
+      .patch(
+        '/:threadId',
+        signedIn(auth),
+        validate('param', threadParams),
+        validate('json', editThreadBody),
+        async (c) => {
+          const { channelId, threadId } = c.req.valid('param');
+          const input = c.req.valid('json');
+          const edited = await withActorTx(c, async (ctx) => {
+            const channel = await findThreadChannel(ctx, channelId);
+            if (!channel) throw new NotFoundError();
+            requireCanReadThreads(ctx.actor, channel);
+            const authorship = await findThreadAuthorship(ctx, channelId, threadId);
+            if (!authorship) throw new NotFoundError();
+            requireCanEditThread(ctx.actor, channel, authorship);
+            await editThread(ctx, threadId, input);
+            await auditAdminChange(ctx, 'admin_edited_thread', {
+              channelId,
+              authorId: authorship.authorId,
+            });
+            return findThread(ctx, channel, channelId, threadId);
+          });
+          if (!edited) throw new Error('An edited Thread did not read back');
+          publish({ kind: 'thread.changed', channelId, threadId });
+          return c.json(edited);
+        },
+      )
+
+      // Delete a Thread, for real, with its Thread Responses: its author, or a company
+      // Admin in a Channel they can read; in an Archived channel, only Admins.
+      .delete('/:threadId', signedIn(auth), validate('param', threadParams), async (c) => {
+        const { channelId, threadId } = c.req.valid('param');
+        await withActorTx(c, async (ctx) => {
+          const channel = await findThreadChannel(ctx, channelId);
+          if (!channel) throw new NotFoundError();
+          requireCanReadThreads(ctx.actor, channel);
+          const authorship = await findThreadAuthorship(ctx, channelId, threadId);
+          if (!authorship) throw new NotFoundError();
+          requireCanDeleteThread(ctx.actor, channel, authorship);
+          await deleteThread(ctx, threadId);
+          await auditAdminChange(ctx, 'admin_deleted_thread', {
+            channelId,
+            authorId: authorship.authorId,
+          });
+        });
+        publish({ kind: 'thread.deleted', channelId, threadId });
+        return c.body(null, 204);
       })
   );
 }

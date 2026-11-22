@@ -72,6 +72,8 @@ export {
   staffParams,
 } from './staff';
 export {
+  type EditThreadBody,
+  editThreadBody,
   listThreadsQuery,
   type StartThreadBody,
   startThreadBody,
@@ -83,3 +85,13 @@ export {
   type ThreadView,
   threadParams,
 } from './thread';
+export {
+  type ContentActions,
+  type EditedMark,
+  THREAD_RESPONSE_MESSAGES,
+  type ThreadResponseBody,
+  type ThreadResponseList,
+  type ThreadResponseView,
+  threadResponseBody,
+  threadResponseParams,
+} from './thread-response';
