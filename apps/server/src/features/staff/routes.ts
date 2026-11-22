@@ -188,6 +188,7 @@ export function staffRoutes(options: {
             headers: c.req.raw.headers,
             newEmail: email,
           });
+          if (sent === 'taken') throw new ConflictError(EMAIL_TAKEN);
           if (sent !== 'sent') {
             throw new ServiceUnavailableError(
               'We couldn’t send an email to that address. Check it, then try again.',

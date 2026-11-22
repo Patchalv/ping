@@ -5,8 +5,12 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Auth } from '.';
 
-/** `sent`: the link went. `held`: staging kept it back. `failed`: the send failed. */
-export type EmailChangeSend = 'sent' | 'held' | 'failed';
+/**
+ * `sent`: the link went. `held`: staging kept it back. `failed`: the send failed. `taken`:
+ * Better Auth found the address in use and quietly sent nothing (someone claimed it after
+ * the caller's own check).
+ */
+export type EmailChangeSend = 'sent' | 'held' | 'failed' | 'taken';
 
 const outcome = new AsyncLocalStorage<{ result?: EmailChangeSend }>();
 
@@ -29,6 +33,6 @@ export async function requestEmailChange(
   await outcome.run(store, () =>
     auth.api.changeEmail({ body: { newEmail: input.newEmail }, headers: input.headers }),
   );
-  if (!store.result) throw new Error('Better Auth sent no email-change link');
-  return store.result;
+  // Better Auth's one success path that skips the send is an address already in use.
+  return store.result ?? 'taken';
 }
