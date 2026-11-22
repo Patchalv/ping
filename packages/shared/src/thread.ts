@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { channelParams } from './channel';
 import type { ContentActions, EditedMark } from './edited';
+import type { ThreadPing } from './ping';
 import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
 
@@ -60,6 +61,8 @@ export type ThreadRow = {
   reactions: ReactionSummary[];
   /** Whether the viewer may react: Channel members, outside an Archived channel. */
   canReact: boolean;
+  /** What's new for the viewer in the Thread: its open Ping's count, 0 with none. */
+  pingCount: number;
 };
 
 /** A page of a Channel's Thread list, by Latest activity, newest first. */
@@ -78,4 +81,6 @@ export type ThreadView = Omit<ThreadRow, 'preview'> & {
   edited: EditedMark | null;
   /** Whether the viewer may send a Thread Response here. */
   canRespond: boolean;
+  /** The viewer's open Ping on the Thread, or null. */
+  ping: ThreadPing | null;
 } & ContentActions;

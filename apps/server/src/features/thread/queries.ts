@@ -3,10 +3,8 @@
 // Threads, read as missing.
 import {
   extractBodyText,
-  type ReactionSummary,
   type RichTextDoc,
   THREAD_PAGE_SIZE,
-  type ThreadAuthor,
   type ThreadPage,
   type ThreadView,
   toEditedMark,
@@ -15,8 +13,8 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
+import { threadPreviewSql, threadRowColumns, toThreadRow } from '../../db/thread-row';
 import { canReact } from '../../permissions/reaction';
 import {
   canDeleteThread,
@@ -26,11 +24,7 @@ import {
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, reaction, staffMember, thread, threadResponse, user } =
-  schema;
-
-/** How much of the description a Thread row previews. */
-const PREVIEW_LENGTH = 240;
+const { auditEvent, channel, channelMember, ping, staffMember, thread, user } = schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, or undefined when it's
@@ -79,53 +73,6 @@ export async function startThread(
   return row.id;
 }
 
-const threadColumns = (actorId: string) => ({
-  id: thread.id,
-  channelId: thread.channelId,
-  title: thread.title,
-  isSystem: thread.isSystem,
-  createdAt: thread.createdAt,
-  latestActivityAt: thread.latestActivityAt,
-  authorId: thread.authorId,
-  authorName: user.name,
-  authorDeactivated: sql<boolean>`${staffMember.deactivatedAt} is not null`,
-  // Deleted ones count: their placeholders still show in the Thread.
-  responseCount: sql<number>`(
-    select count(*)::int from ${threadResponse} where ${threadResponse.threadId} = ${thread.id})`,
-  reactions: reactionSummarySql(reaction.threadId, thread.id, actorId),
-});
-
-type ThreadColumns = {
-  id: string;
-  channelId: string;
-  title: string;
-  isSystem: boolean;
-  createdAt: Date;
-  latestActivityAt: Date;
-  authorId: string | null;
-  authorName: string | null;
-  authorDeactivated: boolean;
-  responseCount: number;
-  reactions: ReactionSummary[];
-};
-
-function toThread(
-  { authorId, authorName, authorDeactivated, ...row }: ThreadColumns,
-  canReactHere: boolean,
-) {
-  const author: ThreadAuthor | null =
-    authorId === null
-      ? null
-      : { staffId: authorId, name: authorName ?? '', isDeactivated: authorDeactivated };
-  return {
-    ...row,
-    author,
-    canReact: canReactHere,
-    createdAt: row.createdAt.toISOString(),
-    latestActivityAt: row.latestActivityAt.toISOString(),
-  };
-}
-
 /**
  * A page of the Channel's Threads by Latest activity, newest first (ties by ID). `after`
  * is the last Thread of the page before; the next page starts below it.
@@ -143,8 +90,8 @@ export async function listThreads(
     : undefined;
   const rows = await tx
     .select({
-      ...threadColumns(actor.staffId),
-      preview: sql<string>`left(regexp_replace(${thread.bodyText}, '\\s+', ' ', 'g'), ${PREVIEW_LENGTH})`,
+      ...threadRowColumns(actor.staffId),
+      preview: threadPreviewSql,
     })
     .from(thread)
     .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
@@ -156,7 +103,7 @@ export async function listThreads(
   const mayReact = canReact(actor, access).allow;
   return {
     threads: page.map(({ preview, ...row }) => ({
-      ...toThread(row, mayReact),
+      ...toThreadRow(row, mayReact),
       preview,
     })),
     nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
@@ -177,11 +124,14 @@ export async function findThread(
 ): Promise<ThreadView | undefined> {
   const [row] = await tx
     .select({
-      ...threadColumns(actor.staffId),
+      ...threadRowColumns(actor.staffId),
       body: thread.body,
       editedAt: thread.editedAt,
       editedBy: thread.editedBy,
       editorName: editor.name,
+      pingFirstAt: sql<Date | null>`(
+        select ${ping.firstAt} from ${ping}
+         where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actor.staffId}::uuid)`,
     })
     .from(thread)
     .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
@@ -189,14 +139,18 @@ export async function findThread(
     .leftJoin(editor, eq(editor.id, thread.editedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
-  const { body, editedAt, editedBy, editorName, ...rest } = row;
+  const { body, editedAt, editedBy, editorName, pingFirstAt, ...rest } = row;
   const authorship = { authorId: rest.authorId };
   return {
-    ...toThread(rest, canReact(actor, access).allow),
+    ...toThreadRow(rest, canReact(actor, access).allow),
     // Written only through the allowlist, so it reads back as one.
     body: body as RichTextDoc,
     edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
     canRespond: canSendThreadResponse(actor, access).allow,
+    ping:
+      rest.pingCount > 0 && pingFirstAt
+        ? { count: rest.pingCount, firstAt: new Date(pingFirstAt).toISOString() }
+        : null,
     canEdit: canEditThread(actor, access, authorship).allow,
     canDelete: canDeleteThread(actor, access, authorship).allow,
   };

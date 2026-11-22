@@ -28,6 +28,9 @@ type LiveEvent =
       threadId: string;
       threadResponseId: string;
     }
+  // A Staff member's Pings changed: new activity Pinged people, or someone Acknowledged.
+  // (Leaving or being removed from a Private channel drops Pings, with no one Thread.)
+  | { kind: 'ping.changed'; channelId: string; threadId?: string }
   // Someone was invited, re-invited, had their invite cancelled, changed their name or
   // role, or was Deactivated or reactivated.
   | { kind: 'staff.changed'; staffId: string };

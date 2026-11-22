@@ -18,8 +18,10 @@
 import { createSystemPool, type SystemDb } from '../db/system-pool';
 
 export { adminSetChannelAdmin } from './admin-set-channel-admin';
+export { cleanUpLostAccess } from './clean-up-lost-access';
 export { createChannel } from './create-channel';
 export { deactivateStaffMember } from './deactivate-staff-member';
+export { fanOutPings } from './fan-out-pings';
 
 export type SystemActions = {
   /** The ping_system handle. Jobs in this module only. */

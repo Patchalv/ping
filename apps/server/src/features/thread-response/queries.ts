@@ -17,8 +17,17 @@ import { canReact } from '../../permissions/reaction';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 import { canDeleteThreadResponse, canEditThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, reaction, staffMember, thread, threadResponse, user } =
-  schema;
+const {
+  auditEvent,
+  channel,
+  channelMember,
+  ping,
+  reaction,
+  staffMember,
+  thread,
+  threadResponse,
+  user,
+} = schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, when the Thread is in that
@@ -90,6 +99,14 @@ export async function sendThreadResponse(
     .set({ latestActivityAt: sql`greatest(${thread.latestActivityAt}, ${row.createdAt})` })
     .where(eq(thread.id, where.threadId));
   return row.id;
+}
+
+/**
+ * Acknowledges the actor's Ping on the Thread by deleting it, if they have one. Row-level
+ * security limits the delete to their own.
+ */
+export async function acknowledgePing({ tx, actor }: ActorTx, threadId: string): Promise<void> {
+  await tx.delete(ping).where(and(eq(ping.threadId, threadId), eq(ping.staffId, actor.staffId)));
 }
 
 /** Replaces a Thread Response's body, marking who edited it and when. */

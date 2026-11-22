@@ -21,7 +21,9 @@ import {
   requireCanEditThreadResponse,
   requireCanSendThreadResponse,
 } from '../../permissions/thread-response';
+import { fanOutPings } from '../../system-actions';
 import {
+  acknowledgePing,
   auditAdminChange,
   deleteThreadResponse,
   editThreadResponse,
@@ -63,6 +65,9 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             if (!access) throw new NotFoundError();
             requireCanSendThreadResponse(ctx.actor, access);
             const id = await sendThreadResponse(ctx, { channelId, threadId }, body);
+            await fanOutPings(ctx.tx, { threadId, threadResponseId: id });
+            // Sending a Thread Response Acknowledges the sender's own Ping.
+            await acknowledgePing(ctx, threadId);
             const [view] = await listThreadResponses(ctx, access, threadId, id);
             return view;
           });
@@ -74,6 +79,7 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             threadId,
             threadResponseId: sent.id,
           });
+          publish({ kind: 'ping.changed', channelId, threadId });
           return c.json(sent, 201);
         },
       )
