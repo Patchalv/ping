@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isSingleEmoji, reactionEmojiBody, threadReactionParams } from './reaction';
+import { isSingleEmoji, threadReactionParams } from './reaction';
 
 describe('isSingleEmoji', () => {
   it.each([
@@ -28,18 +28,6 @@ describe('isSingleEmoji', () => {
   });
 });
 
-describe('reactionEmojiBody', () => {
-  it('accepts one emoji, ignoring spaces around it', () => {
-    expect(reactionEmojiBody.parse({ emoji: ' 🎉 ' })).toEqual({ emoji: '🎉' });
-  });
-
-  it.each([['hello'], [''], ['👍🎉']])('says what to do when %j is not one emoji', (emoji) => {
-    const result = reactionEmojiBody.safeParse({ emoji });
-    expect(result.success).toBe(false);
-    expect(result.error?.issues[0]?.message).toBe('Pick a single emoji to react with.');
-  });
-});
-
 describe('threadReactionParams', () => {
   const ids = {
     channelId: '00000000-0000-4000-8000-000000000001',
@@ -50,7 +38,9 @@ describe('threadReactionParams', () => {
     expect(threadReactionParams.parse({ ...ids, emoji: '👍' }).emoji).toBe('👍');
   });
 
-  it('refuses a route whose emoji is not one', () => {
-    expect(threadReactionParams.safeParse({ ...ids, emoji: 'nope' }).success).toBe(false);
+  it.each([['nope'], [''], ['👍🎉']])('refuses %j, saying what to do', (emoji) => {
+    const result = threadReactionParams.safeParse({ ...ids, emoji });
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe('Pick a single emoji to react with.');
   });
 });

@@ -26,10 +26,6 @@ const emojiSchema = z
   .trim()
   .refine(isSingleEmoji, { error: EMOJI_MESSAGE });
 
-/** The "Other emoji…" form: one emoji, typed or pasted. */
-export const reactionEmojiBody = z.object({ emoji: emojiSchema });
-export type ReactionEmojiBody = z.input<typeof reactionEmojiBody>;
-
 /** Routes …/threads/:threadId/reactions/:emoji (the emoji, URL-encoded). */
 export const threadReactionParams = threadParams.extend({ emoji: emojiSchema });
 
@@ -41,6 +37,3 @@ export type ReactionSummary = { emoji: string; count: number; reacted: boolean }
 
 /** What adding or removing a reaction answers: the target's reactions now. */
 export type ReactionList = { reactions: ReactionSummary[] };
-
-/** The reaction a Thread row's 👍 button toggles. */
-export const THUMBS_UP = '👍';
