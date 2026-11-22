@@ -2,7 +2,13 @@
 // then validate(), then does all its work in withActorTx, deciding with a require…
 // helper before it returns or changes anything, and calls publish() after a change
 // commits. The rules are in docs/conventions.md › Server routes.
-import { channelParams, createChannelBody } from '@ping/shared';
+import {
+  addChannelMemberBody,
+  channelMemberParams,
+  channelParams,
+  createChannelBody,
+  setChannelAdminBody,
+} from '@ping/shared';
 import { Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
@@ -11,22 +17,35 @@ import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse';
 import { validate } from '../../lib/validate';
 import {
+  channelMemberActions,
+  needsCompanyAdminPower,
+  requireCanAddChannelMember,
+  requireCanAddMembers,
   requireCanBrowseChannels,
   requireCanCreateChannel,
   requireCanJoinChannel,
   requireCanLeaveChannel,
   requireCanListOwnChannels,
   requireCanReadChannel,
+  requireCanRemoveChannelMember,
+  requireCanSetChannelAdmin,
 } from '../../permissions/channel';
-import { createChannel } from '../../system-actions';
+import { adminSetChannelAdmin, createChannel } from '../../system-actions';
 import {
+  addChannelMember,
   countOthersInChannel,
   findChannel,
+  findMemberTarget,
   joinChannel,
   leaveChannel,
+  listChannelMembers,
+  listMemberCandidates,
   listMemberChannels,
   listPublicChannels,
   lockChannelMembership,
+  recordMembershipChange,
+  removeChannelMember,
+  setChannelAdminRole,
 } from './queries';
 
 export function channelRoutes({ auth, database }: { auth: Auth; database: Database }) {
@@ -90,6 +109,7 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           requireCanJoinChannel(ctx.actor, found);
           if (found.isMember) return { channel: found, changed: false };
           await joinChannel(ctx, channelId);
+          await recordMembershipChange(ctx, 'channel_joined', channelId, ctx.actor.staffId);
           return { channel: await findChannel(ctx, channelId), changed: true };
         });
         // Just joined, in the same transaction: a Public channel can't be hidden.
@@ -110,9 +130,137 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           const others = await countOthersInChannel(ctx, channelId);
           requireCanLeaveChannel(ctx.actor, { ...found, ...others });
           await leaveChannel(ctx, channelId);
+          await recordMembershipChange(ctx, 'channel_left', channelId, ctx.actor.staffId);
         });
         publish({ kind: 'channel.changed', channelId });
         return c.body(null, 204);
       })
+
+      // The Members tab: the Channel's members, Channel admins marked, and which member
+      // controls the actor gets. Anyone who can read the Channel.
+      .get('/:channelId/members', signedIn(auth), validate('param', channelParams), async (c) => {
+        const { channelId } = c.req.valid('param');
+        const result = await withActorTx(c, async (ctx) => {
+          const found = await findChannel(ctx, channelId);
+          if (!found) throw new NotFoundError();
+          requireCanReadChannel(ctx.actor, found);
+          const members = await listChannelMembers(ctx, channelId);
+          return {
+            members,
+            actorStaffId: ctx.actor.staffId,
+            can: channelMemberActions(ctx.actor, found),
+          };
+        });
+        return c.json(result);
+      })
+
+      // The add-members picker: active Staff members who aren't in the Channel. Only for
+      // someone who may add members.
+      .get(
+        '/:channelId/member-candidates',
+        signedIn(auth),
+        validate('param', channelParams),
+        async (c) => {
+          const { channelId } = c.req.valid('param');
+          const candidates = await withActorTx(c, async (ctx) => {
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            requireCanAddMembers(ctx.actor, found);
+            return listMemberCandidates(ctx, channelId);
+          });
+          return c.json(candidates);
+        },
+      )
+
+      // Add someone as a plain member: any member of a Public channel, Channel admins of a
+      // Private one. Adding someone already in it changes nothing.
+      .post(
+        '/:channelId/members',
+        signedIn(auth),
+        validate('param', channelParams),
+        validate('json', addChannelMemberBody),
+        async (c) => {
+          const { channelId } = c.req.valid('param');
+          const { staffId } = c.req.valid('json');
+          const changed = await withActorTx(c, async (ctx) => {
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            const target = await findMemberTarget(ctx, channelId, staffId);
+            requireCanAddChannelMember(ctx.actor, found, target);
+            const added = await addChannelMember(ctx, channelId, staffId);
+            if (added)
+              await recordMembershipChange(ctx, 'channel_member_added', channelId, staffId);
+            return added;
+          });
+          if (changed) publish({ kind: 'channel.changed', channelId });
+          return c.body(null, 204);
+        },
+      )
+
+      // Remove a member: Channel admins only. The membership lock comes first, so two
+      // Channel admins removing each other at once can't both go.
+      .delete(
+        '/:channelId/members/:staffId',
+        signedIn(auth),
+        validate('param', channelMemberParams),
+        async (c) => {
+          const { channelId, staffId } = c.req.valid('param');
+          await withActorTx(c, async (ctx) => {
+            await lockChannelMembership(ctx, channelId);
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            const target = await findMemberTarget(ctx, channelId, staffId);
+            requireCanRemoveChannelMember(ctx.actor, found, target);
+            await removeChannelMember(ctx, channelId, staffId);
+            await recordMembershipChange(ctx, 'channel_member_removed', channelId, staffId);
+          });
+          publish({ kind: 'channel.changed', channelId });
+          return c.body(null, 204);
+        },
+      )
+
+      // Appoint a Channel admin or remove the role: the Channel's Channel admins, and a
+      // company Admin on a Public channel, for anyone including themself. The membership
+      // lock comes first, so the last active Channel admin always stays.
+      .patch(
+        '/:channelId/members/:staffId',
+        signedIn(auth),
+        validate('param', channelMemberParams),
+        validate('json', setChannelAdminBody),
+        async (c) => {
+          const { channelId, staffId } = c.req.valid('param');
+          const { isChannelAdmin } = c.req.valid('json');
+          const changed = await withActorTx(c, async (ctx) => {
+            await lockChannelMembership(ctx, channelId);
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            const target = await findMemberTarget(ctx, channelId, staffId);
+            requireCanSetChannelAdmin(ctx.actor, found, target, isChannelAdmin);
+            const viaCompanyAdmin = needsCompanyAdminPower(found, target);
+            const done = viaCompanyAdmin
+              ? await adminSetChannelAdmin(ctx.tx, {
+                  channelId,
+                  staffId,
+                  makeChannelAdmin: isChannelAdmin,
+                })
+              : await setChannelAdminRole(ctx, channelId, staffId, isChannelAdmin);
+            if (done) {
+              // A company Admin appointing someone outside the Channel adds them too.
+              if (!target.isMember) {
+                await recordMembershipChange(ctx, 'channel_member_added', channelId, staffId);
+              }
+              await recordMembershipChange(
+                ctx,
+                isChannelAdmin ? 'channel_admin_appointed' : 'channel_admin_removed',
+                channelId,
+                staffId,
+              );
+            }
+            return done;
+          });
+          if (changed) publish({ kind: 'channel.changed', channelId });
+          return c.body(null, 204);
+        },
+      )
   );
 }

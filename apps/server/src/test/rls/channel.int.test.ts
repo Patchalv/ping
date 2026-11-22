@@ -245,7 +245,8 @@ describe('channel_member INSERT', () => {
     });
   });
 
-  it('refuses a non-admin adding someone else to a Public channel', async () => {
+  // Any member adds people to a Public channel (#37): this was refused before.
+  it('lets a plain member add someone else, as a plain member, to their Public channel', async () => {
     const member = await createStaffMember();
     const other = await createStaffMember();
     const channel = await insertChannel({
@@ -253,6 +254,51 @@ describe('channel_member INSERT', () => {
       members: [{ staffId: member.id }],
     });
     await asPingApp(member.id, async (query) => {
+      expect((await join(query, channel.id, other.id)).rowCount).toBe(1);
+    });
+  });
+
+  it('refuses a plain member adding someone else as Channel admin of a Public channel', async () => {
+    const member = await createStaffMember();
+    const other = await createStaffMember();
+    const channel = await insertChannel({
+      visibility: 'public',
+      members: [{ staffId: member.id }],
+    });
+    await asPingApp(member.id, async (query) => {
+      await expect(join(query, channel.id, other.id, true)).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('refuses a non-member adding someone else to a Public channel, company Admins included', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const other = await createStaffMember();
+    const channel = await insertChannel({ visibility: 'public' });
+    await asPingApp(admin.id, async (query) => {
+      await expect(join(query, channel.id, other.id)).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('refuses a plain member adding someone else to a Private channel', async () => {
+    const member = await createStaffMember();
+    const other = await createStaffMember();
+    const channel = await insertChannel({
+      visibility: 'private',
+      members: [{ staffId: member.id }],
+    });
+    await asPingApp(member.id, async (query) => {
+      await expect(join(query, channel.id, other.id)).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('refuses a Deactivated plain member adding someone else to a Public channel', async () => {
+    const deactivated = await createStaffMember({ deactivated: true });
+    const other = await createStaffMember();
+    const channel = await insertChannel({
+      visibility: 'public',
+      members: [{ staffId: deactivated.id }],
+    });
+    await asPingApp(deactivated.id, async (query) => {
       await expect(join(query, channel.id, other.id)).rejects.toThrow(/row-level security/);
     });
   });

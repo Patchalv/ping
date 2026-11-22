@@ -199,7 +199,13 @@ export type AuditEventKind =
   | 'email_changed'
   | 'staff_role_changed'
   | 'staff_deactivated'
-  | 'staff_reactivated';
+  | 'staff_reactivated'
+  | 'channel_joined'
+  | 'channel_left'
+  | 'channel_member_added'
+  | 'channel_member_removed'
+  | 'channel_admin_appointed'
+  | 'channel_admin_removed';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email
@@ -214,6 +220,8 @@ export const auditEvent = pgTable(
     kind: text('kind').$type<AuditEventKind>().notNull(),
     // No foreign key: the record outlives a cancelled invite's staff_member row.
     targetStaffId: uuid('target_staff_id'),
+    // The Channel a membership change happened in. No foreign key, like target_staff_id.
+    channelId: uuid('channel_id'),
     ipAddress: text('ip_address'),
   },
   (t) => [index('audit_event_created_at_idx').on(t.createdAt)],

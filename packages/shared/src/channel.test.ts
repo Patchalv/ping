@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { channelParams, createChannelBody } from './channel';
+import {
+  addChannelMemberBody,
+  channelMemberParams,
+  channelParams,
+  createChannelBody,
+  setChannelAdminBody,
+} from './channel';
 
 describe('createChannelBody', () => {
   it('accepts a name, description and visibility, trimming the text', () => {
@@ -67,5 +73,45 @@ describe('channelParams', () => {
     expect(channelParams.safeParse({ channelId: 'front-desk' }).error?.issues[0]?.message).toBe(
       'That isn’t a Channel link.',
     );
+  });
+});
+
+describe('the member schemas', () => {
+  const staffId = '00000000-0000-4000-8000-0000000000b1';
+  const channelId = '00000000-0000-4000-8000-0000000000c1';
+
+  it('accept a Channel and Staff member link', () => {
+    expect(channelMemberParams.parse({ channelId, staffId })).toEqual({ channelId, staffId });
+  });
+
+  it('accept the Staff member to add, and the Channel admin role to set', () => {
+    expect(addChannelMemberBody.parse({ staffId })).toEqual({ staffId });
+    expect(setChannelAdminBody.parse({ isChannelAdmin: true })).toEqual({ isChannelAdmin: true });
+  });
+
+  it.each([
+    ['a missing Staff member to add', addChannelMemberBody, {}, 'Choose a Staff member to add.'],
+    [
+      'a Staff member to add that is no ID',
+      addChannelMemberBody,
+      { staffId: 'jordi' },
+      'Choose a Staff member to add.',
+    ],
+    [
+      'a missing Channel admin role',
+      setChannelAdminBody,
+      {},
+      'Say whether they should be Channel admin.',
+    ],
+    [
+      'a Staff member link that is no ID',
+      channelMemberParams,
+      { channelId, staffId: 'jordi' },
+      'That isn’t a Staff member.',
+    ],
+  ])('say what to do about %s', (_name, schema, input, message) => {
+    const result = schema.safeParse(input);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe(message);
   });
 });

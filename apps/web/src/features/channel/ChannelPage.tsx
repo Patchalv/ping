@@ -17,9 +17,12 @@ import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { useChannel, useJoinChannel, useLeaveChannel } from './api';
+import { MembersTab } from './MembersTab';
 
-/** The Channel view: its Channel bar above the Thread feed. */
-export function ChannelPage({ channelId }: { channelId: string }) {
+type ChannelTab = 'threads' | 'members';
+
+/** The Channel view: its Channel bar above the Thread feed or the Members tab. */
+export function ChannelPage({ channelId, tab }: { channelId: string; tab: ChannelTab }) {
   const channel = useChannel(channelId);
   if (channel.isPending) {
     return <p className="px-6 py-10 text-center text-muted-foreground">Loading…</p>;
@@ -36,15 +39,22 @@ export function ChannelPage({ channelId }: { channelId: string }) {
   return (
     <>
       <ChannelBar channel={channel.data} />
-      <section className="px-4 pt-3 pb-20 md:px-5" aria-label="Threads">
-        <div className="mx-auto my-12 max-w-md text-center">
-          <p className="font-semibold">No Threads yet</p>
-          <p className="text-muted-foreground">Threads started in this Channel show up here.</p>
-        </div>
-      </section>
+      {tab === 'members' ? (
+        <MembersTab channel={channel.data} />
+      ) : (
+        <section className="px-4 pt-3 pb-20 md:px-5" aria-label="Threads">
+          <div className="mx-auto my-12 max-w-md text-center">
+            <p className="font-semibold">No Threads yet</p>
+            <p className="text-muted-foreground">Threads started in this Channel show up here.</p>
+          </div>
+        </section>
+      )}
     </>
   );
 }
+
+const TAB_CLASS =
+  'border-b-2 border-transparent pb-1.5 text-small font-semibold text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:text-foreground';
 
 function ChannelBar({ channel }: { channel: ChannelView }) {
   const isPrivate = channel.visibility === 'private';
@@ -84,14 +94,26 @@ function ChannelBar({ channel }: { channel: ChannelView }) {
           {channel.description}
         </p>
       ) : null}
-      <div className="mt-2 flex gap-4">
-        <span
-          className="border-b-2 border-primary pb-1.5 text-small font-semibold"
-          aria-current="page"
+      {/* The router marks the current tab with aria-current="page". Exact, or Threads
+          would also match the Members path. */}
+      <nav className="mt-2 flex gap-4" aria-label="Channel tabs">
+        <Link
+          to="/channels/$channelId"
+          params={{ channelId: channel.id }}
+          activeOptions={{ exact: true }}
+          className={TAB_CLASS}
         >
           Threads
-        </span>
-      </div>
+        </Link>
+        <Link
+          to="/channels/$channelId/members"
+          params={{ channelId: channel.id }}
+          activeOptions={{ exact: true }}
+          className={TAB_CLASS}
+        >
+          Members
+        </Link>
+      </nav>
     </section>
   );
 }

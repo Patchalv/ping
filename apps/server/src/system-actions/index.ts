@@ -17,6 +17,7 @@
 // Each system function has one caller here; later slices add fan_out_pings and the rest.
 import { createSystemPool, type SystemDb } from '../db/system-pool';
 
+export { adminSetChannelAdmin } from './admin-set-channel-admin';
 export { createChannel } from './create-channel';
 export { deactivateStaffMember } from './deactivate-staff-member';
 

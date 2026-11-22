@@ -26,6 +26,9 @@ const SECURITY_DEFINER_FUNCTIONS = [
   'create_channel',
   // System function: the Deactivation clean-up, promotion and archiving, in every Channel (#35).
   'deactivate_staff_member',
+  // System function: a company Admin appoints or removes a Channel admin of a Public
+  // channel (#37).
+  'admin_set_channel_admin',
 ];
 
 const APP_ROLES = ['ping_app', 'ping_system'];

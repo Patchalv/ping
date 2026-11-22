@@ -43,6 +43,13 @@
       "when": 1795347323453,
       "tag": "0005_channel_member_joined_at",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795353646504,
+      "tag": "0006_channel_members",
+      "breakpoints": true
     }
   ]
 }
