@@ -33,6 +33,7 @@
   --color-ping: var(--ping);
   --color-ping-foreground: var(--ping-foreground);
   --color-saved: var(--saved);
+  --color-brand-mark: var(--brand-mark);
   --color-avatar-1: var(--avatar-1);
   --color-avatar-1-foreground: var(--avatar-1-foreground);
   --color-avatar-2: var(--avatar-2);
@@ -116,6 +117,10 @@
   --ping: oklch(0.539 0.193 6.5);
   --ping-foreground: oklch(1 0 0);
   --saved: oklch(0.512 0.129 148.9);
+
+  /* Spark Orange: the logo mark only, always on the navy chrome, so one value serves
+     both themes. Never a fill, a signal or text (DESIGN.md › Brand). */
+  --brand-mark: oklch(0.76 0.165 60);
 
   /* Avatars: coloured initials, picked by Staff member ID (lib/avatar.ts). A pale tint
      with deep text of the same hue, AA in both themes. The hues stay clear of Ping Pink

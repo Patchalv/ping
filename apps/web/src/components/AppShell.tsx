@@ -36,6 +36,7 @@ import { useCurrentStaffMember } from '../features/staff/api';
 import { ProfileDialog } from '../features/staff/ProfileDialog';
 import { authClient } from '../lib/auth-client';
 import { AvatarMenu } from './AvatarMenu';
+import { PingMark } from './PingMark';
 
 export function AppShell() {
   const { data: session, refetch: refetchSession } = authClient.useSession();
@@ -100,7 +101,10 @@ function TopBar({ children }: { children: ReactNode }) {
   return (
     <header className="flex h-11 items-center gap-2 px-2 text-chrome-foreground md:px-3">
       <SidebarTrigger />
-      <span className="px-1 text-lg font-bold tracking-tight">Ping</span>
+      <span className="flex items-center gap-1.5 px-1 text-lg font-bold tracking-tight">
+        <PingMark className="size-6" />
+        Ping
+      </span>
       <div className="relative mx-auto w-full max-w-xl max-md:hidden">
         <SearchIcon
           aria-hidden="true"

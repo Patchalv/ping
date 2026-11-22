@@ -29,6 +29,7 @@ colors:
   night-ping: "oklch(0.708 0.162 1.5)"
   night-saved: "oklch(0.735 0.142 151.1)"
   night-danger: "oklch(0.709 0.17 26.5)"
+  spark-orange: "oklch(0.76 0.165 60)"
 typography:
   page-title:
     fontFamily: "Figtree Variable, system-ui, sans-serif"
@@ -165,8 +166,14 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 - **Hairline** (hairline): borders between surfaces. **Field Edge** (field-edge): the stronger outline on inputs, textareas and radios, so fields are findable.
 - **Avatar tints** (`--avatar-1` to `--avatar-6` in `index.css`): coloured initials, the one place colour tells people apart rather than signalling. Each is a pale tint with deep text of the same hue (a deep fill with pale text in dark), AA in both themes, picked by Staff member ID so a rename never changes it. The hues (45, 85, 195, 240, 285, 315) stay clear of Ping Pink and Saved Green.
 
+### Brand
+- **Spark Orange** (spark-orange, `--brand-mark` in `index.css`; the same value in both themes): the logo mark and nothing else. The mark is a bolt with two signal waves (`PingMark`), always on Ink Navy Chrome or Night Chrome (7.8:1 and 8.5:1), next to the "Ping" wordmark in chrome text. It appears in three places: the top bar, above the card on the auth pages, and the favicon and apple-touch icon, where it sits on a navy tile because it fails 3:1 on white (2.2:1).
+- It is lighter and yellower than Alarm Red, and it never appears inside the work surface, so it can't be read as an error. Night Danger is the nearest colour (about 34 degrees of hue away, at a similar lightness), so keep the two apart: never put the mark next to an error.
+
 ### Named Rules
 **The Signal Rule.** Pink, green, indigo and red each mean one thing. Never use Ping Pink for decoration, a brand moment or an error, and never use a signal colour as a large fill.
+
+**The Logo-Only Rule.** Spark Orange is the logo mark's colour. Never use it for text, buttons, fills, borders, badges or any state.
 
 **The Tinted Neutral Rule.** Greys lean toward the navy hue (about 260 in OKLCH, low chroma). Don't introduce a pure grey or a warm stone.
 
@@ -185,7 +192,7 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 - **Meta** (400, 12px, 16px): timestamps, tags, badges. `text-xs`.
 
 ### Named Rules
-**The Six Sizes Rule.** Use only the six steps above (`text-xs`, `text-small`, `text-sm`, `text-base`, `text-lg`, `text-xl`). The one exception is the Ping wordmark on the sign-in page.
+**The Six Sizes Rule.** Use only the six steps above (`text-xs`, `text-small`, `text-sm`, `text-base`, `text-lg`, `text-xl`). The one exception is the Ping wordmark on the auth pages (24px, next to a 32px mark).
 
 **The 16px Field Rule.** On a phone, inputs and textareas render at 16px so iOS doesn't zoom on focus. They drop to 14px from the `md` breakpoint.
 
@@ -257,7 +264,7 @@ Soft, compact and plain.
 Short confirmations and failures ("Thread Saved", "Can't reach Ping. Try again.") use Base UI's Toast from the shadcn base registry, not Sonner. The first slice that needs one installs it.
 
 ### Top bar
-44px of ink navy chrome: the sidebar toggle (laptop), the Ping wordmark, a centred search field tinted 10% with the chrome text colour (behind an icon on a phone), and the avatar on the right.
+44px of ink navy chrome: the sidebar toggle (laptop), the Ping logo (the 24px mark and an 18px wordmark), a centred search field tinted 10% with the chrome text colour (behind an icon on a phone), and the avatar on the right.
 
 ## Do's and Don'ts
 
