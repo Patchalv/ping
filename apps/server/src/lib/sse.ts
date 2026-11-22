@@ -10,6 +10,7 @@ type LiveEvent =
   | { kind: 'channel.created'; channelId: string }
   // A Channel admin was promoted, or the Channel archived, by a Deactivation.
   | { kind: 'channel.changed'; channelId: string }
+  | { kind: 'thread.created'; channelId: string; threadId: string }
   // Someone was invited, re-invited, had their invite cancelled, changed their name or
   // role, or was Deactivated or reactivated.
   | { kind: 'staff.changed'; staffId: string };

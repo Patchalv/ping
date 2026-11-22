@@ -9,11 +9,13 @@ import {
   check,
   customType,
   index,
+  jsonb,
   pgEnum,
   pgTable,
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -185,6 +187,62 @@ export const channelMember = pgTable(
   (t) => [
     primaryKey({ columns: [t.channelId, t.staffId] }),
     index('channel_member_staff_id_idx').on(t.staffId),
+  ],
+);
+
+/** Why Ping started a System thread (product.md › System threads). */
+export const systemThreadKind = pgEnum('system_thread_kind', [
+  'channel_made_private',
+  'channel_archived',
+  'channel_admin_replaced',
+]);
+
+/**
+ * A Thread (data-model.md › Threads and Thread Responses). A System thread has no author
+ * and has a kind and a payload of Staff member IDs; an ordinary Thread is the other way
+ * round. The body is ProseMirror JSON on the allowlist; body_text is extracted by the
+ * server on every save (ADR 0003). Threads never move between Channels, so child rows
+ * copy channel_id under a composite foreign key to (id, channel_id).
+ */
+export const thread = pgTable(
+  'thread',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channel.id),
+    authorId: uuid('author_id').references(() => staffMember.id),
+    isSystem: boolean('is_system').notNull().default(false),
+    systemKind: systemThreadKind('system_kind'),
+    systemPayload: jsonb('system_payload'),
+    title: text('title').notNull(),
+    body: jsonb('body').notNull(),
+    bodyText: text('body_text').notNull(),
+    createdAt: createdAt(),
+    // Only moves forward: starts at created_at, then each new Thread Response's created_at.
+    latestActivityAt: timestamp('latest_activity_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    editedAt: timestamp('edited_at', { withTimezone: true }),
+    editedBy: uuid('edited_by').references(() => staffMember.id),
+    resolvedAt: timestamp('resolved_at', { withTimezone: true }),
+    resolvedBy: uuid('resolved_by').references(() => staffMember.id),
+    search: tsvector('search').generatedAlwaysAs(
+      sql`to_tsvector('english', title || ' ' || body_text)`,
+    ),
+  },
+  (t) => [
+    unique('thread_id_channel_id_unique').on(t.id, t.channelId),
+    index('thread_channel_id_latest_activity_at_idx').on(t.channelId, t.latestActivityAt),
+    index('thread_channel_id_created_at_idx').on(t.channelId, t.createdAt),
+    index('thread_search_idx').using('gin', t.search),
+    check(
+      'thread_system_or_authored',
+      sql`(${t.isSystem} and ${t.authorId} is null and ${t.systemKind} is not null and ${t.systemPayload} is not null)
+        or (not ${t.isSystem} and ${t.authorId} is not null and ${t.systemKind} is null and ${t.systemPayload} is null)`,
+    ),
+    check('thread_edited_by_with_at', sql`(${t.editedAt} is null) = (${t.editedBy} is null)`),
+    check('thread_resolved_by_with_at', sql`(${t.resolvedAt} is null) = (${t.resolvedBy} is null)`),
   ],
 );
 
