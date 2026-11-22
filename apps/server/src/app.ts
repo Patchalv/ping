@@ -5,7 +5,7 @@ import type { HealthzResponse } from '@ping/shared';
 import { Hono } from 'hono';
 import { csrf } from 'hono/csrf';
 import type { Auth } from './auth';
-import type { SentrySettings } from './config';
+import type { PingEnvironment, SentrySettings } from './config';
 import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
@@ -40,6 +40,8 @@ type AppOptions = {
   trustedOrigins: string[];
   /** The built SPA (apps/web/dist). When set, the server serves it, with index.html as the fallback for client-side routes. */
   webDistDir?: string;
+  /** Which deployment this is. On staging the SPA's title and top bar say so. */
+  environment?: PingEnvironment;
   /** When set, the SPA reports to Sentry, and the CSP allows Sentry's ingest origin. */
   sentry?: SentrySettings;
   /** Called with every unhandled error (Sentry, in production). */
@@ -54,13 +56,27 @@ function escapeAttribute(value: string): string {
     .replaceAll('>', '&gt;');
 }
 
-/** index.html with the SPA's Sentry settings, read at runtime so one image serves staging and prod, as meta tags. An inline script would break the CSP. */
-function withSentryMeta(indexHtml: string, sentry: SentrySettings | undefined): string {
-  if (!sentry) return indexHtml;
-  const meta =
-    `<meta name="sentry-dsn" content="${escapeAttribute(sentry.dsn)}">` +
-    `<meta name="sentry-environment" content="${escapeAttribute(sentry.environment)}">`;
-  return indexHtml.replace('</head>', `${meta}</head>`);
+/**
+ * index.html with what it learns at runtime, so one image serves staging and prod: the
+ * Sentry settings as meta tags (an inline script would break the CSP), and on staging a
+ * "(Staging)" title and a ping-environment meta tag the SPA reads for its label.
+ */
+function withRuntimeHead(
+  indexHtml: string,
+  { sentry, environment }: Pick<AppOptions, 'sentry' | 'environment'>,
+): string {
+  let html = indexHtml;
+  let meta = '';
+  if (sentry) {
+    meta +=
+      `<meta name="sentry-dsn" content="${escapeAttribute(sentry.dsn)}">` +
+      `<meta name="sentry-environment" content="${escapeAttribute(sentry.environment)}">`;
+  }
+  if (environment === 'staging') {
+    html = html.replace('<title>Ping</title>', '<title>Ping (Staging)</title>');
+    meta += '<meta name="ping-environment" content="staging">';
+  }
+  return meta ? html.replace('</head>', `${meta}</head>`) : html;
 }
 
 export function createApp(options: AppOptions) {
@@ -126,11 +142,11 @@ export function createApp(options: AppOptions) {
 
   if (options.webDistDir) {
     // Registered without chaining, so the SPA routes stay out of AppType.
-    const indexHtml = withSentryMeta(
+    const indexHtml = withRuntimeHead(
       readFileSync(join(options.webDistDir, 'index.html'), 'utf8'),
-      options.sentry,
+      options,
     );
-    // index.html always goes out with the Sentry settings, never as the raw file.
+    // index.html always goes out with its runtime head, never as the raw file.
     app.use('/*', async (c, next) =>
       c.req.method === 'GET' && (c.req.path === '/' || c.req.path === '/index.html')
         ? c.html(indexHtml)

@@ -39,6 +39,7 @@ Patrick owns `bypatrick.app`, with DNS on Cloudflare. (The `bypatrick.com` menti
 | Database | Neon main branch | a `staging` Neon branch, reseeded with fake data, never branched from prod |
 | Storage | its own R2 EU bucket | its own R2 EU bucket |
 | Backups, uptime monitor, heartbeats | yes | no |
+| In the UI | as is | a "Staging" badge beside the Ping wordmark (top bar and auth pages) and the title "Ping (Staging)", both from `PING_ENVIRONMENT=staging` at runtime |
 
 - Both are Fly custom domains with DNS-only (unproxied) Cloudflare records, so Fly handles TLS and the live-update stream isn't buffered.
 - Both use Fly's shared IPv4 plus IPv6, never a dedicated IPv4.

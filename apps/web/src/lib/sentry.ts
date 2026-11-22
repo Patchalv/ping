@@ -2,10 +2,7 @@
 // runtime, so one build serves staging and prod. No meta tags (local dev, tests): no Sentry.
 import { SENTRY_DATA_COLLECTION, scrubSentryBreadcrumb, scrubSentryEvent } from '@ping/shared';
 import * as Sentry from '@sentry/browser';
-
-function meta(name: string): string | undefined {
-  return document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)?.content || undefined;
-}
+import { meta } from './meta';
 
 export function initSentry(): void {
   const dsn = meta('sentry-dsn');

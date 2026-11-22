@@ -39,6 +39,7 @@ const app = createApp({
     isPasswordCompromised,
   },
   trustedOrigins: config.auth.trustedOrigins,
+  environment: config.environment,
   // In development Vite serves the SPA; the server only serves a build that exists.
   ...(existsSync(webDistDir) && { webDistDir }),
   ...(config.sentry && { sentry: config.sentry, captureError }),

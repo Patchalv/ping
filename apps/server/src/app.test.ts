@@ -202,6 +202,44 @@ describe('Sentry settings for the SPA', () => {
   });
 });
 
+describe('the environment in the SPA', () => {
+  it.each(['/', '/index.html', '/channels/123'])(
+    'marks %s as staging, in the title and a meta tag',
+    async (path) => {
+      const res = await createApp({
+        auth,
+        database,
+        trustedOrigins,
+        invites,
+        environment: 'staging',
+        webDistDir: builtSpa(),
+      }).request(path);
+      const html = await res.text();
+      expect(html).toContain('<title>Ping (Staging)</title>');
+      expect(html).not.toContain('<title>Ping</title>');
+      expect(html).toContain('<meta name="ping-environment" content="staging">');
+    },
+  );
+
+  it.each(['production', 'local'] as const)(
+    'leaves index.html as it is in %s',
+    async (environment) => {
+      const res = await createApp({
+        auth,
+        database,
+        trustedOrigins,
+        invites,
+        environment,
+        webDistDir: builtSpa(),
+      }).request('/');
+      const html = await res.text();
+      expect(html).toContain('<title>Ping</title>');
+      expect(html).not.toContain('ping-environment');
+      expect(html).not.toContain('Staging');
+    },
+  );
+});
+
 describe('errors', () => {
   function appThatThrows(error: unknown) {
     const reported: unknown[] = [];
