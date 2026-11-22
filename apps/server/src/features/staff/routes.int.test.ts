@@ -133,7 +133,7 @@ describe('POST /api/staff/invites', () => {
     [
       'a Deactivated Staff member',
       { deactivated: true },
-      'That email belongs to a Deactivated Staff member.',
+      'That email belongs to a Deactivated Staff member. Reactivate them instead.',
     ],
   ])('refuses an email that belongs to %s, ignoring case', async (_name, options, message) => {
     const existing = await createStaffMember(options);

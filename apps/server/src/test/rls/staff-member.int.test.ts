@@ -1,5 +1,7 @@
 // RLS suite: staff_member, as ping_app with raw SQL and no server code.
-// Read: every signed-in Staff member. Insert and update: an Admin, never their own row.
+// Read: every signed-in Staff member. Insert: an Admin. Update: an Admin, and on their own
+// row only to demote themself while another active Admin is left (the shared test
+// database always has several, so the last-Admin refusal is covered at the route).
 // Delete: an Admin, for an Invited person only.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
@@ -129,13 +131,38 @@ describe('staff_member UPDATE', () => {
     });
   });
 
-  it('stops an Admin writing their own row', async () => {
+  it('lets an Admin demote themself while another active Admin is left', async () => {
     const admin = await createStaffMember({ role: 'admin' });
+    await createStaffMember({ role: 'admin' });
     await asPingApp(admin.id, async (query) => {
       const result = await query(`update staff_member set role = 'member' where id = $1`, [
         admin.id,
       ]);
-      expect(result.rowCount).toBe(0);
+      expect(result.rowCount).toBe(1);
+      expect(await roleOf(query, admin.id)).toBe('member');
+    });
+  });
+
+  it('stops an Admin Deactivating themself', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    await asPingApp(admin.id, async (query) => {
+      await expect(
+        query(
+          `update staff_member set role = 'member', deactivated_at = now(), deactivated_by = $1
+           where id = $1`,
+          [admin.id],
+        ),
+      ).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('stops an Admin writing any column but role, deactivated_at and deactivated_by', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const member = await createStaffMember();
+    await asPingApp(admin.id, async (query) => {
+      await expect(
+        query('update staff_member set joined_at = null where id = $1', [member.id]),
+      ).rejects.toThrow(/permission denied/);
     });
   });
 

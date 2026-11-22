@@ -16,12 +16,16 @@ const SECURITY_DEFINER_FUNCTIONS = [
   'current_staff_is_admin',
   // Policy helper: is the acting Staff member an existing, active Staff member?
   'current_staff_is_active',
+  // Policy helper: is there an active Admin other than the acting Staff member? (#35)
+  'another_active_admin_exists',
   // Policy helpers: the Channels the acting Staff member is an active member, or Channel
   // admin, of. Set-returning, so policies run them once per statement (#31, ADR 0005).
   'current_staff_channel_ids',
   'current_staff_admin_channel_ids',
   // System function: a Channel and its first Channel admin, together (#31).
   'create_channel',
+  // System function: the Deactivation clean-up, promotion and archiving, in every Channel (#35).
+  'deactivate_staff_member',
 ];
 
 const APP_ROLES = ['ping_app', 'ping_system'];

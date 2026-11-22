@@ -18,6 +18,7 @@
 import { createSystemPool, type SystemDb } from '../db/system-pool';
 
 export { createChannel } from './create-channel';
+export { deactivateStaffMember } from './deactivate-staff-member';
 
 export type SystemActions = {
   /** The ping_system handle. Jobs in this module only. */

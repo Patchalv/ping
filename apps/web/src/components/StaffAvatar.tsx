@@ -10,6 +10,8 @@ type Props = {
   size?: ComponentProps<typeof Avatar>['size'];
   /** Round everywhere, except the top bar's 8px-rounded square (DESIGN.md › Shapes). */
   shape?: 'round' | 'square';
+  /** A Deactivated Staff member shows greyed (product.md › Deactivation). */
+  tone?: 'active' | 'deactivated';
 };
 
 const CORNERS = {
@@ -21,7 +23,7 @@ const CORNERS = {
  * Decorative: the name always sits beside it, or in the control's label, so screen
  * readers skip it.
  */
-export function StaffAvatar({ staff, size, shape = 'round' }: Props) {
+export function StaffAvatar({ staff, size, shape = 'round', tone = 'active' }: Props) {
   const corners = CORNERS[shape];
   return (
     <Avatar aria-hidden="true" size={size} className={cn('after:border-0', corners.root)}>
@@ -29,7 +31,7 @@ export function StaffAvatar({ staff, size, shape = 'round' }: Props) {
         className={cn(
           'font-bold',
           size === 'sm' ? undefined : 'text-small',
-          avatarColour(staff.id),
+          tone === 'deactivated' ? 'bg-muted text-muted-foreground' : avatarColour(staff.id),
           corners.fallback,
         )}
       >

@@ -30,6 +30,52 @@ export function canChangeProfile(actor: Actor, targetStaffId: string): Decision 
   return deny({ kind: 'refused', message: 'You can only change your own name and email.' });
 }
 
+/** What an Admin is doing to a Staff member, and what the decision needs to know. */
+export type StaffManagement = {
+  action: 'changeRole' | 'deactivate' | 'reactivate';
+  targetStaffId: string;
+  /** Read under the staff-management lock, so it can't be stale. */
+  activeAdminIds: readonly string[];
+};
+
+const ONLY_ACTIVE_ADMIN = (what: string) =>
+  `You’re the only active Admin, so you can’t ${what}. Make someone else an Admin first.`;
+
+/**
+ * Change a Staff member's role, Deactivate or reactivate them: Admins only (permissions.md
+ * › Staff members). `activeAdminIds` is read under the staff-management lock, so an Admin
+ * demoted by a request that committed first is refused, and two Admins can't demote each
+ * other, or themselves, at once. On their own row an Admin may only demote themself, and
+ * not as the last active Admin, which keeps Spark from having none. Row-level security
+ * enforces the same.
+ */
+export function canManageStaffMember(actor: Actor, input: StaffManagement): Decision {
+  if (actor.role !== 'admin' || !input.activeAdminIds.includes(actor.staffId)) {
+    return deny({ kind: 'refused', message: 'Only Admins can manage Staff members.' });
+  }
+  if (input.targetStaffId !== actor.staffId) return allow();
+  const lastAdmin = input.activeAdminIds.length <= 1;
+  switch (input.action) {
+    case 'changeRole':
+      if (!lastAdmin) return allow();
+      return deny({ kind: 'refused', message: ONLY_ACTIVE_ADMIN('change your own role') });
+    case 'deactivate':
+      return deny({
+        kind: 'refused',
+        message: lastAdmin
+          ? ONLY_ACTIVE_ADMIN('Deactivate yourself')
+          : 'Ask another Admin to Deactivate you.',
+      });
+    case 'reactivate':
+      // Unreachable through the app (a Deactivated Staff member can't sign in), but total.
+      return deny({ kind: 'refused', message: 'You’re already active.' });
+  }
+}
+
+export function requireCanManageStaffMember(actor: Actor, input: StaffManagement): void {
+  requireAllowed(canManageStaffMember(actor, input));
+}
+
 export function requireCanChangeProfile(actor: Actor, targetStaffId: string): void {
   requireAllowed(canChangeProfile(actor, targetStaffId));
 }

@@ -3,6 +3,7 @@ import {
   acceptInviteBody,
   changeEmailBody,
   changeNameBody,
+  changeRoleBody,
   emailChangeTokenBody,
   inviteStaffBody,
   inviteTokenBody,
@@ -77,6 +78,18 @@ describe('acceptInviteBody', () => {
 describe('staffParams', () => {
   it('needs a UUID', () => {
     expect(staffParams.safeParse({ staffId: 'nope' }).success).toBe(false);
+  });
+});
+
+describe('changeRoleBody', () => {
+  it('takes Admin or Member', () => {
+    expect(changeRoleBody.parse({ role: 'admin' })).toEqual({ role: 'admin' });
+  });
+
+  it('refuses any other role in plain English', () => {
+    expect(messageFor(changeRoleBody.safeParse({ role: 'owner' }), 'role')).toBe(
+      'Choose Admin or Member.',
+    );
   });
 });
 

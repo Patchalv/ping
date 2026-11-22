@@ -42,6 +42,7 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
 const targetFixtures: Record<NonNullable<MatrixRow['target']>, () => Promise<{ id: string }>> = {
   invited: () => createInvitedStaffMember(),
   active: () => createStaffMember(),
+  deactivated: () => createStaffMember({ deactivated: true }),
 };
 
 /**

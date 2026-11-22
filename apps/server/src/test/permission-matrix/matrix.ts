@@ -32,9 +32,9 @@ export type MatrixRow = {
   channel: ChannelKind | null;
   /**
    * A Staff member the action targets, created before the request: an Invited person with
-   * a live invite, or another active Staff member.
+   * a live invite, another active Staff member, or a Deactivated one.
    */
-  target?: 'invited' | 'active';
+  target?: 'invited' | 'active' | 'deactivated';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -245,6 +245,69 @@ export const MATRIX: MatrixRow[] = [
         method: 'POST',
         body: { email: `new-${randomUUID()}@example.test` },
       }),
+    },
+    refused,
+  ),
+
+  // Change someone's role, Deactivate and reactivate them: Admins only. From "Staff
+  // management and Deactivation" (#35).
+  ...rowsFor(
+    {
+      route: 'PATCH /api/staff/:staffId/role',
+      action: 'change someone else’s role',
+      channel: null,
+      target: 'active',
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.target?.id}/role`,
+        method: 'PATCH',
+        body: { role: 'admin' },
+      }),
+    },
+    adminsOnly(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/deactivate',
+      action: 'Deactivate someone else',
+      channel: null,
+      target: 'active',
+      request: (ctx) => ({ path: `/api/staff/${ctx.target?.id}/deactivate`, method: 'POST' }),
+    },
+    adminsOnly(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/reactivate',
+      action: 'reactivate a Deactivated Staff member',
+      channel: null,
+      target: 'deactivated',
+      request: (ctx) => ({ path: `/api/staff/${ctx.target?.id}/reactivate`, method: 'POST' }),
+    },
+    adminsOnly(200),
+  ),
+
+  // Their own row. An Admin may demote themself while another active Admin is left (the
+  // test database always has several); nobody may promote or Deactivate themself.
+  // Row-level security agrees.
+  ...rowsFor(
+    {
+      route: 'PATCH /api/staff/:staffId/role',
+      action: 'change their own role',
+      channel: null,
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.actor.staff.id}/role`,
+        method: 'PATCH',
+        body: { role: ctx.actor.staff.role === 'admin' ? 'member' : 'admin' },
+      }),
+    },
+    adminsOnly(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/deactivate',
+      action: 'Deactivate themself',
+      channel: null,
+      request: (ctx) => ({ path: `/api/staff/${ctx.actor.staff.id}/deactivate`, method: 'POST' }),
     },
     refused,
   ),

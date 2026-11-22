@@ -131,7 +131,7 @@ Every one of Ping's tables has RLS enabled and forced, with an explicit policy. 
 | `ping` | Read and delete: the owner's own rows in Channels they can read. Insert and update: none (only the fan-out function). |
 | `saved_thread`, `mute` | Read, insert and delete: the owner's own rows in Channels they can read. Update: none. Clean-up of other people's rows runs through the clean-up function. |
 | `section`, `section_channel` | Every command: the owner's own rows only. |
-| `staff_member` | Read: every signed-in Staff member. Insert and update: an Admin only. The policy checks the current Staff member's `role` through a helper function, because a `staff_member` policy that queried `staff_member` directly would recurse, like `channel_member`. Delete: an Admin, for an Invited person only. A Staff member can't write their own row, so they can't change their own role. |
+| `staff_member` | Read: every signed-in Staff member. Insert and update: an Admin only. The policy checks the current Staff member's `role` through a helper function, because a `staff_member` policy that queried `staff_member` directly would recurse, like `channel_member`. Delete: an Admin, for an Invited person only. On their own row an Admin may only demote themself to Member, and only while another active Admin is left, so nobody promotes or Deactivates themself and Spark always keeps an Admin. `ping_app` may update only `role`, `deactivated_at` and `deactivated_by`. |
 | `staff_invite` | Every command: Admins only. Accepting an invite runs as `ping_system`. |
 | `pending_file_deletion` | Insert only. Only `ping_system` reads, updates and deletes. |
 | `audit_event` | Insert only. Nothing reads it through the app. |
