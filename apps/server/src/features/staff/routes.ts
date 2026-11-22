@@ -6,6 +6,7 @@
 import {
   changeEmailBody,
   changeNameBody,
+  changeRoleBody,
   inviteStaffBody,
   type NameChanged,
   type StaffMemberView,
@@ -33,18 +34,24 @@ import {
   requireCanChangeProfile,
   requireCanListStaffMembers,
   requireCanManageInvites,
+  requireCanManageStaffMember,
   requireCanReadOwnStaffMember,
 } from '../../permissions/staff';
+import { deactivateStaffMember } from '../../system-actions';
 import {
   cancelInvite,
   changeOwnName,
+  changeRole,
   createInvite,
   currentStaffMember,
+  deactivate,
   findEmailOwner,
   findEmailOwnerState,
   findStaffMember,
   listStaffMembers,
+  lockStaffManagement,
   markInviteEmailFailed,
+  reactivate,
   recordEmailChangeRequested,
   replaceInvite,
 } from './queries';
@@ -55,8 +62,7 @@ const EMAIL_TAKEN = 'Someone in Ping already uses that email.';
 const EMAIL_IN_USE: Record<StaffState, string> = {
   active: 'Someone with that email is already in Ping.',
   invited: 'That person has already been invited. Resend their invite from the list.',
-  // Reactivate arrives with "Staff management and Deactivation" (#35).
-  deactivated: 'That email belongs to a Deactivated Staff member.',
+  deactivated: 'That email belongs to a Deactivated Staff member. Reactivate them instead.',
 };
 
 /** An Invited person as the list shows them, with a fresh invite just sent (or not). */
@@ -138,6 +144,87 @@ export function staffRoutes(options: {
           return currentStaffMember(ctx);
         });
         return c.json(me);
+      })
+
+      // Change someone else's company role: Admins only, never their own.
+      .patch(
+        '/:staffId/role',
+        signedIn(auth),
+        validate('param', staffParams),
+        validate('json', changeRoleBody),
+        async (c) => {
+          const { staffId } = c.req.valid('param');
+          const { role } = c.req.valid('json');
+          const person = await withActorTx(c, async (ctx) => {
+            const activeAdminIds = await lockStaffManagement(ctx);
+            requireCanManageStaffMember(ctx.actor, {
+              action: 'changeRole',
+              targetStaffId: staffId,
+              activeAdminIds,
+            });
+            const found = await findStaffMember(ctx, staffId);
+            if (!found) throw new NotFoundError();
+            if (found.state === 'deactivated') {
+              throw new ConflictError('Reactivate them before changing their role.');
+            }
+            await changeRole(ctx, staffId, role);
+            return { ...found, role };
+          });
+          publish({ kind: 'staff.changed', staffId });
+          return c.json(person);
+        },
+      )
+
+      // Deactivate someone who has left, in one transaction: deactivated_at and _by, every
+      // session ended, then deactivate_staff_member promotes replacement sole Channel
+      // admins and archives Channels left with no active members, Private ones included.
+      .post('/:staffId/deactivate', signedIn(auth), validate('param', staffParams), async (c) => {
+        const { staffId } = c.req.valid('param');
+        const { person, changes } = await withActorTx(c, async (ctx) => {
+          const activeAdminIds = await lockStaffManagement(ctx);
+          requireCanManageStaffMember(ctx.actor, {
+            action: 'deactivate',
+            targetStaffId: staffId,
+            activeAdminIds,
+          });
+          const found = await findStaffMember(ctx, staffId);
+          if (!found) throw new NotFoundError();
+          if (found.state === 'invited') {
+            throw new ConflictError('They haven’t joined yet. Cancel their invite instead.');
+          }
+          if (found.state === 'deactivated') {
+            throw new ConflictError('They’re already Deactivated.');
+          }
+          await deactivate(ctx, staffId);
+          return {
+            person: { ...found, state: 'deactivated' } satisfies StaffMemberView,
+            changes: await deactivateStaffMember(ctx.tx, staffId),
+          };
+        });
+        publish({ kind: 'staff.changed', staffId });
+        for (const change of changes)
+          publish({ kind: 'channel.changed', channelId: change.channelId });
+        return c.json(person);
+      })
+
+      // Reactivate: memberships and Channel admin roles come back as they were.
+      .post('/:staffId/reactivate', signedIn(auth), validate('param', staffParams), async (c) => {
+        const { staffId } = c.req.valid('param');
+        const person = await withActorTx(c, async (ctx) => {
+          const activeAdminIds = await lockStaffManagement(ctx);
+          requireCanManageStaffMember(ctx.actor, {
+            action: 'reactivate',
+            targetStaffId: staffId,
+            activeAdminIds,
+          });
+          const found = await findStaffMember(ctx, staffId);
+          if (!found) throw new NotFoundError();
+          if (found.state !== 'deactivated') throw new ConflictError('They aren’t Deactivated.');
+          await reactivate(ctx, staffId);
+          return { ...found, state: 'active' } satisfies StaffMemberView;
+        });
+        publish({ kind: 'staff.changed', staffId });
+        return c.json(person);
       })
 
       // Change your own display name. Nobody can change someone else's, Admins included.

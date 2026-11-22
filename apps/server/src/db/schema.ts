@@ -188,7 +188,7 @@ export const channelMember = pgTable(
   ],
 );
 
-/** Every kind of audit_event. Later slices add role changes, Deactivation and the rest. */
+/** Every kind of audit_event. Later slices add the rest. */
 export type AuditEventKind =
   | 'sign_in_succeeded'
   | 'sign_in_failed'
@@ -196,7 +196,10 @@ export type AuditEventKind =
   | 'staff_invite_resent'
   | 'staff_invite_cancelled'
   | 'email_change_requested'
-  | 'email_changed';
+  | 'email_changed'
+  | 'staff_role_changed'
+  | 'staff_deactivated'
+  | 'staff_reactivated';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email

@@ -1,6 +1,6 @@
 import type { StaffMemberView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { ChevronLeftIcon, UserPlusIcon } from 'lucide-react';
+import { ChevronDownIcon, ChevronLeftIcon, UserPlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
@@ -13,18 +13,37 @@ import {
   DialogHeader,
   DialogTitle,
 } from '#/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '#/components/ui/dropdown-menu';
+import { cn } from '#/lib/utils';
 import { FormError } from '../../components/FormError';
 import { StaffAvatar } from '../../components/StaffAvatar';
-import { useCancelInvite, useResendInvite, useStaffMembers } from './api';
+import {
+  useCancelInvite,
+  useChangeRole,
+  useCurrentStaffMember,
+  useDeactivateStaffMember,
+  useReactivateStaffMember,
+  useResendInvite,
+  useStaffMembers,
+} from './api';
 import { InviteDialog } from './InviteDialog';
 
 /**
  * The Admins' Staff members screen (screens.md › Admin screens): everyone with their role
- * and state. Invited people show Resend and Cancel. Changing a role, Deactivation and
- * Reactivate arrive with #35.
+ * and state. Invited people show Resend and Cancel; active people can have their role
+ * changed or be Deactivated; Deactivated people show greyed, with Reactivate.
  */
 export function StaffMembersPage() {
   const staff = useStaffMembers();
+  const me = useCurrentStaffMember();
   const [inviting, setInviting] = useState(false);
 
   return (
@@ -61,7 +80,7 @@ export function StaffMembersPage() {
         ) : (
           <ul className="divide-y rounded-lg border bg-background">
             {staff.data.map((person) => (
-              <StaffRow key={person.id} person={person} />
+              <StaffRow key={person.id} person={person} isSelf={person.id === me.data?.id} />
             ))}
           </ul>
         )}
@@ -71,20 +90,130 @@ export function StaffMembersPage() {
   );
 }
 
-function StaffRow({ person }: { person: StaffMemberView }) {
+function StaffRow({ person, isSelf }: { person: StaffMemberView; isSelf: boolean }) {
+  const deactivated = person.state === 'deactivated';
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-      <StaffAvatar staff={person} />
+      <StaffAvatar staff={person} tone={deactivated ? 'deactivated' : 'active'} />
       <div className="grid min-w-0 flex-1 basis-48">
-        <span className="truncate font-semibold">{person.name}</span>
+        <span
+          className={cn('truncate font-semibold', deactivated ? 'text-muted-foreground' : null)}
+        >
+          {person.name}
+          {isSelf ? <span className="font-normal text-muted-foreground"> (you)</span> : null}
+        </span>
         <span className="truncate text-small text-muted-foreground">{person.email}</span>
       </div>
       <div className="flex flex-wrap items-center gap-1.5">
         <Badge variant="tag">{person.role === 'admin' ? 'Admin' : 'Member'}</Badge>
         <StateBadge person={person} />
       </div>
-      {person.invite ? <InviteActions person={person} /> : null}
+      {/* Nobody manages their own row: another Admin changes your role or Deactivates you. */}
+      {isSelf ? null : person.invite ? (
+        <InviteActions person={person} />
+      ) : deactivated ? (
+        <ReactivateAction person={person} />
+      ) : (
+        <ManageMenu person={person} />
+      )}
     </li>
+  );
+}
+
+/** Change the role of, or Deactivate, an active Staff member. */
+function ManageMenu({ person }: { person: StaffMemberView }) {
+  const changeRole = useChangeRole();
+  const [deactivating, setDeactivating] = useState(false);
+  const nextRole = person.role === 'admin' ? 'member' : 'admin';
+
+  return (
+    <div className="flex flex-wrap items-center gap-2 max-md:w-full">
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          render={<Button variant="outline" size="sm" />}
+          disabled={changeRole.isPending}
+        >
+          {changeRole.isPending ? 'Saving…' : 'Manage'}
+          <ChevronDownIcon aria-hidden="true" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-52">
+          <DropdownMenuGroup>
+            <DropdownMenuLabel className="truncate">{person.name}</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => changeRole.mutate({ staffId: person.id, role: nextRole })}
+            >
+              {nextRole === 'admin' ? 'Make Admin' : 'Make Member'}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem variant="destructive" onClick={() => setDeactivating(true)}>
+            Deactivate…
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {changeRole.isError ? (
+        <FormError className="w-full">{changeRole.error.message}</FormError>
+      ) : null}
+      {deactivating ? (
+        <DeactivateDialog person={person} onClose={() => setDeactivating(false)} />
+      ) : null}
+    </div>
+  );
+}
+
+/** Deactivation can be undone, but it ends their sessions at once, so it asks first. */
+function DeactivateDialog({ person, onClose }: { person: StaffMemberView; onClose(): void }) {
+  const deactivate = useDeactivateStaffMember();
+  return (
+    <Dialog
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Deactivate {person.name}?</DialogTitle>
+          <DialogDescription>
+            They’re signed out everywhere and can’t sign in again. Everything they wrote stays, and
+            their Channel memberships are kept for if you reactivate them. Where they were the only
+            Channel admin, the member who joined earliest takes over. A Channel left with nobody
+            active is archived.
+          </DialogDescription>
+        </DialogHeader>
+        {deactivate.isError ? <FormError>{deactivate.error.message}</FormError> : null}
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <Button
+            variant="destructive"
+            disabled={deactivate.isPending}
+            onClick={() => deactivate.mutate(person.id, { onSuccess: onClose })}
+          >
+            {deactivate.isPending ? 'Deactivating…' : 'Deactivate'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Reactivate a Deactivated Staff member: they can sign in again. */
+function ReactivateAction({ person }: { person: StaffMemberView }) {
+  const reactivate = useReactivateStaffMember();
+  return (
+    <div className="flex flex-wrap items-center gap-2 max-md:w-full">
+      <Button
+        variant="outline"
+        size="sm"
+        disabled={reactivate.isPending}
+        onClick={() => reactivate.mutate(person.id)}
+      >
+        {reactivate.isPending ? 'Reactivating…' : 'Reactivate'}
+      </Button>
+      {reactivate.isError ? (
+        <FormError className="w-full">{reactivate.error.message}</FormError>
+      ) : null}
+    </div>
   );
 }
 

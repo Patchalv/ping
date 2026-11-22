@@ -6,10 +6,12 @@ import {
   canChangeProfile,
   canListStaffMembers,
   canManageInvites,
+  canManageStaffMember,
   canReadOwnStaffMember,
   requireCanChangeProfile,
   requireCanListStaffMembers,
   requireCanManageInvites,
+  requireCanManageStaffMember,
 } from './staff';
 
 const member: Actor = { staffId: '00000000-0000-4000-8000-0000000000a1', role: 'member' };
@@ -66,5 +68,83 @@ describe('canChangeProfile (display name and email)', () => {
       deny({ kind: 'refused', message: 'You can only change your own name and email.' }),
     );
     expect(() => requireCanChangeProfile(actor, target)).toThrow(ForbiddenError);
+  });
+});
+
+describe('canManageStaffMember (change a role, Deactivate, reactivate)', () => {
+  const other = '00000000-0000-4000-8000-0000000000b1';
+  const actions = ['changeRole', 'deactivate', 'reactivate'] as const;
+
+  it.each(actions)('allows an active Admin to %s someone else', (action) => {
+    expect(
+      canManageStaffMember(admin, {
+        action,
+        targetStaffId: other,
+        activeAdminIds: [admin.staffId],
+      }),
+    ).toEqual(allow());
+  });
+
+  it.each(actions)('refuses a Member who tries to %s', (action) => {
+    const input = { action, targetStaffId: other, activeAdminIds: [admin.staffId] };
+    expect(canManageStaffMember(member, input)).toEqual(
+      deny({ kind: 'refused', message: 'Only Admins can manage Staff members.' }),
+    );
+    expect(() => requireCanManageStaffMember(member, input)).toThrow(ForbiddenError);
+  });
+
+  it('refuses an Admin who was demoted while the request waited for the lock', () => {
+    expect(
+      canManageStaffMember(admin, {
+        action: 'deactivate',
+        targetStaffId: other,
+        activeAdminIds: [other],
+      }),
+    ).toEqual(deny({ kind: 'refused', message: 'Only Admins can manage Staff members.' }));
+  });
+
+  it('refuses the last active Admin demoting themself, saying why', () => {
+    expect(
+      canManageStaffMember(admin, {
+        action: 'changeRole',
+        targetStaffId: admin.staffId,
+        activeAdminIds: [admin.staffId],
+      }),
+    ).toEqual(
+      deny({
+        kind: 'refused',
+        message:
+          'You’re the only active Admin, so you can’t change your own role. Make someone else an Admin first.',
+      }),
+    );
+  });
+
+  it('refuses the last active Admin Deactivating themself, saying why', () => {
+    expect(
+      canManageStaffMember(admin, {
+        action: 'deactivate',
+        targetStaffId: admin.staffId,
+        activeAdminIds: [admin.staffId],
+      }),
+    ).toEqual(
+      deny({
+        kind: 'refused',
+        message:
+          'You’re the only active Admin, so you can’t Deactivate yourself. Make someone else an Admin first.',
+      }),
+    );
+  });
+
+  it('refuses any Admin changing their own row, and says who can', () => {
+    const self = { targetStaffId: admin.staffId, activeAdminIds: [admin.staffId, other] };
+    expect(canManageStaffMember(admin, { action: 'changeRole', ...self })).toEqual(
+      deny({ kind: 'refused', message: 'Ask another Admin to change your role.' }),
+    );
+    expect(canManageStaffMember(admin, { action: 'deactivate', ...self })).toEqual(
+      deny({ kind: 'refused', message: 'Ask another Admin to Deactivate you.' }),
+    );
+    expect(canManageStaffMember(admin, { action: 'reactivate', ...self })).toEqual(
+      deny({ kind: 'refused', message: 'You’re already active.' }),
+    );
   });
 });

@@ -4,6 +4,7 @@ import type {
   AcceptInviteBody,
   ChangeEmailBody,
   ChangeNameBody,
+  ChangeRoleBody,
   CurrentStaffMember,
   EmailChangeConfirmed,
   InviteStaffBody,
@@ -79,6 +80,30 @@ export function useCancelInvite() {
       };
     });
   });
+}
+
+/** An Admin changes someone else's role. */
+export function useChangeRole() {
+  return useStaffMutation(
+    ({ staffId, role }: { staffId: string } & ChangeRoleBody): Promise<StaffMemberView> =>
+      call(() => staff[':staffId'].role.$patch({ param: { staffId }, json: { role } })),
+  );
+}
+
+/** Deactivates someone who has left: their sessions end at once. */
+export function useDeactivateStaffMember() {
+  return useStaffMutation(
+    (staffId: string): Promise<StaffMemberView> =>
+      call(() => staff[':staffId'].deactivate.$post({ param: { staffId } })),
+  );
+}
+
+/** Reactivates a Deactivated Staff member, with their memberships as they were. */
+export function useReactivateStaffMember() {
+  return useStaffMutation(
+    (staffId: string): Promise<StaffMemberView> =>
+      call(() => staff[':staffId'].reactivate.$post({ param: { staffId } })),
+  );
 }
 
 /**

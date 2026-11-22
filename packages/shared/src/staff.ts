@@ -36,6 +36,10 @@ export const inviteStaffBody = z.object({
 });
 export type InviteStaffBody = z.input<typeof inviteStaffBody>;
 
+/** PATCH /api/staff/:staffId/role: an Admin changes someone else's company role. */
+export const changeRoleBody = z.object({ role: staffRole });
+export type ChangeRoleBody = z.input<typeof changeRoleBody>;
+
 /** PATCH /api/staff/:staffId/name: your own display name. */
 export const changeNameBody = z.object({
   name: displayName({

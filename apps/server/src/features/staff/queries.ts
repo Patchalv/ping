@@ -2,11 +2,11 @@
 // so row-level security applies: only an Admin can see or write staff_invite, write
 // staff_member, or delete an Invited person.
 import type { CurrentStaffMember, StaffMemberView, StaffRole, StaffState } from '@ping/shared';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 
-const { auditEvent, staffInvite, staffMember, user } = schema;
+const { auditEvent, session, staffInvite, staffMember, user } = schema;
 
 const stateOf = (row: { joinedAt: Date | null; deactivatedAt: Date | null }): StaffState =>
   row.deactivatedAt ? 'deactivated' : row.joinedAt ? 'active' : 'invited';
@@ -182,6 +182,74 @@ export async function recordEmailChangeRequested({ tx, actor }: ActorTx): Promis
     kind: 'email_change_requested',
     targetStaffId: actor.staffId,
   });
+}
+
+/**
+ * Takes the staff-management lock for the rest of the transaction, then reads who is an
+ * active Admin. Changing a role, Deactivating and reactivating all take it first, so they
+ * run one at a time: two Admins can't demote each other at once and leave Spark with
+ * none, and two Deactivations never race on one Channel's Channel admins.
+ */
+export async function lockStaffManagement({ tx }: ActorTx): Promise<string[]> {
+  await tx.execute(sql`select pg_advisory_xact_lock(hashtext('ping.staff_management'))`);
+  const rows = await tx
+    .select({ id: staffMember.id })
+    .from(staffMember)
+    .where(
+      and(
+        eq(staffMember.role, 'admin'),
+        isNotNull(staffMember.joinedAt),
+        isNull(staffMember.deactivatedAt),
+      ),
+    );
+  return rows.map((row) => row.id);
+}
+
+/** Sets someone else's company role, recording it when it changes. */
+export async function changeRole(
+  { tx, actor }: ActorTx,
+  staffId: string,
+  role: StaffRole,
+): Promise<void> {
+  const changed = await tx
+    .update(staffMember)
+    .set({ role })
+    .where(and(eq(staffMember.id, staffId), ne(staffMember.role, role)))
+    .returning({ id: staffMember.id });
+  if (changed.length === 0) return;
+  await tx
+    .insert(auditEvent)
+    .values({ actorId: actor.staffId, kind: 'staff_role_changed', targetStaffId: staffId });
+}
+
+/**
+ * Deactivates an active Staff member: deactivated_at is the transaction's now(), which
+ * deactivate_staff_member checks, and every session ends. Their memberships, Channel
+ * admin roles and everything they wrote stay.
+ */
+export async function deactivate({ tx, actor }: ActorTx, staffId: string): Promise<void> {
+  await tx
+    .update(staffMember)
+    .set({ deactivatedAt: sql`now()`, deactivatedBy: actor.staffId })
+    .where(eq(staffMember.id, staffId));
+  await tx.delete(session).where(eq(session.userId, staffId));
+  await tx
+    .insert(auditEvent)
+    .values({ actorId: actor.staffId, kind: 'staff_deactivated', targetStaffId: staffId });
+}
+
+/**
+ * Reactivates a Deactivated Staff member. Their memberships and Channel admin roles were
+ * never removed, so they come back as they were; their Saved list and Pings start empty.
+ */
+export async function reactivate({ tx, actor }: ActorTx, staffId: string): Promise<void> {
+  await tx
+    .update(staffMember)
+    .set({ deactivatedAt: null, deactivatedBy: null })
+    .where(eq(staffMember.id, staffId));
+  await tx
+    .insert(auditEvent)
+    .values({ actorId: actor.staffId, kind: 'staff_reactivated', targetStaffId: staffId });
 }
 
 /** Records that the invite email didn't go, so the list shows "Email not sent, Resend". */

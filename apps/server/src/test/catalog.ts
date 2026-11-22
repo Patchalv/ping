@@ -22,6 +22,8 @@ const SECURITY_DEFINER_FUNCTIONS = [
   'current_staff_admin_channel_ids',
   // System function: a Channel and its first Channel admin, together (#31).
   'create_channel',
+  // System function: the Deactivation clean-up, promotion and archiving, in every Channel (#35).
+  'deactivate_staff_member',
 ];
 
 const APP_ROLES = ['ping_app', 'ping_system'];
