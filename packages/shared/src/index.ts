@@ -33,6 +33,14 @@ export {
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
+  isSingleEmoji,
+  type ReactionList,
+  type ReactionSummary,
+  THUMBS_UP,
+  threadReactionParams,
+  threadResponseReactionParams,
+} from './reaction';
+export {
   EMPTY_RICH_TEXT,
   extractBodyText,
   isAllowedLinkHref,

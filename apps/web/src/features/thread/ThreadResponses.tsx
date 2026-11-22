@@ -19,6 +19,7 @@ import { useEditThreadResponse, useSendThreadResponse } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadResponseDialog } from './DeleteDialogs';
+import { Reactions } from './Reactions';
 
 /** A Thread's Thread Responses, oldest first, with deleted ones as placeholders. */
 export function ThreadResponseList({
@@ -83,7 +84,16 @@ function ThreadResponseItem({
           onDone={() => setMode('reading')}
         />
       ) : (
-        <RichTextView doc={response.body} className="mt-1" />
+        <>
+          <RichTextView doc={response.body} className="mt-1" />
+          <Reactions
+            channelId={channelId}
+            threadId={response.threadId}
+            threadResponseId={response.id}
+            reactions={response.reactions}
+            canReact={response.canReact}
+          />
+        </>
       )}
       {mode === 'deleting' ? (
         <DeleteThreadResponseDialog

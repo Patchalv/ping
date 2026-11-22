@@ -17,6 +17,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 
@@ -274,6 +275,7 @@ export const threadResponse = pgTable(
     ),
   },
   (t) => [
+    unique('thread_response_id_channel_id_unique').on(t.id, t.channelId),
     foreignKey({
       name: 'thread_response_thread_fk',
       columns: [t.threadId, t.channelId],
@@ -294,6 +296,52 @@ export const threadResponse = pgTable(
       'thread_response_deleted_by_with_at',
       sql`(${t.deletedAt} is null) = (${t.deletedBy} is null)`,
     ),
+  ],
+);
+
+/**
+ * A reaction to a Thread or a Thread Response (data-model.md › On Threads and Thread
+ * Responses): one Unicode emoji by one Staff member. Exactly one target is set, checked
+ * here, and each Staff member reacts once per emoji per target, enforced by a partial
+ * unique index per target. Both targets copy channel_id under a composite foreign key,
+ * and deleting a Thread cascades to its reactions, directly and through its Thread
+ * Responses. A deleted Thread Response keeps its row as a placeholder, so its reactions
+ * are deleted by the route that deletes it.
+ */
+export const reaction = pgTable(
+  'reaction',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id').notNull(),
+    threadId: uuid('thread_id'),
+    threadResponseId: uuid('thread_response_id'),
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    emoji: text('emoji').notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'reaction_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'reaction_thread_response_fk',
+      columns: [t.threadResponseId, t.channelId],
+      foreignColumns: [threadResponse.id, threadResponse.channelId],
+    }).onDelete('cascade'),
+    check(
+      'reaction_exactly_one_target',
+      sql`(${t.threadId} is not null) <> (${t.threadResponseId} is not null)`,
+    ),
+    uniqueIndex('reaction_thread_staff_emoji_unique')
+      .on(t.threadId, t.staffId, t.emoji)
+      .where(sql`${t.threadId} is not null`),
+    uniqueIndex('reaction_thread_response_staff_emoji_unique')
+      .on(t.threadResponseId, t.staffId, t.emoji)
+      .where(sql`${t.threadResponseId} is not null`),
   ],
 );
 

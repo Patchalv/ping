@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { channelParams } from './channel';
 import type { ContentActions, EditedMark } from './edited';
+import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
 
 export const THREAD_TITLE_MAX = 200;
@@ -55,6 +56,10 @@ export type ThreadRow = {
   latestActivityAt: string;
   /** "N Thread Responses": deleted ones count, because their placeholders still show. */
   responseCount: number;
+  /** Who reacted to the Thread, by emoji, in the order each emoji first appeared. */
+  reactions: ReactionSummary[];
+  /** Whether the viewer may react: Channel members, outside an Archived channel. */
+  canReact: boolean;
 };
 
 /** A page of a Channel's Thread list, by Latest activity, newest first. */

@@ -8,6 +8,7 @@ import type { Auth } from './auth';
 import type { PingEnvironment, SentrySettings } from './config';
 import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
+import { reactionRoutes } from './features/reaction/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
 import { emailChangeRoutes } from './features/staff/email-change-routes';
 import { staffRoutes } from './features/staff/routes';
@@ -101,6 +102,7 @@ export function createApp(options: AppOptions) {
     .route('/api/channels', channelRoutes(options))
     .route('/api/channels/:channelId/threads', threadRoutes(options))
     .route('/api/channels/:channelId/threads/:threadId/responses', threadResponseRoutes(options))
+    .route('/api/channels/:channelId/threads/:threadId', reactionRoutes(options))
     .route(
       '/api/staff',
       staffRoutes({

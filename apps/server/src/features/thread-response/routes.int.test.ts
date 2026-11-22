@@ -82,6 +82,8 @@ describe('Thread Response routes', () => {
         edited: null,
         body: doc('On my way'),
         isDeleted: false,
+        reactions: [],
+        canReact: true,
         canEdit: true,
         canDelete: true,
       });
