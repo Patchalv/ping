@@ -90,6 +90,19 @@ export function useChangeRole() {
   );
 }
 
+/**
+ * An Admin makes themself a Member, while another active Admin is left. Everything about
+ * them is refetched, since the Admin screens are no longer theirs.
+ */
+export function useDemoteMyself() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (staffId: string): Promise<StaffMemberView> =>
+      call(() => staff[':staffId'].role.$patch({ param: { staffId }, json: { role: 'member' } })),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: staffKeys.all }),
+  });
+}
+
 /** Deactivates someone who has left: their sessions end at once. */
 export function useDeactivateStaffMember() {
   return useStaffMutation(

@@ -91,13 +91,19 @@ describe('PATCH /api/staff/:staffId/role', () => {
     ]);
   });
 
-  it('refuses an Admin changing their own role, with a message', async () => {
-    // Another active Admin, so this isn't the last-Admin case (unit-tested in permissions).
-    await createStaffMember({ role: 'admin' });
-    const res = await changeRole(admin.id, 'member');
-    expect(res.status).toBe(403);
-    expect(await errorMessage(res)).toBe('Ask another Admin to change your role.');
-    expect((await staffRow(admin.id))?.role).toBe('admin');
+  it('lets an Admin demote themself while another active Admin is left', async () => {
+    // Their own Admin, so the suite's shared Admin stays one.
+    const leaving = await createStaffMember({ role: 'admin' });
+    const res = await request(`/api/staff/${leaving.id}/role`, {
+      method: 'PATCH',
+      body: { role: 'member' },
+      cookie: await signIn(testApp, leaving),
+    });
+    expect(res.status).toBe(200);
+    expect((await staffRow(leaving.id))?.role).toBe('member');
+    expect(await auditKinds(leaving.id)).toEqual([
+      { kind: 'staff_role_changed', actor_id: leaving.id },
+    ]);
   });
 
   it('refuses a Deactivated Staff member: reactivate them first', async () => {

@@ -29,6 +29,13 @@
       "when": 1795311656431,
       "tag": "0003_deactivate_staff_member",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1795343660878,
+      "tag": "0004_self_demotion",
+      "breakpoints": true
     }
   ]
 }

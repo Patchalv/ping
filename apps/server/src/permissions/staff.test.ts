@@ -135,11 +135,18 @@ describe('canManageStaffMember (change a role, Deactivate, reactivate)', () => {
     );
   });
 
-  it('refuses any Admin changing their own row, and says who can', () => {
+  it('allows an Admin who isn’t the last active Admin to change their own role', () => {
+    expect(
+      canManageStaffMember(admin, {
+        action: 'changeRole',
+        targetStaffId: admin.staffId,
+        activeAdminIds: [admin.staffId, other],
+      }),
+    ).toEqual(allow());
+  });
+
+  it('refuses any Admin Deactivating or reactivating themself, and says who can', () => {
     const self = { targetStaffId: admin.staffId, activeAdminIds: [admin.staffId, other] };
-    expect(canManageStaffMember(admin, { action: 'changeRole', ...self })).toEqual(
-      deny({ kind: 'refused', message: 'Ask another Admin to change your role.' }),
-    );
     expect(canManageStaffMember(admin, { action: 'deactivate', ...self })).toEqual(
       deny({ kind: 'refused', message: 'Ask another Admin to Deactivate you.' }),
     );

@@ -286,8 +286,9 @@ export const MATRIX: MatrixRow[] = [
     adminsOnly(200),
   ),
 
-  // Their own row: nobody, Admins included, and row-level security agrees. For the last
-  // active Admin this is what keeps Spark from having none.
+  // Their own row. An Admin may demote themself while another active Admin is left (the
+  // test database always has several); nobody may promote or Deactivate themself.
+  // Row-level security agrees.
   ...rowsFor(
     {
       route: 'PATCH /api/staff/:staffId/role',
@@ -299,7 +300,7 @@ export const MATRIX: MatrixRow[] = [
         body: { role: ctx.actor.staff.role === 'admin' ? 'member' : 'admin' },
       }),
     },
-    refused,
+    adminsOnly(200),
   ),
   ...rowsFor(
     {

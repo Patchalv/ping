@@ -1,5 +1,5 @@
 import type { StaffMemberView } from '@ping/shared';
-import { Link } from '@tanstack/react-router';
+import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronDownIcon, ChevronLeftIcon, UserPlusIcon } from 'lucide-react';
 import { useState } from 'react';
 import { Badge } from '#/components/ui/badge';
@@ -30,6 +30,7 @@ import {
   useChangeRole,
   useCurrentStaffMember,
   useDeactivateStaffMember,
+  useDemoteMyself,
   useReactivateStaffMember,
   useResendInvite,
   useStaffMembers,
@@ -45,6 +46,10 @@ export function StaffMembersPage() {
   const staff = useStaffMembers();
   const me = useCurrentStaffMember();
   const [inviting, setInviting] = useState(false);
+  // Only hides the control: the server refuses the last active Admin demoting themself.
+  const activeAdmins =
+    staff.data?.filter((person) => person.role === 'admin' && person.state === 'active').length ??
+    0;
 
   return (
     <>
@@ -80,7 +85,12 @@ export function StaffMembersPage() {
         ) : (
           <ul className="divide-y rounded-lg border bg-background">
             {staff.data.map((person) => (
-              <StaffRow key={person.id} person={person} isSelf={person.id === me.data?.id} />
+              <StaffRow
+                key={person.id}
+                person={person}
+                isSelf={person.id === me.data?.id}
+                canDemoteSelf={activeAdmins > 1}
+              />
             ))}
           </ul>
         )}
@@ -90,7 +100,15 @@ export function StaffMembersPage() {
   );
 }
 
-function StaffRow({ person, isSelf }: { person: StaffMemberView; isSelf: boolean }) {
+function StaffRow({
+  person,
+  isSelf,
+  canDemoteSelf,
+}: {
+  person: StaffMemberView;
+  isSelf: boolean;
+  canDemoteSelf: boolean;
+}) {
   const deactivated = person.state === 'deactivated';
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
@@ -108,8 +126,12 @@ function StaffRow({ person, isSelf }: { person: StaffMemberView; isSelf: boolean
         <Badge variant="tag">{person.role === 'admin' ? 'Admin' : 'Member'}</Badge>
         <StateBadge person={person} />
       </div>
-      {/* Nobody manages their own row: another Admin changes your role or Deactivates you. */}
-      {isSelf ? null : person.invite ? (
+      {/* On your own row, only stepping down; another Admin Deactivates you. */}
+      {isSelf ? (
+        canDemoteSelf ? (
+          <DemoteMyselfAction person={person} />
+        ) : null
+      ) : person.invite ? (
         <InviteActions person={person} />
       ) : deactivated ? (
         <ReactivateAction person={person} />
@@ -158,6 +180,51 @@ function ManageMenu({ person }: { person: StaffMemberView }) {
         <DeactivateDialog person={person} onClose={() => setDeactivating(false)} />
       ) : null}
     </div>
+  );
+}
+
+/** An Admin makes themself a Member. They lose this screen, so it asks first. */
+function DemoteMyselfAction({ person }: { person: StaffMemberView }) {
+  const demote = useDemoteMyself();
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setConfirming(true)}>
+        Make me a Member…
+      </Button>
+      {confirming ? (
+        <Dialog
+          defaultOpen
+          onOpenChange={(open) => {
+            if (!open) setConfirming(false);
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Make yourself a Member?</DialogTitle>
+              <DialogDescription>
+                You can no longer invite, Deactivate or set the role of Staff members. Only another
+                Admin can make you an Admin again.
+              </DialogDescription>
+            </DialogHeader>
+            {demote.isError ? <FormError>{demote.error.message}</FormError> : null}
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+              <Button
+                variant="destructive"
+                disabled={demote.isPending}
+                onClick={() =>
+                  demote.mutate(person.id, { onSuccess: () => void navigate({ to: '/' }) })
+                }
+              >
+                {demote.isPending ? 'Saving…' : 'Make me a Member'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      ) : null}
+    </>
   );
 }
 
