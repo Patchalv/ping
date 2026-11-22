@@ -8,6 +8,7 @@ import {
   createStaffMember,
   insertChannel,
   insertThread,
+  insertThreadResponse,
   type StaffFixture,
 } from '../../db/test-support';
 import { createTestApp, jsonHeaders, signIn, type TestApp } from '../../test/test-app';
@@ -74,6 +75,11 @@ describe('Thread routes', () => {
         isSystem: false,
         createdAt: expect.any(String),
         latestActivityAt: started.createdAt,
+        responseCount: 0,
+        edited: null,
+        canRespond: true,
+        canEdit: true,
+        canDelete: true,
       });
 
       const stored = await asOwner((query) =>
@@ -177,6 +183,7 @@ describe('Thread routes', () => {
         isSystem: false,
         createdAt: new Date(now - 60_000).toISOString(),
         latestActivityAt: new Date(now - 60_000).toISOString(),
+        responseCount: 0,
       });
     });
 
@@ -232,5 +239,147 @@ describe('Thread routes', () => {
         404,
       );
     });
+
+    it('says what the reader may do: a non-member reads, but can’t respond, edit or delete', async () => {
+      const { staff, channel } = await memberOfNewChannel();
+      const thread = await insertThread({ channelId: channel.id, authorId: staff.id });
+      const reader = await createStaffMember();
+      const view = (await (
+        await (
+          await as(reader)
+        )(`/api/channels/${channel.id}/threads/${thread.id}`)
+      ).json()) as ThreadView;
+      expect(view).toMatchObject({ canRespond: false, canEdit: false, canDelete: false });
+    });
+  });
+
+  describe('Thread Response counts', () => {
+    it('counts each Thread’s Thread Responses on its row, deleted ones included', async () => {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const thread = await insertThread({ channelId: channel.id, authorId: staff.id });
+      for (let i = 0; i < 2; i++) {
+        await insertThreadResponse({
+          threadId: thread.id,
+          channelId: channel.id,
+          authorId: staff.id,
+        });
+      }
+      const page = (await (
+        await request(`/api/channels/${channel.id}/threads`)
+      ).json()) as ThreadPage;
+      expect(page.threads[0]?.responseCount).toBe(2);
+    });
+  });
+
+  describe('PATCH /api/channels/:channelId/threads/:threadId', () => {
+    const edit = { title: '  Heater fixed ', body: description };
+
+    it('lets the author edit the title and description, marked "edited"', async () => {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const at = new Date(Date.now() - 60 * 60 * 1000);
+      const thread = await insertThread({
+        channelId: channel.id,
+        authorId: staff.id,
+        latestActivityAt: at,
+      });
+      const res = await request(`/api/channels/${channel.id}/threads/${thread.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(edit),
+      });
+      expect(res.status).toBe(200);
+      const edited = (await res.json()) as ThreadView;
+      expect(edited).toMatchObject({
+        title: 'Heater fixed',
+        body: description,
+        edited: { at: expect.any(String), by: null },
+        latestActivityAt: at.toISOString(),
+      });
+      const stored = await asOwner((query) =>
+        query<{ body_text: string }>('select body_text from thread where id = $1', [thread.id]),
+      );
+      expect(stored.rows[0]?.body_text).toBe('Since Monday\nRoom 2 is cold\nCall the plumber');
+    });
+
+    it('marks a company Admin’s edit "edited by <name>", and audits it', async () => {
+      const { staff, channel } = await memberOfNewChannel();
+      const thread = await insertThread({ channelId: channel.id, authorId: staff.id });
+      const admin = await createStaffMember({ role: 'admin' });
+      const res = await (await as(admin))(`/api/channels/${channel.id}/threads/${thread.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(edit),
+      });
+      expect(res.status).toBe(200);
+      expect(((await res.json()) as ThreadView).edited?.by).toEqual({
+        staffId: admin.id,
+        name: admin.name,
+      });
+      expect(await adminAudit(channel.id)).toEqual([
+        { actor_id: admin.id, kind: 'admin_edited_thread', target_staff_id: staff.id },
+      ]);
+    });
+
+    it('refuses a Channel admin editing someone else’s Thread', async () => {
+      const { channel, request } = await memberOfNewChannel();
+      const author = await createStaffMember();
+      const thread = await insertThread({ channelId: channel.id, authorId: author.id });
+      const res = await request(`/api/channels/${channel.id}/threads/${thread.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(edit),
+      });
+      expect(res.status).toBe(403);
+      expect(await res.json()).toEqual({
+        error: {
+          code: 'forbidden',
+          message: 'Only its author or a company Admin can edit this Thread.',
+        },
+      });
+    });
+  });
+
+  describe('DELETE /api/channels/:channelId/threads/:threadId', () => {
+    it('deletes the Thread and every Thread Response in it, other people’s included', async () => {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const thread = await insertThread({ channelId: channel.id, authorId: staff.id });
+      const other = await createStaffMember();
+      await insertThreadResponse({
+        threadId: thread.id,
+        channelId: channel.id,
+        authorId: other.id,
+      });
+      const res = await request(`/api/channels/${channel.id}/threads/${thread.id}`, {
+        method: 'DELETE',
+      });
+      expect(res.status).toBe(204);
+      expect((await request(`/api/channels/${channel.id}/threads/${thread.id}`)).status).toBe(404);
+      const left = await asOwner((query) =>
+        query('select 1 from thread_response where thread_id = $1', [thread.id]),
+      );
+      expect(left.rowCount).toBe(0);
+      expect(await adminAudit(channel.id)).toEqual([]);
+    });
+
+    it('audits a company Admin deleting someone else’s Thread', async () => {
+      const { staff, channel } = await memberOfNewChannel();
+      const thread = await insertThread({ channelId: channel.id, authorId: staff.id });
+      const admin = await createStaffMember({ role: 'admin' });
+      const res = await (await as(admin))(`/api/channels/${channel.id}/threads/${thread.id}`, {
+        method: 'DELETE',
+      });
+      expect(res.status).toBe(204);
+      expect(await adminAudit(channel.id)).toEqual([
+        { actor_id: admin.id, kind: 'admin_deleted_thread', target_staff_id: staff.id },
+      ]);
+    });
   });
 });
+
+async function adminAudit(channelId: string) {
+  const result = await asOwner((query) =>
+    query<{ actor_id: string; kind: string; target_staff_id: string }>(
+      `select actor_id, kind, target_staff_id from audit_event
+        where channel_id = $1 and kind like 'admin_%' order by created_at`,
+      [channelId],
+    ),
+  );
+  return result.rows;
+}

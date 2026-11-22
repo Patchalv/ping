@@ -8,13 +8,22 @@ import {
   type ThreadAuthor,
   type ThreadPage,
   type ThreadView,
+  toEditedMark,
 } from '@ping/shared';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import type { ThreadChannelAccess } from '../../permissions/thread';
+import type { AuditEventKind } from '../../db/schema';
+import {
+  canDeleteThread,
+  canEditThread,
+  type ThreadAuthorship,
+  type ThreadChannelAccess,
+} from '../../permissions/thread';
+import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { channel, channelMember, staffMember, thread, user } = schema;
+const { auditEvent, channel, channelMember, staffMember, thread, threadResponse, user } = schema;
 
 /** How much of the description a Thread row previews. */
 const PREVIEW_LENGTH = 240;
@@ -76,6 +85,9 @@ const threadColumns = {
   authorId: thread.authorId,
   authorName: user.name,
   authorDeactivated: sql<boolean>`${staffMember.deactivatedAt} is not null`,
+  // Deleted ones count: their placeholders still show in the Thread.
+  responseCount: sql<number>`(
+    select count(*)::int from ${threadResponse} where ${threadResponse.threadId} = ${thread.id})`,
 };
 
 type ThreadColumns = {
@@ -88,6 +100,7 @@ type ThreadColumns = {
   authorId: string | null;
   authorName: string | null;
   authorDeactivated: boolean;
+  responseCount: number;
 };
 
 function toThread({ authorId, authorName, authorDeactivated, ...row }: ThreadColumns) {
@@ -135,20 +148,100 @@ export async function listThreads(
   };
 }
 
-/** One Thread in the Channel, or undefined when it's missing, hidden or in another Channel. */
+const editor = alias(user, 'editor');
+
+/**
+ * One Thread in the Channel, with what the actor may do with it, or undefined when it's
+ * missing, hidden or in another Channel.
+ */
 export async function findThread(
-  { tx }: ActorTx,
+  { tx, actor }: ActorTx,
+  access: ThreadChannelAccess,
   channelId: string,
   threadId: string,
 ): Promise<ThreadView | undefined> {
   const [row] = await tx
-    .select({ ...threadColumns, body: thread.body })
+    .select({
+      ...threadColumns,
+      body: thread.body,
+      editedAt: thread.editedAt,
+      editedBy: thread.editedBy,
+      editorName: editor.name,
+    })
     .from(thread)
     .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
     .leftJoin(user, eq(user.id, thread.authorId))
+    .leftJoin(editor, eq(editor.id, thread.editedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
-  const { body, ...rest } = row;
-  // Written only through the allowlist, so it reads back as one.
-  return { ...toThread(rest), body: body as RichTextDoc };
+  const { body, editedAt, editedBy, editorName, ...rest } = row;
+  const authorship = { authorId: rest.authorId };
+  return {
+    ...toThread(rest),
+    // Written only through the allowlist, so it reads back as one.
+    body: body as RichTextDoc,
+    edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
+    canRespond: canSendThreadResponse(actor, access).allow,
+    canEdit: canEditThread(actor, access, authorship).allow,
+    canDelete: canDeleteThread(actor, access, authorship).allow,
+  };
+}
+
+/** Who started a Thread in this Channel, or undefined when it's missing or hidden. */
+export async function findThreadAuthorship(
+  { tx }: ActorTx,
+  channelId: string,
+  threadId: string,
+): Promise<ThreadAuthorship | undefined> {
+  const [row] = await tx
+    .select({ authorId: thread.authorId })
+    .from(thread)
+    .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
+  return row;
+}
+
+/** Replaces a Thread's title and description, marking who edited it and when. */
+export async function editThread(
+  { tx, actor }: ActorTx,
+  threadId: string,
+  input: { title: string; body: RichTextDoc },
+): Promise<void> {
+  await tx
+    .update(thread)
+    .set({
+      title: input.title,
+      body: input.body,
+      bodyText: extractBodyText(input.body),
+      editedAt: sql`now()`,
+      editedBy: actor.staffId,
+    })
+    .where(eq(thread.id, threadId));
+}
+
+/**
+ * Deletes a Thread for real. Its Thread Responses (other people's included) go with it by
+ * cascade; reactions, Mentions, Attachments, Pings and Saved entries will too, as their
+ * slices add them.
+ */
+export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<void> {
+  await tx.delete(thread).where(eq(thread.id, threadId));
+}
+
+/**
+ * Records a company Admin changing someone else's Thread (product.md › Audit log). Only
+ * the author or an Admin gets this far, so a change by anyone else is an Admin's. A System
+ * thread is nobody's content, so editing or deleting one records nothing.
+ */
+export async function auditAdminChange(
+  { tx, actor }: ActorTx,
+  kind: Extract<AuditEventKind, 'admin_edited_thread' | 'admin_deleted_thread'>,
+  where: { channelId: string; authorId: string | null },
+): Promise<void> {
+  if (where.authorId === null || where.authorId === actor.staffId) return;
+  await tx.insert(auditEvent).values({
+    actorId: actor.staffId,
+    kind,
+    channelId: where.channelId,
+    targetStaffId: where.authorId,
+  });
 }

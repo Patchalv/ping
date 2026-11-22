@@ -10,13 +10,16 @@ export const SEED = {
 
 /**
  * Locally nothing sets Fly-Client-IP, so Better Auth's sign-in rate limiter would put
- * every test in one shared bucket. Each test gets its own address, as on Fly.
+ * every test in one shared bucket. Each test gets its own address, as on Fly. The counter
+ * is shared by every spec file in the worker, so two files never hand out the same one.
  */
+let nextIp = 1;
 export function useOwnClientIp(): void {
-  let nextIp = 1;
   test.beforeEach(async ({ page }, testInfo) => {
-    const octet = (testInfo.workerIndex * 16 + nextIp++) % 250;
-    await page.setExtraHTTPHeaders({ 'fly-client-ip': `192.0.2.${octet + 1}` });
+    // Each worker has its own block, so a retried worker (a new index) never reuses one.
+    const block = testInfo.workerIndex % 250;
+    const octet = nextIp++ % 250;
+    await page.setExtraHTTPHeaders({ 'fly-client-ip': `10.0.${block}.${octet + 1}` });
   });
 }
 

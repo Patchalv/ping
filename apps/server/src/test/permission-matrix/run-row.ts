@@ -6,6 +6,7 @@ import {
   databaseSnapshot,
   insertChannel,
   insertThread,
+  insertThreadResponse,
 } from '../../db/test-support';
 import { jsonHeaders, type TestApp } from '../test-app';
 import { CHANNEL_ROLE, createActor } from './actors';
@@ -82,6 +83,21 @@ async function threadFixture({ actor, channel }: Pick<RowContext, 'actor' | 'cha
 }
 
 /**
+ * The row's Thread Response, in its Thread. The author actor sent it; for every other
+ * actor, a fresh member of the Channel did.
+ */
+async function responseFixture({
+  actor,
+  channel,
+  thread,
+}: Pick<RowContext, 'actor' | 'channel' | 'thread'>) {
+  if (!channel || !thread) throw new Error('A Thread Response needs a row with a Thread');
+  const authorId =
+    actor.kind === 'author' ? actor.staff.id : (await joinedTarget(channel, false)).id;
+  return insertThreadResponse({ threadId: thread.id, channelId: channel.id, authorId });
+}
+
+/**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
  */
@@ -90,7 +106,8 @@ export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
   const target = row.target ? await targetFixtures[row.target]({ actor, channel }) : undefined;
   const thread = row.thread ? await threadFixture({ actor, channel }) : undefined;
-  const request = row.request({ actor, channel, target, thread });
+  const response = row.response ? await responseFixture({ actor, channel, thread }) : undefined;
+  const request = row.request({ actor, channel, target, thread, response });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();
   const res = await testApp.app.request(request.path, {

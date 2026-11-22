@@ -3,6 +3,7 @@
 import type { ChannelVisibility } from '@ping/shared';
 import type { Actor } from './actor';
 import { canReadChannel } from './channel';
+import { canDeleteContent, canEditContent } from './content';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
 /** What the decisions need to know about the Thread's Channel and the actor's place in it. */
@@ -34,6 +35,49 @@ export function canStartThread(actor: Actor, channel: ThreadChannelAccess): Deci
     return deny({ kind: 'refused', message: 'Join this Channel to start a Thread in it.' });
   }
   return allow();
+}
+
+/** Who started the Thread: null for a System thread, which Ping started. */
+export type ThreadAuthorship = { authorId: string | null };
+
+/**
+ * Its author, or a company Admin in a Channel they can read; never in an Archived
+ * channel. A System thread has no author, so only Admins edit it.
+ */
+export function canEditThread(
+  actor: Actor,
+  channel: ThreadChannelAccess,
+  thread: ThreadAuthorship,
+): Decision {
+  return canEditContent(actor, channel, thread.authorId, 'Thread');
+}
+
+/**
+ * Its author, or a company Admin in a Channel they can read. In an Archived channel, and
+ * for a System thread, only Admins.
+ */
+export function canDeleteThread(
+  actor: Actor,
+  channel: ThreadChannelAccess,
+  thread: ThreadAuthorship,
+): Decision {
+  return canDeleteContent(actor, channel, thread.authorId, 'Thread');
+}
+
+export function requireCanEditThread(
+  actor: Actor,
+  channel: ThreadChannelAccess,
+  thread: ThreadAuthorship,
+): void {
+  requireAllowed(canEditThread(actor, channel, thread));
+}
+
+export function requireCanDeleteThread(
+  actor: Actor,
+  channel: ThreadChannelAccess,
+  thread: ThreadAuthorship,
+): void {
+  requireAllowed(canDeleteThread(actor, channel, thread));
 }
 
 export function requireCanReadThreads(actor: Actor, channel: ThreadChannelAccess): void {

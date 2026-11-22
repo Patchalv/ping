@@ -10,6 +10,7 @@ import {
   createStaffMember,
   insertChannel,
   insertThread,
+  insertThreadResponse,
   type Query,
 } from '../../db/test-support';
 
@@ -193,22 +194,82 @@ describe('thread INSERT', () => {
   });
 });
 
-describe('thread UPDATE and DELETE', () => {
-  it('refuses an update, even from the author: editing arrives with its own grant', async () => {
+// Editing and deleting arrived with "Thread Responses, editing and deleting" (#39). Who may
+// edit or delete (the author, or a company Admin) is the permissions module's job; the
+// database lets a visible Thread be updated and deleted, and limits the columns.
+describe('thread UPDATE', () => {
+  it('lets a Staff member update the content of a Thread they can see', async () => {
     const { author, thread } = await channelWithThread('public');
     await asPingApp(author.id, async (query) => {
-      await expect(
-        query(`update thread set title = 'Changed' where id = $1`, [thread.id]),
-      ).rejects.toThrow(/permission denied/);
+      const result = await query(
+        `update thread set title = 'Changed', edited_at = now(), edited_by = $2 where id = $1`,
+        [thread.id, author.id],
+      );
+      expect(result.rowCount).toBe(1);
     });
   });
 
-  it('refuses a delete, even from the author', async () => {
+  it.each([
+    ['author_id', `author_id = gen_random_uuid()`],
+    ['channel_id', `channel_id = gen_random_uuid()`],
+    ['is_system', `is_system = true`],
+    ['created_at', `created_at = now() - interval '1 day'`],
+    ['resolved_at', `resolved_at = now()`],
+  ])('refuses changing %s: ping_app may only change the content', async (_col, set) => {
     const { author, thread } = await channelWithThread('public');
     await asPingApp(author.id, async (query) => {
-      await expect(query('delete from thread where id = $1', [thread.id])).rejects.toThrow(
+      await expect(query(`update thread set ${set} where id = $1`, [thread.id])).rejects.toThrow(
         /permission denied/,
       );
+    });
+  });
+
+  it('updates nothing in a Private channel the Staff member is not in, Admins included', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const { thread } = await channelWithThread('private');
+    await asPingApp(admin.id, async (query) => {
+      const result = await query(`update thread set title = 'Changed' where id = $1`, [thread.id]);
+      expect(result.rowCount).toBe(0);
+    });
+  });
+
+  it('updates nothing when app.staff_id is unset', async () => {
+    const { thread } = await channelWithThread('public');
+    await asPingApp(null, async (query) => {
+      const result = await query(`update thread set title = 'Changed' where id = $1`, [thread.id]);
+      expect(result.rowCount).toBe(0);
+    });
+  });
+});
+
+describe('thread DELETE', () => {
+  it('deletes a visible Thread, and its Thread Responses with it', async () => {
+    const { author, channel, thread } = await channelWithThread('public');
+    const response = await insertThreadResponse({
+      threadId: thread.id,
+      channelId: channel.id,
+      authorId: author.id,
+    });
+    await asPingApp(author.id, async (query) => {
+      expect((await query('delete from thread where id = $1', [thread.id])).rowCount).toBe(1);
+      const left = await query('select id from thread_response where id = $1', [response.id]);
+      // The cascade runs under FORCE ROW LEVEL SECURITY too.
+      expect(left.rowCount).toBe(0);
+    });
+  });
+
+  it('deletes nothing in a Private channel the Staff member is not in, Admins included', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const { thread } = await channelWithThread('private');
+    await asPingApp(admin.id, async (query) => {
+      expect((await query('delete from thread where id = $1', [thread.id])).rowCount).toBe(0);
+    });
+  });
+
+  it('deletes nothing when app.staff_id is unset', async () => {
+    const { thread } = await channelWithThread('public');
+    await asPingApp(null, async (query) => {
+      expect((await query('delete from thread where id = $1', [thread.id])).rowCount).toBe(0);
     });
   });
 });

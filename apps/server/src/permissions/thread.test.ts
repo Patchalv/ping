@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from './actor';
 import { allow, deny } from './decision';
-import { canReadThreads, canStartThread } from './thread';
+import { canDeleteThread, canEditThread, canReadThreads, canStartThread } from './thread';
 
 const member: Actor = { staffId: '00000000-0000-4000-8000-0000000000a1', role: 'member' };
 const admin: Actor = { staffId: '00000000-0000-4000-8000-0000000000a2', role: 'admin' };
@@ -58,5 +58,105 @@ describe('canReadThreads', () => {
 
   it('hides a Private channel’s Threads from a company Admin who is not a member', () => {
     expect(canReadThreads(admin, channel('private', false))).toEqual(deny({ kind: 'hidden' }));
+  });
+});
+
+const byMember = { authorId: member.staffId };
+const bySomeoneElse = { authorId: '00000000-0000-4000-8000-0000000000b1' };
+
+describe('canEditThread', () => {
+  it.each([
+    ['its author', member, byMember, channel('public', true)],
+    [
+      'a company Admin, someone else’s, in a Public channel',
+      admin,
+      bySomeoneElse,
+      channel('public', false),
+    ],
+    [
+      'a company Admin, someone else’s, in their Private channel',
+      admin,
+      bySomeoneElse,
+      channel('private', true),
+    ],
+  ])('allows %s', (_name, actor, thread, target) => {
+    expect(canEditThread(actor, target, thread)).toEqual(allow());
+  });
+
+  it('refuses a member who isn’t the author, Channel admins included', () => {
+    expect(canEditThread(member, channel('public', true), bySomeoneElse)).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'Only its author or a company Admin can edit this Thread.',
+      }),
+    );
+  });
+
+  it('hides a Private channel from a company Admin who is not a member', () => {
+    expect(canEditThread(admin, channel('private', false), bySomeoneElse)).toEqual(
+      deny({ kind: 'hidden' }),
+    );
+  });
+
+  it('refuses everyone in an Archived channel, the author and Admins included', () => {
+    const refusal = deny({
+      kind: 'refused',
+      message: 'This Channel is archived, so nothing in it can be edited.',
+    });
+    expect(canEditThread(member, channel('public', true, true), byMember)).toEqual(refusal);
+    expect(canEditThread(admin, channel('public', true, true), bySomeoneElse)).toEqual(refusal);
+  });
+
+  it('lets a company Admin edit a System thread: Admins edit any Thread', () => {
+    expect(canEditThread(admin, channel('public', true), { authorId: null })).toEqual(allow());
+  });
+
+  it('refuses a member editing a System thread: it has no author', () => {
+    expect(canEditThread(member, channel('public', true), { authorId: null })).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'Only its author or a company Admin can edit this Thread.',
+      }),
+    );
+  });
+});
+
+describe('canDeleteThread', () => {
+  it.each([
+    ['its author', member, byMember, channel('public', true)],
+    ['a company Admin, someone else’s', admin, bySomeoneElse, channel('public', false)],
+    [
+      'a company Admin in an Archived channel',
+      admin,
+      bySomeoneElse,
+      channel('public', false, true),
+    ],
+    ['a company Admin, a System thread', admin, { authorId: null }, channel('public', true)],
+  ])('allows %s', (_name, actor, thread, target) => {
+    expect(canDeleteThread(actor, target, thread)).toEqual(allow());
+  });
+
+  it('refuses a member who isn’t the author', () => {
+    expect(canDeleteThread(member, channel('public', true), bySomeoneElse)).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'Only its author or a company Admin can delete this Thread.',
+      }),
+    );
+  });
+
+  it('refuses the author in an Archived channel: only company Admins delete there', () => {
+    expect(canDeleteThread(member, channel('public', true, true), byMember)).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'This Channel is archived, so only a company Admin can delete in it.',
+      }),
+    );
+  });
+
+  it('hides a Private channel from a company Admin who is not a member', () => {
+    expect(canDeleteThread(admin, channel('private', false), bySomeoneElse)).toEqual(
+      deny({ kind: 'hidden' }),
+    );
   });
 });

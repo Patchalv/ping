@@ -12,6 +12,7 @@ import { acceptInviteRoutes } from './features/staff/accept-routes';
 import { emailChangeRoutes } from './features/staff/email-change-routes';
 import { staffRoutes } from './features/staff/routes';
 import { threadRoutes } from './features/thread/routes';
+import { threadResponseRoutes } from './features/thread-response/routes';
 import type { Mailer } from './lib/email';
 import { errorResponse } from './lib/errors';
 import { noStoreOnApi, securityHeaders } from './security-headers';
@@ -83,6 +84,7 @@ export function createApp(options: AppOptions) {
     // Feature routes, chained here so they come before the SPA's catch-all.
     .route('/api/channels', channelRoutes(options))
     .route('/api/channels/:channelId/threads', threadRoutes(options))
+    .route('/api/channels/:channelId/threads/:threadId/responses', threadResponseRoutes(options))
     .route(
       '/api/staff',
       staffRoutes({

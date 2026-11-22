@@ -23,6 +23,8 @@ export type RowContext = {
   target: { id: string } | undefined;
   /** The row's Thread, in the row's Channel, when `thread` asks for one. */
   thread: { id: string } | undefined;
+  /** The row's Thread Response, in the row's Thread, when `response` asks for one. */
+  response: { id: string } | undefined;
 };
 
 export type MatrixRow = {
@@ -40,6 +42,11 @@ export type MatrixRow = {
   target?: 'invited' | 'active' | 'deactivated' | 'member' | 'channelAdmin' | 'self';
   /** A Thread in the row's Channel, started by the author actor (or, for any other actor, by a member). */
   thread?: true;
+  /**
+   * A Thread Response in the row's Thread (which needs `thread`), sent by the author actor
+   * (or, for any other actor, by a member).
+   */
+  response?: true;
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -109,8 +116,31 @@ const readsChannel =
       ? { allow: false, status: 404 }
       : { allow: true, status: 200 };
 
+/**
+ * Editing or deleting content: its author, or a company Admin in a Channel they can read.
+ * Channel admins get nothing extra. A Private channel the actor isn't in is hidden (404),
+ * Admins included. In an Archived channel nothing is edited, and only Admins delete.
+ */
+const contentChange =
+  (channel: ChannelKind, change: 'edit' | 'delete', status: number) =>
+  (actor: ActorKind): MatrixRow['expect'] => {
+    if (channel === 'private' && !CHANNEL_ROLE[actor]) return { allow: false, status: 404 };
+    if (channel === 'archived' && (change === 'edit' || !ADMINS.has(actor))) {
+      return { allow: false, status: 403 };
+    }
+    return actor === 'author' || ADMINS.has(actor)
+      ? { allow: true, status }
+      : { allow: false, status: 403 };
+  };
+
 const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdmin';
 const CHANNEL_KINDS = ['public', 'private', 'archived'] as const;
+const threadPath = (ctx: RowContext) =>
+  `/api/channels/${ctx.channel?.id}/threads/${ctx.thread?.id}`;
+const doc = (text: string) => ({
+  type: 'doc',
+  content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
+});
 const memberPath = (ctx: RowContext) =>
   `/api/channels/${ctx.channel?.id}/members/${ctx.target?.id}`;
 
@@ -425,6 +455,102 @@ export const MATRIX: MatrixRow[] = [
         }),
       },
       readsChannel(channel),
+    ),
+  ]),
+
+  // Thread Responses, editing and deleting. From "Thread Responses, editing and deleting"
+  // (#39).
+
+  // Send a Thread Response: Channel members only, company Admins included; not in an
+  // Archived channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads/:threadId/responses',
+        action: `send a Thread Response in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses`,
+          method: 'POST',
+          body: { body: doc('On my way.') },
+        }),
+      },
+      membershipChange(channel, 201, (actor) => CHANNEL_ROLE[actor] !== null),
+    ),
+  ),
+
+  // Read a Thread's Thread Responses: anyone who can read the Channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/threads/:threadId/responses',
+        action: `read the Thread Responses of a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        response: true,
+        request: (ctx) => ({ path: `${threadPath(ctx)}/responses` }),
+      },
+      readsChannel(channel),
+    ),
+  ),
+
+  // Edit and delete a Thread, and a Thread Response: the author, or a company Admin in a
+  // Channel they can read.
+  ...CHANNEL_KINDS.flatMap((channel) => [
+    ...rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/threads/:threadId',
+        action: `edit a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        request: (ctx) => ({
+          path: threadPath(ctx),
+          method: 'PATCH',
+          body: { title: 'Heater fixed', body: doc('Done.') },
+        }),
+      },
+      contentChange(channel, 'edit', 200),
+    ),
+    ...rowsFor(
+      {
+        route: 'DELETE /api/channels/:channelId/threads/:threadId',
+        action: `delete a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        response: true,
+        request: (ctx) => ({ path: threadPath(ctx), method: 'DELETE' }),
+      },
+      contentChange(channel, 'delete', 204),
+    ),
+    ...rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/threads/:threadId/responses/:threadResponseId',
+        action: `edit a Thread Response in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        response: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses/${ctx.response?.id}`,
+          method: 'PATCH',
+          body: { body: doc('Fixed now.') },
+        }),
+      },
+      contentChange(channel, 'edit', 200),
+    ),
+    ...rowsFor(
+      {
+        route: 'DELETE /api/channels/:channelId/threads/:threadId/responses/:threadResponseId',
+        action: `delete a Thread Response in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        response: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses/${ctx.response?.id}`,
+          method: 'DELETE',
+        }),
+      },
+      contentChange(channel, 'delete', 204),
     ),
   ]),
 

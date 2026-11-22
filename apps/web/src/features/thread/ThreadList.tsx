@@ -1,4 +1,4 @@
-import type { ThreadRow as ThreadRowData } from '@ping/shared';
+import { type ThreadRow as ThreadRowData, threadResponseCount } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
 import { Button } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
@@ -79,6 +79,9 @@ function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
           {thread.preview}
         </p>
       ) : null}
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {threadResponseCount(thread.responseCount)}
+      </p>
     </Link>
   );
 }

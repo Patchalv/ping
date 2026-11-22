@@ -11,6 +11,22 @@ type LiveEvent =
   // A Channel admin was promoted, or the Channel archived, by a Deactivation.
   | { kind: 'channel.changed'; channelId: string }
   | { kind: 'thread.created'; channelId: string; threadId: string }
+  // A Thread was edited.
+  | { kind: 'thread.changed'; channelId: string; threadId: string }
+  | { kind: 'thread.deleted'; channelId: string; threadId: string }
+  | {
+      kind: 'thread_response.created';
+      channelId: string;
+      threadId: string;
+      threadResponseId: string;
+    }
+  // A Thread Response was edited or deleted (it stays as its placeholder).
+  | {
+      kind: 'thread_response.changed';
+      channelId: string;
+      threadId: string;
+      threadResponseId: string;
+    }
   // Someone was invited, re-invited, had their invite cancelled, changed their name or
   // role, or was Deactivated or reactivated.
   | { kind: 'staff.changed'; staffId: string };

@@ -1,11 +1,20 @@
 // The Thread feature's API: a query-key factory and hooks only. Components use these
 // hooks and never call hc or read a response themselves.
-import type { StartThreadBody, ThreadPage, ThreadView } from '@ping/shared';
+import type {
+  EditThreadBody,
+  StartThreadBody,
+  ThreadPage,
+  ThreadResponseBody,
+  ThreadResponseList,
+  ThreadResponseView,
+  ThreadView,
+} from '@ping/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { call } from '../../lib/api-client';
+import { call, callNoContent } from '../../lib/api-client';
 
 const threads = api.api.channels[':channelId'].threads;
+const responses = threads[':threadId'].responses;
 
 /**
  * The query keys. Exported so live updates (#47) can refetch a Channel's Threads.
@@ -16,6 +25,8 @@ export const threadKeys = {
   list: (channelId: string) => [...threadKeys.all, 'list', channelId] as const,
   detail: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'detail', channelId, threadId] as const,
+  responses: (channelId: string, threadId: string) =>
+    [...threadKeys.all, 'responses', channelId, threadId] as const,
 };
 
 /** A Channel's Thread list, by Latest activity, 50 at a time with Load more. */
@@ -40,6 +51,15 @@ export function useThread(channelId: string, threadId: string) {
   });
 }
 
+/** All of a Thread's Thread Responses, oldest first, placeholders included. */
+export function useThreadResponses(channelId: string, threadId: string) {
+  return useQuery({
+    queryKey: threadKeys.responses(channelId, threadId),
+    queryFn: (): Promise<ThreadResponseList> =>
+      call(() => responses.$get({ param: { channelId, threadId } })),
+  });
+}
+
 /** Starts a Thread. It then heads its Channel's list, and opens without a refetch. */
 export function useStartThread(channelId: string) {
   const queryClient = useQueryClient();
@@ -50,5 +70,97 @@ export function useStartThread(channelId: string) {
       queryClient.setQueryData(threadKeys.detail(channelId, thread.id), thread);
       return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
     },
+  });
+}
+
+/** Edits a Thread's title and description. Its row shows the new title. */
+export function useEditThread(channelId: string, threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: EditThreadBody): Promise<ThreadView> =>
+      call(() => threads[':threadId'].$patch({ param: { channelId, threadId }, json: body })),
+    onSuccess: (thread) => {
+      queryClient.setQueryData(threadKeys.detail(channelId, threadId), thread);
+      return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
+    },
+  });
+}
+
+/** Deletes a Thread and its Thread Responses. `onDeleted` moves off it first. */
+export function useDeleteThread(
+  channelId: string,
+  threadId: string,
+  { onDeleted }: { onDeleted(): void },
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (): Promise<void> =>
+      callNoContent(() => threads[':threadId'].$delete({ param: { channelId, threadId } })),
+    onSuccess: () => {
+      onDeleted();
+      queryClient.removeQueries({ queryKey: threadKeys.detail(channelId, threadId) });
+      queryClient.removeQueries({ queryKey: threadKeys.responses(channelId, threadId) });
+      return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
+    },
+  });
+}
+
+/**
+ * Refetches what a Thread Response change touches: the Thread's Thread Responses, and its
+ * row (count and Latest activity).
+ */
+function useRefreshResponses(channelId: string, threadId: string) {
+  const queryClient = useQueryClient();
+  return () =>
+    Promise.all([
+      queryClient.invalidateQueries({ queryKey: threadKeys.responses(channelId, threadId) }),
+      queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+    ]);
+}
+
+/** Sends a Thread Response. */
+export function useSendThreadResponse(channelId: string, threadId: string) {
+  const refresh = useRefreshResponses(channelId, threadId);
+  return useMutation({
+    mutationFn: (body: ThreadResponseBody): Promise<ThreadResponseView> =>
+      call(() => responses.$post({ param: { channelId, threadId }, json: body })),
+    onSuccess: refresh,
+  });
+}
+
+/** Edits a Thread Response's body. */
+export function useEditThreadResponse(
+  channelId: string,
+  threadId: string,
+  threadResponseId: string,
+) {
+  const refresh = useRefreshResponses(channelId, threadId);
+  return useMutation({
+    mutationFn: (body: ThreadResponseBody): Promise<ThreadResponseView> =>
+      call(() =>
+        responses[':threadResponseId'].$patch({
+          param: { channelId, threadId, threadResponseId },
+          json: body,
+        }),
+      ),
+    onSuccess: refresh,
+  });
+}
+
+/** Deletes a Thread Response, leaving its placeholder. */
+export function useDeleteThreadResponse(
+  channelId: string,
+  threadId: string,
+  threadResponseId: string,
+) {
+  const refresh = useRefreshResponses(channelId, threadId);
+  return useMutation({
+    mutationFn: (): Promise<void> =>
+      callNoContent(() =>
+        responses[':threadResponseId'].$delete({
+          param: { channelId, threadId, threadResponseId },
+        }),
+      ),
+    onSuccess: refresh,
   });
 }

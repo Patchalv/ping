@@ -31,6 +31,7 @@ export {
   type SidebarChannel,
   setChannelAdminBody,
 } from './channel';
+export { type EditedMark, toEditedMark } from './edited';
 export {
   EMPTY_RICH_TEXT,
   extractBodyText,
@@ -72,6 +73,8 @@ export {
   staffParams,
 } from './staff';
 export {
+  type EditThreadBody,
+  editThreadBody,
   listThreadsQuery,
   type StartThreadBody,
   startThreadBody,
@@ -83,3 +86,11 @@ export {
   type ThreadView,
   threadParams,
 } from './thread';
+export {
+  type ThreadResponseBody,
+  type ThreadResponseList,
+  type ThreadResponseView,
+  threadResponseBody,
+  threadResponseCount,
+  threadResponseParams,
+} from './thread-response';
