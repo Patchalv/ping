@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Ping's mark on an Ink Navy Chrome tile, so it reads on light and dark browser tabs.
+       Simplified for 16px: one thick wave instead of two (src/components/PingMark.tsx). -->
+  <title>Ping</title>
+  <rect width="32" height="32" rx="7" fill="oklch(0.219 0.043 261.6)"/>
+  <g transform="translate(1.6 1.6) scale(0.9)" fill="oklch(0.76 0.165 60)" stroke="oklch(0.76 0.165 60)" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M15 2 4.5 17H11.5L9.5 30 20 14.5H13Z" stroke-width="1.5"/>
+    <path d="M24.35 9.55a8 8 0 0 1 0 11.9" fill="none" stroke-width="3.8"/>
+  </g>
+</svg>
