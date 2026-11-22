@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { acceptInviteBody, inviteStaffBody, inviteTokenBody, staffParams } from './staff';
+import {
+  acceptInviteBody,
+  changeEmailBody,
+  changeNameBody,
+  emailChangeTokenBody,
+  inviteStaffBody,
+  inviteTokenBody,
+  staffParams,
+} from './staff';
 
 const messageFor = (
   result: { success: boolean; error?: { issues: { path: PropertyKey[]; message: string }[] } },
@@ -69,5 +77,42 @@ describe('acceptInviteBody', () => {
 describe('staffParams', () => {
   it('needs a UUID', () => {
     expect(staffParams.safeParse({ staffId: 'nope' }).success).toBe(false);
+  });
+});
+
+describe('changeNameBody', () => {
+  it('trims the name', () => {
+    expect(changeNameBody.parse({ name: '  Rosa Ferrer ' })).toEqual({ name: 'Rosa Ferrer' });
+  });
+
+  it.each([
+    ['an empty name', { name: '  ' }, 'Enter your name.'],
+    ['a long name', { name: 'x'.repeat(81) }, 'Keep your name to 80 characters or fewer.'],
+    ['no name', {}, 'Enter your name.'],
+  ])('refuses %s', (_case, body, message) => {
+    expect(messageFor(changeNameBody.safeParse(body), 'name')).toBe(message);
+  });
+});
+
+describe('changeEmailBody', () => {
+  it('trims and lowercases the email', () => {
+    expect(changeEmailBody.parse({ email: ' Rosa@Example.COM ' })).toEqual({
+      email: 'rosa@example.com',
+    });
+  });
+
+  it.each([
+    ['an empty email', { email: '' }, 'Enter your new email address.'],
+    ['a malformed email', { email: 'rosa@' }, 'Enter an email address like name@example.com.'],
+  ])('refuses %s', (_case, body, message) => {
+    expect(messageFor(changeEmailBody.safeParse(body), 'email')).toBe(message);
+  });
+});
+
+describe('emailChangeTokenBody', () => {
+  it('refuses an empty token', () => {
+    expect(messageFor(emailChangeTokenBody.safeParse({ token: '' }), 'token')).toBe(
+      'That link isn’t complete. Open it again from the email.',
+    );
   });
 });

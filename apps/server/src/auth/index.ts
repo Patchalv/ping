@@ -9,22 +9,34 @@ import { haveIBeenPwned } from 'better-auth/plugins';
 import type { ServerConfig } from '../config';
 import { type Database, schema } from '../db';
 import type { Mailer } from '../lib/email';
+import {
+  EMAIL_CHANGE_LIFETIME_SECONDS,
+  emailChangeEmail,
+  hashEmailChangeToken,
+} from '../lib/email-change';
 import { perEmailLimit, RESET_LIFETIME_SECONDS, resetEmail } from '../lib/password-reset';
 import { CLIENT_IP_HEADERS, clientIp } from './client-ip';
-import { findStaffForSignIn, findUserIdByEmail, insertAuditEvent, isActiveStaff } from './queries';
+import { reportEmailChangeSend } from './email-change';
+import {
+  findStaffForSignIn,
+  findUserIdByEmail,
+  insertAuditEvent,
+  isActiveStaff,
+  recordEmailChangeToken,
+} from './queries';
 
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 const DEACTIVATED_CODE = 'STAFF_MEMBER_DEACTIVATED';
 
-/** What password reset needs beyond the database. */
-export type PasswordResetServices = {
+/** What password reset and changing your email need beyond the database. */
+export type AuthEmailServices = {
   mailer: Mailer;
-  /** The URL people open, for reset links. Staging links to staging. */
+  /** The URL people open, for reset and email-change links. Staging links to staging. */
   appUrl: string;
   /** The breached-password check (Have I Been Pwned). Tests pass a fake. */
   isPasswordCompromised(password: string): Promise<boolean>;
-  /** Sentry, for a reset email that couldn't be sent. */
+  /** Sentry, for a reset or email-change email that couldn't be sent. */
   reportError(error: unknown): void;
 };
 
@@ -36,7 +48,7 @@ function invalidToken() {
 export function createAuth(
   database: Database,
   config: ServerConfig['auth'],
-  reset: PasswordResetServices,
+  services: AuthEmailServices,
 ) {
   // product.md › Password reset: 3 links per email per hour, on top of Better Auth's
   // per-IP limiter (3 a minute on /request-password-reset).
@@ -52,14 +64,42 @@ export function createAuth(
       const active = await database.withStaffTx(user.id, (tx) => isActiveStaff(tx, user.id));
       if (!active || !resetLimit.take(user.email)) return;
       // `held` (staging, not on the allowlist) is working as configured: not reported.
-      await reset.mailer.send(
-        resetEmail({ to: user.email, name: user.name, appUrl: reset.appUrl, token }),
+      await services.mailer.send(
+        resetEmail({ to: user.email, name: user.name, appUrl: services.appUrl, token }),
       );
     } catch (error) {
-      reset.reportError(error);
+      services.reportError(error);
       console.error(
         `Password reset email not sent (${error instanceof Error ? error.name : 'unknown error'})`,
       );
+    }
+  }
+
+  /**
+   * Emails an email-change link to the new address, called by Better Auth's change-email
+   * flow with the new address as `user.email`, then records the token's hash as the only
+   * live link for that Staff member. Reports the outcome to requestEmailChange (see
+   * auth/email-change.ts); a failed send is reported to Sentry and records nothing.
+   */
+  async function sendEmailChangeLink(
+    user: { id: string; email: string; name: string },
+    token: string,
+  ) {
+    try {
+      const result = await services.mailer.send(
+        emailChangeEmail({ to: user.email, name: user.name, appUrl: services.appUrl, token }),
+      );
+      // `held` (staging, not on the allowlist) is working as configured: not reported.
+      if (result === 'held') return reportEmailChangeSend('held');
+      await recordEmailChangeToken(database.authDb, {
+        staffId: user.id,
+        tokenHash: hashEmailChangeToken(token),
+        expiresAt: new Date(Date.now() + EMAIL_CHANGE_LIFETIME_SECONDS * 1000),
+      });
+      reportEmailChangeSend('sent');
+    } catch (error) {
+      services.reportError(error);
+      reportEmailChangeSend('failed');
     }
   }
 
@@ -88,6 +128,21 @@ export function createAuth(
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: ({ user, token }) => sendResetLink(user, token),
     },
+    // Changing your email (product.md › Profiles): Better Auth's change-email flow, with
+    // the link going straight to the new address (no confirmation from the old one, and
+    // never a change without the link). Ping's routes in features/staff are the only way
+    // in: they refuse an address in use (Better Auth answers 200 for one, to hide it), and
+    // record the audit events.
+    user: { changeEmail: { enabled: true, updateEmailWithoutVerification: false } },
+    emailVerification: {
+      sendOnSignUp: false,
+      expiresIn: EMAIL_CHANGE_LIFETIME_SECONDS,
+      sendVerificationEmail: ({ user, token }) => sendEmailChangeLink(user, token),
+    },
+    // Reached only through Ping's routes, which call auth.api directly (disabledPaths
+    // applies to HTTP only). /update-user would skip Ping's name rules, and
+    // /send-verification-email is a public route that setting sendVerificationEmail opens.
+    disabledPaths: ['/update-user', '/change-email', '/verify-email', '/send-verification-email'],
     session: { expiresIn: SEVEN_DAYS },
     // Better Auth turns it off outside production by default; Ping wants it everywhere.
     rateLimit: { enabled: true, storage: 'memory' },
@@ -145,7 +200,7 @@ export function createAuth(
         );
         if (!active) throw invalidToken();
         // When the breach check can't run, refuse rather than accept an unchecked password.
-        const compromised = await reset.isPasswordCompromised(newPassword).catch(() => {
+        const compromised = await services.isPasswordCompromised(newPassword).catch(() => {
           throw new APIError('SERVICE_UNAVAILABLE', {
             message: 'We couldn’t check your password just now. Try again in a minute.',
           });

@@ -30,8 +30,11 @@ export type MatrixRow = {
   actor: ActorKind;
   /** The Channel the action targets, or null for routes with no Channel. */
   channel: ChannelKind | null;
-  /** A Staff member the action targets, created before the request: an Invited person with a live invite. */
-  target?: 'invited';
+  /**
+   * A Staff member the action targets, created before the request: an Invited person with
+   * a live invite, or another active Staff member.
+   */
+  target?: 'invited' | 'active';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -62,6 +65,9 @@ const adminsOnly =
   (status: number) =>
   (actor: ActorKind): MatrixRow['expect'] =>
     ADMINS.has(actor) ? { allow: true, status } : { allow: false, status: 403 };
+
+/** Nobody: every active actor is refused with 403. */
+const refused = (): MatrixRow['expect'] => ({ allow: false, status: 403 });
 
 /** The rows. The first arrived with "Exemplar: create a Channel and open it" (#31). */
 export const MATRIX: MatrixRow[] = [
@@ -181,6 +187,66 @@ export const MATRIX: MatrixRow[] = [
       request: (ctx) => ({ path: `/api/staff/${ctx.target?.id}/invite`, method: 'DELETE' }),
     },
     adminsOnly(204),
+  ),
+
+  // Change your own display name and email: anyone, for themself. From "Profiles: display
+  // name and email" (#34).
+  ...rowsFor(
+    {
+      route: 'PATCH /api/staff/:staffId/name',
+      action: 'change their own display name',
+      channel: null,
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.actor.staff.id}/name`,
+        method: 'PATCH',
+        body: { name: 'Rosa Ferrer' },
+      }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/email',
+      action: 'change their own email (a link goes to the new address)',
+      channel: null,
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.actor.staff.id}/email`,
+        method: 'POST',
+        body: { email: `new-${randomUUID()}@example.test` },
+      }),
+    },
+    allowed(202),
+  ),
+
+  // Change someone else's display name or email: nobody, Admins included. An Admin who
+  // could change someone's email could reset their password and sign in as them.
+  ...rowsFor(
+    {
+      route: 'PATCH /api/staff/:staffId/name',
+      action: 'change someone else’s display name',
+      channel: null,
+      target: 'active',
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.target?.id}/name`,
+        method: 'PATCH',
+        body: { name: 'Rosa Ferrer' },
+      }),
+    },
+    refused,
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/staff/:staffId/email',
+      action: 'change someone else’s email',
+      channel: null,
+      target: 'active',
+      request: (ctx) => ({
+        path: `/api/staff/${ctx.target?.id}/email`,
+        method: 'POST',
+        body: { email: `new-${randomUUID()}@example.test` },
+      }),
+    },
+    refused,
   ),
 ];
 

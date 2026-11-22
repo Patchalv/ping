@@ -20,6 +20,20 @@ export function canReadOwnStaffMember(_actor: Actor): Decision {
   return allow();
 }
 
+/**
+ * Change a display name or email: your own only, Admins included (permissions.md › Staff
+ * members). An Admin who could change someone's email could reset their password and sign
+ * in as them.
+ */
+export function canChangeProfile(actor: Actor, targetStaffId: string): Decision {
+  if (actor.staffId === targetStaffId) return allow();
+  return deny({ kind: 'refused', message: 'You can only change your own name and email.' });
+}
+
+export function requireCanChangeProfile(actor: Actor, targetStaffId: string): void {
+  requireAllowed(canChangeProfile(actor, targetStaffId));
+}
+
 export function requireCanManageInvites(actor: Actor): void {
   requireAllowed(canManageInvites(actor));
 }

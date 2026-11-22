@@ -10,6 +10,7 @@ import {
   ResetPasswordPage,
 } from './features/password-reset/ResetPasswordPage';
 import { AcceptInvitePage } from './features/staff/AcceptInvitePage';
+import { CONFIRM_EMAIL_PATH, ConfirmEmailPage } from './features/staff/ConfirmEmailPage';
 import { ACCEPT_INVITE_PATH } from './features/staff/invite-token';
 import { api } from './lib/api';
 import { call } from './lib/api-client';
@@ -22,14 +23,22 @@ import { SignIn } from './SignIn';
 const router = createAppRouter();
 
 /**
- * The page a reset link or the sign-in page's "Forgot password?" link opens, signed in or
- * not. Like the invite page, they sit outside the router, which lives inside the signed-in
- * app. Their links out are plain, so leaving reloads the app.
+ * The page a reset or email-change link, or the sign-in page's "Forgot password?" link,
+ * opens, signed in or not. Like the invite page, they sit outside the router, which lives
+ * inside the signed-in app. Their links out are plain, so leaving reloads the app.
  */
-function passwordResetPage(): { page: 'forgot' } | { page: 'reset'; token: string } | null {
+function linkPage():
+  | { page: 'forgot' }
+  | { page: 'reset'; token: string }
+  | { page: 'confirm-email'; token: string }
+  | null {
   if (window.location.pathname === FORGOT_PASSWORD_PATH) return { page: 'forgot' };
   if (window.location.pathname === RESET_PASSWORD_PATH) {
     return { page: 'reset', token: tokenFromHash(window.location.hash) };
+  }
+  // An email-change link works signed out too, as when opened on another device.
+  if (window.location.pathname === CONFIRM_EMAIL_PATH) {
+    return { page: 'confirm-email', token: tokenFromHash(window.location.hash) };
   }
   return null;
 }
@@ -46,14 +55,16 @@ export function App() {
   const [inviteToken, setInviteToken] = useState(() =>
     window.location.pathname === ACCEPT_INVITE_PATH ? tokenFromHash(window.location.hash) : null,
   );
-  const [resetPage] = useState(passwordResetPage);
+  const [linkedPage] = useState(linkPage);
   return (
     <QueryClientProvider client={publicQueryClient}>
       <ServerUnreachableBanner />
-      {resetPage?.page === 'forgot' ? (
+      {linkedPage?.page === 'forgot' ? (
         <ForgotPasswordPage />
-      ) : resetPage?.page === 'reset' ? (
-        <ResetPasswordPage token={resetPage.token} />
+      ) : linkedPage?.page === 'reset' ? (
+        <ResetPasswordPage token={linkedPage.token} />
+      ) : linkedPage?.page === 'confirm-email' ? (
+        <ConfirmEmailPage token={linkedPage.token} />
       ) : inviteToken !== null ? (
         <AcceptInvitePage
           token={inviteToken}

@@ -3,9 +3,11 @@ import { ForbiddenError } from '../lib/errors';
 import type { Actor } from './actor';
 import { allow, deny } from './decision';
 import {
+  canChangeProfile,
   canListStaffMembers,
   canManageInvites,
   canReadOwnStaffMember,
+  requireCanChangeProfile,
   requireCanListStaffMembers,
   requireCanManageInvites,
 } from './staff';
@@ -45,5 +47,24 @@ describe('canReadOwnStaffMember', () => {
     ['an Admin', admin],
   ])('allows %s', (_name, actor) => {
     expect(canReadOwnStaffMember(actor)).toEqual(allow());
+  });
+});
+
+describe('canChangeProfile (display name and email)', () => {
+  it.each([
+    ['a Member', member],
+    ['an Admin', admin],
+  ])('allows %s to change their own', (_name, actor) => {
+    expect(canChangeProfile(actor, actor.staffId)).toEqual(allow());
+  });
+
+  it.each([
+    ['a Member', member, admin.staffId],
+    ['an Admin', admin, member.staffId],
+  ])('refuses %s changing someone else’s', (_name, actor, target) => {
+    expect(canChangeProfile(actor, target)).toEqual(
+      deny({ kind: 'refused', message: 'You can only change your own name and email.' }),
+    );
+    expect(() => requireCanChangeProfile(actor, target)).toThrow(ForbiddenError);
   });
 });

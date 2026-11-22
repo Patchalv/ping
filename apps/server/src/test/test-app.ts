@@ -2,7 +2,7 @@
 // the permission matrix and the route-coverage guard.
 import { randomUUID } from 'node:crypto';
 import { createApp, type InviteServices } from '../app';
-import { type Auth, createAuth, type PasswordResetServices } from '../auth';
+import { type Auth, type AuthEmailServices, createAuth } from '../auth';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
 import { createMailer, type MailEnvironment, type Mailer, type OutgoingMail } from '../lib/email';
@@ -112,8 +112,8 @@ export function offlineInviteServices(): InviteServices {
   };
 }
 
-/** Password-reset services for an auth instance that never sends mail (unit tests). */
-export function offlineResetServices(): PasswordResetServices {
+/** Auth email services (reset, email change) for an auth instance that never sends mail (unit tests). */
+export function offlineAuthEmailServices(): AuthEmailServices {
   return {
     mailer: fakeMailer({ sent: [], failing: false }),
     appUrl: TEST_ORIGIN,
@@ -125,7 +125,8 @@ export function offlineResetServices(): PasswordResetServices {
 /** The token in the latest email sent to `email` whose link opens `path`. */
 function linkTokenFor(mailbox: Mailbox, email: string, path: string): string {
   const mail = mailbox.sent.findLast((sent) => sent.to === email && sent.text.includes(path));
-  const token = mail?.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1];
+  // Email-change tokens are JWTs, so dots count too.
+  const token = mail?.text.match(/#token=([A-Za-z0-9_.-]+)/)?.[1];
   if (!token) throw new Error(`No ${path} email was sent to that address`);
   return token;
 }
@@ -138,6 +139,11 @@ export function inviteTokenFor(mailbox: Mailbox, email: string): string {
 /** The token in the latest password-reset email sent to `email`. */
 export function resetTokenFor(mailbox: Mailbox, email: string): string {
   return linkTokenFor(mailbox, email, '/reset-password#');
+}
+
+/** The token in the latest email-change email sent to `email` (the new address). */
+export function emailChangeTokenFor(mailbox: Mailbox, email: string): string {
+  return linkTokenFor(mailbox, email, '/confirm-email#');
 }
 
 /** A fresh client IP per call, so Better Auth's rate limiter treats each test apart. */

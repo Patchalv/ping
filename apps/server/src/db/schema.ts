@@ -194,7 +194,9 @@ export type AuditEventKind =
   | 'sign_in_failed'
   | 'staff_invited'
   | 'staff_invite_resent'
-  | 'staff_invite_cancelled';
+  | 'staff_invite_cancelled'
+  | 'email_change_requested'
+  | 'email_changed';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email
