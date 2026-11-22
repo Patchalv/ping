@@ -127,6 +127,7 @@ test('a company Admin’s edit reads "edited by", and deleting a Thread counts o
   // It's gone for Laura too.
   await laura.reload();
   await expect(laura.getByText('Thread not found')).toBeVisible();
+  await Promise.all([laura.context().close(), marta.context().close()]);
 });
 
 test('the author edits a Thread’s title and description', async ({ page }) => {

@@ -16,8 +16,10 @@ export const SEED = {
 let nextIp = 1;
 export function useOwnClientIp(): void {
   test.beforeEach(async ({ page }, testInfo) => {
-    const octet = (testInfo.workerIndex * 32 + nextIp++) % 250;
-    await page.setExtraHTTPHeaders({ 'fly-client-ip': `192.0.2.${octet + 1}` });
+    // Each worker has its own block, so a retried worker (a new index) never reuses one.
+    const block = testInfo.workerIndex % 250;
+    const octet = nextIp++ % 250;
+    await page.setExtraHTTPHeaders({ 'fly-client-ip': `10.0.${block}.${octet + 1}` });
   });
 }
 
