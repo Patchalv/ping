@@ -42,7 +42,14 @@ export type ChannelView = {
   memberCount: number;
   isMember: boolean;
   isChannelAdmin: boolean;
+  isArchived: boolean;
 };
 
 /** A row in the sidebar's Channels section: a Channel the Staff member is a member of. */
 export type SidebarChannel = Pick<ChannelView, 'id' | 'name' | 'visibility'>;
+
+/** A row in Browse channels: a Public channel, and whether the Staff member is in it. */
+export type BrowseChannel = Pick<
+  ChannelView,
+  'id' | 'name' | 'description' | 'memberCount' | 'isMember'
+>;

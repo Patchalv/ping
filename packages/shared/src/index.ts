@@ -15,6 +15,7 @@ export {
   signInBody,
 } from './auth';
 export {
+  type BrowseChannel,
   CHANNEL_DESCRIPTION_MAX,
   CHANNEL_NAME_MAX,
   type ChannelView,

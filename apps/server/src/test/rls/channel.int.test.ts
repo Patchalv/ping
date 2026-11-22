@@ -417,6 +417,84 @@ describe('channel_member DELETE', () => {
   });
 });
 
+// joined_at decides who is auto-promoted when a sole Channel admin is Deactivated (the
+// earliest wins), so nobody may choose it: an insert must use the transaction's own time,
+// and ping_app may update only is_channel_admin.
+describe('channel_member joined_at', () => {
+  const joinAt = (query: Query, channelId: string, staffId: string, joinedAt: string) =>
+    query('insert into channel_member (channel_id, staff_id, joined_at) values ($1, $2, $3)', [
+      channelId,
+      staffId,
+      joinedAt,
+    ]);
+
+  it('lets a join that leaves joined_at to its default through, at the transaction’s time', async () => {
+    const member = await createStaffMember();
+    const channel = await insertChannel({ visibility: 'public' });
+    await asPingApp(member.id, async (query) => {
+      await join(query, channel.id, member.id);
+      const { rows } = await query<{ same: boolean }>(
+        'select joined_at = now() as same from channel_member where channel_id = $1 and staff_id = $2',
+        [channel.id, member.id],
+      );
+      expect(rows).toEqual([{ same: true }]);
+    });
+  });
+
+  it('refuses a Staff member backdating their own join to a Public channel', async () => {
+    const member = await createStaffMember();
+    const channel = await insertChannel({ visibility: 'public' });
+    await asPingApp(member.id, async (query) => {
+      await expect(joinAt(query, channel.id, member.id, '2020-01-01T00:00:00Z')).rejects.toThrow(
+        /row-level security/,
+      );
+    });
+  });
+
+  it('refuses a Channel admin adding someone with a backdated joined_at', async () => {
+    const channelAdmin = await createStaffMember();
+    const other = await createStaffMember();
+    const channel = await insertChannel({
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }],
+    });
+    await asPingApp(channelAdmin.id, async (query) => {
+      await expect(joinAt(query, channel.id, other.id, '2020-01-01T00:00:00Z')).rejects.toThrow(
+        /row-level security/,
+      );
+    });
+  });
+
+  it('refuses a Channel admin editing anyone’s joined_at, their own included', async () => {
+    const channelAdmin = await createStaffMember();
+    const member = await createStaffMember();
+    const channel = await insertChannel({
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }, { staffId: member.id }],
+    });
+    for (const staffId of [channelAdmin.id, member.id]) {
+      await asPingApp(channelAdmin.id, async (query) => {
+        await expect(
+          query(
+            `update channel_member set joined_at = '2020-01-01T00:00:00Z'
+              where channel_id = $1 and staff_id = $2`,
+            [channel.id, staffId],
+          ),
+        ).rejects.toThrow(/permission denied/);
+      });
+    }
+  });
+
+  it('still lets a Channel admin promote a member', async () => {
+    const channelAdmin = await createStaffMember();
+    const member = await createStaffMember();
+    const channel = await insertChannel({
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }, { staffId: member.id }],
+    });
+    await asPingApp(channelAdmin.id, async (query) => {
+      expect((await promote(query, channel.id, member.id)).rowCount).toBe(1);
+    });
+  });
+});
+
 // The first system function: inserts a Channel and its first Channel admin together, for
 // the Staff member in app.staff_id.
 describe('create_channel', () => {

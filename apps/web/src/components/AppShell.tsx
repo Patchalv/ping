@@ -3,7 +3,15 @@
 // screen, and any other route replaces it.
 import type { SidebarChannel } from '@ping/shared';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { HashIcon, LockIcon, PlusIcon, SearchIcon, UserPenIcon, UsersIcon } from 'lucide-react';
+import {
+  CompassIcon,
+  HashIcon,
+  LockIcon,
+  PlusIcon,
+  SearchIcon,
+  UserPenIcon,
+  UsersIcon,
+} from 'lucide-react';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
 import { DropdownMenuItem, DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
@@ -161,6 +169,15 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
         <SidebarSeparator />
         <SidebarGroup>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                className="text-sidebar-muted-foreground"
+                render={<Link to="/browse" activeProps={{ 'aria-current': 'page' }} />}
+              >
+                <CompassIcon aria-hidden="true" />
+                <span>Browse channels</span>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton className="text-sidebar-muted-foreground" onClick={onCreate}>
                 <PlusIcon aria-hidden="true" />
