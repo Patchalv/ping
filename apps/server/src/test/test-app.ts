@@ -125,7 +125,8 @@ export function offlineResetServices(): PasswordResetServices {
 /** The token in the latest email sent to `email` whose link opens `path`. */
 function linkTokenFor(mailbox: Mailbox, email: string, path: string): string {
   const mail = mailbox.sent.findLast((sent) => sent.to === email && sent.text.includes(path));
-  const token = mail?.text.match(/#token=([A-Za-z0-9_-]+)/)?.[1];
+  // Email-change tokens are JWTs, so dots count too.
+  const token = mail?.text.match(/#token=([A-Za-z0-9_.-]+)/)?.[1];
   if (!token) throw new Error(`No ${path} email was sent to that address`);
   return token;
 }
@@ -138,6 +139,11 @@ export function inviteTokenFor(mailbox: Mailbox, email: string): string {
 /** The token in the latest password-reset email sent to `email`. */
 export function resetTokenFor(mailbox: Mailbox, email: string): string {
   return linkTokenFor(mailbox, email, '/reset-password#');
+}
+
+/** The token in the latest email-change email sent to `email` (the new address). */
+export function emailChangeTokenFor(mailbox: Mailbox, email: string): string {
+  return linkTokenFor(mailbox, email, '/confirm-email#');
 }
 
 /** A fresh client IP per call, so Better Auth's rate limiter treats each test apart. */

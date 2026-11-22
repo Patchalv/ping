@@ -45,7 +45,12 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
 export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
-  const target = row.target === 'invited' ? await createInvitedStaffMember() : undefined;
+  const target =
+    row.target === 'invited'
+      ? await createInvitedStaffMember()
+      : row.target === 'active'
+        ? await createStaffMember()
+        : undefined;
   const request = row.request({ actor, channel, target });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();

@@ -14,6 +14,7 @@ import {
   DialogTitle,
 } from '#/components/ui/dialog';
 import { FormError } from '../../components/FormError';
+import { StaffAvatar } from '../../components/StaffAvatar';
 import { useCancelInvite, useResendInvite, useStaffMembers } from './api';
 import { InviteDialog } from './InviteDialog';
 
@@ -73,7 +74,8 @@ export function StaffMembersPage() {
 function StaffRow({ person }: { person: StaffMemberView }) {
   return (
     <li className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
-      <div className="grid min-w-0 flex-1 basis-56">
+      <StaffAvatar staff={person} />
+      <div className="grid min-w-0 flex-1 basis-48">
         <span className="truncate font-semibold">{person.name}</span>
         <span className="truncate text-small text-muted-foreground">{person.email}</span>
       </div>

@@ -150,6 +150,40 @@ export async function replaceInvite(
   return true;
 }
 
+/**
+ * Changes the actor's own display name. Names live only on `user` and every screen reads
+ * them at view time, so the new name shows everywhere at once.
+ */
+export async function changeOwnName({ tx, actor }: ActorTx, name: string): Promise<void> {
+  await tx.update(user).set({ name, updatedAt: new Date() }).where(eq(user.id, actor.staffId));
+}
+
+/**
+ * Who an email address belongs to, matched case-insensitively: `self`, `taken` (by anyone
+ * else, Invited and Deactivated people included), or undefined when it's free.
+ */
+export async function findEmailOwner(
+  { tx, actor }: ActorTx,
+  email: string,
+): Promise<'self' | 'taken' | undefined> {
+  const rows = await tx
+    .select({ id: user.id })
+    .from(user)
+    .where(sql`lower(${user.email}) = lower(${email})`);
+  const row = rows[0];
+  if (!row) return undefined;
+  return row.id === actor.staffId ? 'self' : 'taken';
+}
+
+/** Records that the actor asked for an email-change link. Never the addresses. */
+export async function recordEmailChangeRequested({ tx, actor }: ActorTx): Promise<void> {
+  await tx.insert(auditEvent).values({
+    actorId: actor.staffId,
+    kind: 'email_change_requested',
+    targetStaffId: actor.staffId,
+  });
+}
+
 /** Records that the invite email didn't go, so the list shows "Email not sent, Resend". */
 export async function markInviteEmailFailed({ tx }: ActorTx, staffId: string): Promise<void> {
   await tx

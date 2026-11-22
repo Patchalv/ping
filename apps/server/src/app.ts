@@ -9,6 +9,7 @@ import type { SentrySettings } from './config';
 import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
+import { emailChangeRoutes } from './features/staff/email-change-routes';
 import { staffRoutes } from './features/staff/routes';
 import type { Mailer } from './lib/email';
 import { errorResponse } from './lib/errors';
@@ -91,7 +92,11 @@ export function createApp(options: AppOptions) {
           options.captureError?.(error, { method: c.req.method, path: c.req.routePath }),
       }),
     )
-    .route('/api/invites', acceptInviteRoutes({ auth: options.auth, ...options.invites }));
+    .route('/api/invites', acceptInviteRoutes({ auth: options.auth, ...options.invites }))
+    .route(
+      '/api/email-change',
+      emailChangeRoutes({ auth: options.auth, database: options.database }),
+    );
 
   // Typed errors and Hono's own (a malformed JSON body, the Origin check) become their
   // status and one envelope the UI can show, and aren't reported. Anything else is a bug: a

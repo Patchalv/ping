@@ -2,7 +2,10 @@
 // hooks and never call hc or read a response themselves. Mutations invalidate by key.
 import type {
   AcceptInviteBody,
+  ChangeEmailBody,
+  ChangeNameBody,
   CurrentStaffMember,
+  EmailChangeConfirmed,
   InviteStaffBody,
   InviteView,
   StaffMemberView,
@@ -74,6 +77,42 @@ export function useCancelInvite() {
         json: () => (res.ok ? Promise.resolve() : res.json()),
       };
     });
+  });
+}
+
+/**
+ * Changes your own display name. The name lives in Better Auth's session too, so the
+ * caller refetches the session; the Staff members list is invalidated here.
+ */
+export function useChangeName(staffId: string) {
+  return useStaffMutation(
+    (body: ChangeNameBody): Promise<{ id: string; name: string }> =>
+      call(() => staff[':staffId'].name.$patch({ param: { staffId }, json: body })),
+  );
+}
+
+/** Sends a link to the new address. Nothing changes until it's opened. */
+export function useRequestEmailChange(staffId: string) {
+  return useMutation({
+    mutationFn: async (body: ChangeEmailBody): Promise<void> => {
+      await call(async () => {
+        const res = await staff[':staffId'].email.$post({ param: { staffId }, json: body });
+        // 202: no body to read.
+        return {
+          ok: res.ok,
+          status: res.status,
+          json: () => (res.ok ? Promise.resolve() : res.json()),
+        };
+      });
+    },
+  });
+}
+
+/** Opens an email-change link: the change takes effect. Works signed out. */
+export function useConfirmEmailChange() {
+  return useMutation({
+    mutationFn: (token: string): Promise<EmailChangeConfirmed> =>
+      call(() => api.api['email-change'].confirm.$post({ json: { token } })),
   });
 }
 

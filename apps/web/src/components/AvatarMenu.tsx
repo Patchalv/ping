@@ -1,5 +1,4 @@
 import { type ReactNode, useState } from 'react';
-import { Avatar, AvatarFallback } from '#/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -14,21 +13,14 @@ import {
 import { authClient } from '../lib/auth-client';
 import { isThemeChoice, setThemeChoice, useThemeChoice } from '../lib/theme';
 import { FormError } from './FormError';
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase())
-    .join('');
+import { StaffAvatar } from './StaffAvatar';
 
 /** The signed-in Staff member, as Better Auth's session gives it. */
-export type User = { name: string; email: string };
+type User = { id: string; name: string; email: string };
 
 /**
- * The avatar on the right of the top bar: who's signed in, any links passed as children
- * (the Admin screens), the theme, and sign-out.
+ * The avatar on the right of the top bar: who's signed in, any items passed as children
+ * (the profile, the Admin screens), the theme, and sign-out.
  */
 export function AvatarMenu({ user, children }: { user: User; children?: ReactNode }) {
   const theme = useThemeChoice();
@@ -49,11 +41,7 @@ export function AvatarMenu({ user, children }: { user: User; children?: ReactNod
         aria-label={`Account: ${user.name}`}
         className="rounded-md outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
       >
-        <Avatar className="rounded-md after:rounded-md after:border-0">
-          <AvatarFallback className="rounded-md bg-sidebar-primary text-small font-bold text-sidebar-primary-foreground">
-            {initials(user.name)}
-          </AvatarFallback>
-        </Avatar>
+        <StaffAvatar staff={user} shape="square" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-64">
         <DropdownMenuGroup>

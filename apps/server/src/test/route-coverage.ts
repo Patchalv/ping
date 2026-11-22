@@ -22,6 +22,11 @@ const ROUTE_ALLOWLIST: readonly string[] = [
   // them directly, with expired, used and unknown tokens.
   'POST /api/invites/lookup',
   'POST /api/invites/accept',
+  // Confirming an email change (#34): the link may be opened signed out or on another
+  // device, so the token, not a session, says whose change it is. Tested directly in
+  // features/staff/profile-routes.int.test.ts, with expired, used, replaced and unknown
+  // tokens, a Deactivated person's link, and someone else signed in.
+  'POST /api/email-change/confirm',
 ];
 
 type RegisteredRoute = { method: string; path: string };

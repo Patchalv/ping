@@ -9,15 +9,27 @@ import { haveIBeenPwned } from 'better-auth/plugins';
 import type { ServerConfig } from '../config';
 import { type Database, schema } from '../db';
 import type { Mailer } from '../lib/email';
+import {
+  EMAIL_CHANGE_LIFETIME_SECONDS,
+  emailChangeEmail,
+  hashEmailChangeToken,
+} from '../lib/email-change';
 import { perEmailLimit, RESET_LIFETIME_SECONDS, resetEmail } from '../lib/password-reset';
 import { CLIENT_IP_HEADERS, clientIp } from './client-ip';
-import { findStaffForSignIn, findUserIdByEmail, insertAuditEvent, isActiveStaff } from './queries';
+import { reportEmailChangeSend } from './email-change';
+import {
+  findStaffForSignIn,
+  findUserIdByEmail,
+  insertAuditEvent,
+  isActiveStaff,
+  recordEmailChangeToken,
+} from './queries';
 
 const SEVEN_DAYS = 60 * 60 * 24 * 7;
 
 const DEACTIVATED_CODE = 'STAFF_MEMBER_DEACTIVATED';
 
-/** What password reset needs beyond the database. */
+/** What password reset and changing your email need beyond the database. */
 export type PasswordResetServices = {
   mailer: Mailer;
   /** The URL people open, for reset links. Staging links to staging. */
@@ -63,6 +75,34 @@ export function createAuth(
     }
   }
 
+  /**
+   * Emails an email-change link to the new address, called by Better Auth's change-email
+   * flow with the new address as `user.email`, then records the token's hash as the only
+   * live link for that Staff member. Reports the outcome to requestEmailChange (see
+   * auth/email-change.ts); a failed send is reported to Sentry and records nothing.
+   */
+  async function sendEmailChangeLink(
+    user: { id: string; email: string; name: string },
+    token: string,
+  ) {
+    try {
+      const result = await reset.mailer.send(
+        emailChangeEmail({ to: user.email, name: user.name, appUrl: reset.appUrl, token }),
+      );
+      // `held` (staging, not on the allowlist) is working as configured: not reported.
+      if (result === 'held') return reportEmailChangeSend('held');
+      await recordEmailChangeToken(database.authDb, {
+        staffId: user.id,
+        tokenHash: hashEmailChangeToken(token),
+        expiresAt: new Date(Date.now() + EMAIL_CHANGE_LIFETIME_SECONDS * 1000),
+      });
+      reportEmailChangeSend('sent');
+    } catch (error) {
+      reset.reportError(error);
+      reportEmailChangeSend('failed');
+    }
+  }
+
   return betterAuth({
     appName: 'Ping',
     baseURL: config.baseUrl,
@@ -88,6 +128,21 @@ export function createAuth(
       revokeSessionsOnPasswordReset: true,
       sendResetPassword: ({ user, token }) => sendResetLink(user, token),
     },
+    // Changing your email (product.md › Profiles): Better Auth's change-email flow, with
+    // the link going straight to the new address (no confirmation from the old one, and
+    // never a change without the link). Ping's routes in features/staff are the only way
+    // in: they refuse an address in use (Better Auth answers 200 for one, to hide it), and
+    // record the audit events.
+    user: { changeEmail: { enabled: true, updateEmailWithoutVerification: false } },
+    emailVerification: {
+      sendOnSignUp: false,
+      expiresIn: EMAIL_CHANGE_LIFETIME_SECONDS,
+      sendVerificationEmail: ({ user, token }) => sendEmailChangeLink(user, token),
+    },
+    // Reached only through Ping's routes, which call auth.api directly (disabledPaths
+    // applies to HTTP only). /update-user would skip Ping's name rules, and
+    // /send-verification-email is a public route that setting sendVerificationEmail opens.
+    disabledPaths: ['/update-user', '/change-email', '/verify-email', '/send-verification-email'],
     session: { expiresIn: SEVEN_DAYS },
     // Better Auth turns it off outside production by default; Ping wants it everywhere.
     rateLimit: { enabled: true, storage: 'memory' },

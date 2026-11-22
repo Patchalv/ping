@@ -3,32 +3,53 @@
 // validate(), then does its work in withActorTx with a require… helper, like the Channel
 // exemplar. Invite emails go out after the transaction commits, so a rolled-back invite
 // never sends a link; a failed send marks the invite and is reported to Sentry.
-import { inviteStaffBody, type StaffMemberView, type StaffState, staffParams } from '@ping/shared';
+import {
+  changeEmailBody,
+  changeNameBody,
+  inviteStaffBody,
+  type StaffMemberView,
+  type StaffState,
+  staffParams,
+} from '@ping/shared';
 import { type Context, Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
+import { requestEmailChange } from '../../auth/email-change';
 import type { Database } from '../../db';
 import type { Mailer, SendResult } from '../../lib/email';
-import { ConflictError, NotFoundError } from '../../lib/errors';
+import {
+  ConflictError,
+  NotFoundError,
+  ServiceUnavailableError,
+  ValidationError,
+} from '../../lib/errors';
 import { inviteEmail, inviteExpiry, newInviteToken } from '../../lib/invite';
 import { rateLimit } from '../../lib/rate-limit';
 import { publish } from '../../lib/sse';
+import { isUniqueViolation } from '../../lib/unique-violation';
 import { validate } from '../../lib/validate';
 import {
+  requireCanChangeProfile,
   requireCanListStaffMembers,
   requireCanManageInvites,
   requireCanReadOwnStaffMember,
 } from '../../permissions/staff';
 import {
   cancelInvite,
+  changeOwnName,
   createInvite,
   currentStaffMember,
+  findEmailOwner,
   findEmailOwnerState,
   findStaffMember,
   listStaffMembers,
   markInviteEmailFailed,
+  recordEmailChangeRequested,
   replaceInvite,
 } from './queries';
+
+/** One message for any address in use: a Member mustn't learn whether someone is Invited. */
+const EMAIL_TAKEN = 'Someone in Ping already uses that email.';
 
 const EMAIL_IN_USE: Record<StaffState, string> = {
   active: 'Someone with that email is already in Ping.',
@@ -52,14 +73,6 @@ function invitedView(
   };
 }
 
-/** Postgres's unique_violation: two Admins inviting the same email at once. */
-function isUniqueViolation(error: unknown): boolean {
-  for (let e: unknown = error; e instanceof Error; e = e.cause) {
-    if ((e as { code?: unknown }).code === '23505') return true;
-  }
-  return false;
-}
-
 export function staffRoutes(options: {
   auth: Auth;
   database: Database;
@@ -73,6 +86,9 @@ export function staffRoutes(options: {
   const withActorTx = createWithActorTx(database);
   // Invite, Resend and Cancel are limited per client IP; the first two send email.
   const inviteLimit = rateLimit({ name: 'staff-invite', max: 30, windowMs: 10 * 60 * 1000 });
+  // Each email-change request sends an email. Server-side auth.api calls skip Better
+  // Auth's own limiter, so Ping limits it here.
+  const emailChangeLimit = rateLimit({ name: 'email-change', max: 10, windowMs: 60 * 60 * 1000 });
 
   /**
    * Sends the invite email, after the invite's transaction has committed, so a rolled-back
@@ -122,6 +138,66 @@ export function staffRoutes(options: {
         });
         return c.json(me);
       })
+
+      // Change your own display name. Nobody can change someone else's, Admins included.
+      .patch(
+        '/:staffId/name',
+        signedIn(auth),
+        validate('param', staffParams),
+        validate('json', changeNameBody),
+        async (c) => {
+          const { staffId } = c.req.valid('param');
+          const { name } = c.req.valid('json');
+          await withActorTx(c, async (ctx) => {
+            requireCanChangeProfile(ctx.actor, staffId);
+            await changeOwnName(ctx, name);
+          });
+          publish({ kind: 'staff.changed', staffId });
+          return c.json({ id: staffId, name });
+        },
+      )
+
+      // Change your own email: Better Auth's change-email flow sends a link to the new
+      // address, and the email changes only when it's opened (/api/email-change/confirm).
+      // Nobody can change someone else's, Admins included.
+      .post(
+        '/:staffId/email',
+        signedIn(auth),
+        emailChangeLimit,
+        validate('param', staffParams),
+        validate('json', changeEmailBody),
+        async (c) => {
+          const { staffId } = c.req.valid('param');
+          // Parsed: the email is already lowercased.
+          const { email } = c.req.valid('json');
+          await withActorTx(c, async (ctx) => {
+            requireCanChangeProfile(ctx.actor, staffId);
+            const owner = await findEmailOwner(ctx, email);
+            if (owner === 'self') {
+              const message = 'That’s already your email.';
+              throw new ValidationError(message, [{ path: 'email', message }]);
+            }
+            // Better Auth answers 200 for an address in use, to hide it, so Ping checks.
+            if (owner === 'taken') throw new ConflictError(EMAIL_TAKEN);
+          });
+
+          // After the check's transaction, so SMTP never holds a pooled connection open. A
+          // failed send was already reported; `held` is staging working as configured.
+          const sent = await requestEmailChange(auth, {
+            headers: c.req.raw.headers,
+            newEmail: email,
+          });
+          if (sent !== 'sent') {
+            throw new ServiceUnavailableError(
+              'We couldn’t send an email to that address. Check it, then try again.',
+            );
+          }
+          // The second transaction is the one deliberate exception to "one withActorTx
+          // per route", as with invites: the request is recorded only once the link went.
+          await withActorTx(c, (ctx) => recordEmailChangeRequested(ctx));
+          return c.body(null, 202);
+        },
+      )
 
       // Invite someone by name, email and role.
       .post(

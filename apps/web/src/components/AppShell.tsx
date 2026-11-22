@@ -3,10 +3,10 @@
 // screen, and any other route replaces it.
 import type { SidebarChannel } from '@ping/shared';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { HashIcon, LockIcon, PlusIcon, SearchIcon, UsersIcon } from 'lucide-react';
+import { HashIcon, LockIcon, PlusIcon, SearchIcon, UserPenIcon, UsersIcon } from 'lucide-react';
 import { type ComponentProps, type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
-import { DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
+import { DropdownMenuItem, DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
 import { Input } from '#/components/ui/input';
 import {
   Sidebar,
@@ -25,22 +25,28 @@ import {
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
 import { useCurrentStaffMember } from '../features/staff/api';
+import { ProfileDialog } from '../features/staff/ProfileDialog';
 import { authClient } from '../lib/auth-client';
 import { AvatarMenu } from './AvatarMenu';
 
 export function AppShell() {
-  const { data: session } = authClient.useSession();
+  const { data: session, refetch: refetchSession } = authClient.useSession();
   // Only to hide the Admin screens' link; the server decides who may use them.
   const me = useCurrentStaffMember();
   const navigate = useNavigate();
   const isHome = useRouterState({ select: (state) => state.location.pathname === '/' });
   const [creating, setCreating] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
 
   return (
     <SidebarProvider className="grid h-dvh grid-rows-[auto_minmax(0,1fr)] bg-chrome">
       <TopBar>
         {session ? (
           <AvatarMenu user={session.user}>
+            <DropdownMenuItem onClick={() => setEditingProfile(true)}>
+              <UserPenIcon aria-hidden="true" />
+              Edit profile
+            </DropdownMenuItem>
             {me.data?.role === 'admin' ? (
               <DropdownMenuLinkItem render={<Link to="/staff" />}>
                 <UsersIcon aria-hidden="true" />
@@ -68,6 +74,13 @@ export function AppShell() {
             setCreating(false);
             void navigate({ to: '/channels/$channelId', params: { channelId: channel.id } });
           }}
+        />
+      ) : null}
+      {editingProfile && session ? (
+        <ProfileDialog
+          me={session.user}
+          onNameChanged={() => void refetchSession()}
+          onClose={() => setEditingProfile(false)}
         />
       ) : null}
     </SidebarProvider>

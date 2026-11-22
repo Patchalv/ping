@@ -1,10 +1,10 @@
 // The auth module's queries. Each takes a transaction from withStaffTx or
 // withAnonymousTx, except the user lookup, which reads Better Auth's own table.
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, like, sql } from 'drizzle-orm';
 import { type Database, schema, type Tx } from '../db';
 import type { Actor } from '../permissions/actor';
 
-const { auditEvent, staffMember, user } = schema;
+const { auditEvent, staffMember, user, verification } = schema;
 
 /**
  * The acting Staff member's role, read through the staff_member policy, which shows a
@@ -51,6 +51,48 @@ export async function insertAuditEvent(
   event: typeof auditEvent.$inferInsert,
 ): Promise<void> {
   await tx.insert(auditEvent).values(event);
+}
+
+/** The verification row identifier for an email-change token: its hash, never the token. */
+const emailChangeIdentifier = (tokenHash: string) => `email-change:${tokenHash}`;
+
+/**
+ * Records a new email-change link as the only live one for that Staff member. Better
+ * Auth's token is a stateless JWT; this row is what makes the link work once, and makes
+ * an older link stop working when a newer one is sent.
+ */
+export async function recordEmailChangeToken(
+  authDb: Database['authDb'],
+  input: { staffId: string; tokenHash: string; expiresAt: Date },
+): Promise<void> {
+  await authDb.transaction(async (tx) => {
+    await tx
+      .delete(verification)
+      .where(
+        and(like(verification.identifier, 'email-change:%'), eq(verification.value, input.staffId)),
+      );
+    await tx.insert(verification).values({
+      identifier: emailChangeIdentifier(input.tokenHash),
+      value: input.staffId,
+      expiresAt: input.expiresAt,
+    });
+  });
+}
+
+/**
+ * Uses up an email-change link: deletes its row and returns whose it was and when it
+ * expires. Undefined for a link that's unknown, already used, or replaced by a newer one.
+ * The delete is atomic, so two tabs opening the same link can't both use it.
+ */
+export async function takeEmailChangeToken(
+  authDb: Database['authDb'],
+  tokenHash: string,
+): Promise<{ staffId: string; expiresAt: Date } | undefined> {
+  const rows = await authDb
+    .delete(verification)
+    .where(eq(verification.identifier, emailChangeIdentifier(tokenHash)))
+    .returning({ staffId: verification.value, expiresAt: verification.expiresAt });
+  return rows[0];
 }
 
 /** The user an email belongs to, matched case-insensitively. Never logged. */

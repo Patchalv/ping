@@ -33,7 +33,13 @@ export {
 export {
   type AcceptInviteBody,
   acceptInviteBody,
+  type ChangeEmailBody,
+  type ChangeNameBody,
   type CurrentStaffMember,
+  changeEmailBody,
+  changeNameBody,
+  type EmailChangeConfirmed,
+  emailChangeTokenBody,
   type InviteStaffBody,
   type InviteView,
   inviteStaffBody,

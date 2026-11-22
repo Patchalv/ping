@@ -25,6 +25,38 @@ export const inviteStaffBody = z.object({
 });
 export type InviteStaffBody = z.input<typeof inviteStaffBody>;
 
+/** PATCH /api/staff/:staffId/name: your own display name. */
+export const changeNameBody = z.object({
+  name: z
+    .string({ error: 'Enter your name.' })
+    .trim()
+    .min(1, 'Enter your name.')
+    .max(STAFF_NAME_MAX, `Keep your name to ${STAFF_NAME_MAX} characters or fewer.`),
+});
+export type ChangeNameBody = z.input<typeof changeNameBody>;
+
+/** POST /api/staff/:staffId/email: asks for a link to the new address. */
+export const changeEmailBody = z.object({
+  email: z
+    .string({ error: 'Enter your new email address.' })
+    .trim()
+    .min(1, 'Enter your new email address.')
+    .pipe(z.email({ error: 'Enter an email address like name@example.com.' }))
+    .transform((email) => email.toLowerCase()),
+});
+export type ChangeEmailBody = z.input<typeof changeEmailBody>;
+
+/** POST /api/email-change/confirm. The token travels in the body, never the URL. */
+export const emailChangeTokenBody = z.object({
+  token: z
+    .string({ error: 'That link isn’t complete. Open it again from the email.' })
+    .min(1, 'That link isn’t complete. Open it again from the email.')
+    .max(2000, 'That link isn’t complete. Open it again from the email.'),
+});
+
+/** What confirming an email change answers: the address now in use. */
+export type EmailChangeConfirmed = { email: string };
+
 /** Routes under /api/staff/:staffId. */
 export const staffParams = z.object({
   staffId: z.uuid({ error: 'That isn’t a Staff member.' }),
