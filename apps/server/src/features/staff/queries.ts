@@ -190,7 +190,7 @@ export async function recordEmailChangeRequested({ tx, actor }: ActorTx): Promis
  * run one at a time: two Admins can't demote each other at once and leave Spark with
  * none, and two Deactivations never race on one Channel's Channel admins.
  */
-export async function lockStaffManagement({ tx }: ActorTx): Promise<string[]> {
+export async function lockAndReadActiveAdmins({ tx }: ActorTx): Promise<string[]> {
   await tx.execute(sql`select pg_advisory_xact_lock(hashtext('ping.staff_management'))`);
   const rows = await tx
     .select({ id: staffMember.id })

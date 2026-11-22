@@ -32,13 +32,10 @@ import { useInviteStaffMember, useReactivateStaffMember, useStaffMembers } from 
 
 const defaultValues: InviteStaffBody = { name: '', email: '', role: 'member' };
 
-/** The Deactivated Staff member with this (lowercased) email, if any. */
-const deactivatedWith = (staff: StaffMemberView[] | undefined, email: string) =>
-  staff?.find((person) => person.state === 'deactivated' && person.email.toLowerCase() === email);
-
 /**
- * Invite someone by name, email and role (product.md › Invites). A Deactivated person's
- * email offers Reactivate instead.
+ * Invite someone by name, email and role (product.md › Invites). When the server refuses
+ * an email in use, and the freshly read list shows it belongs to a Deactivated Staff
+ * member, the dialog offers Reactivate instead.
  */
 export function InviteDialog({ onClose }: { onClose(): void }) {
   const invite = useInviteStaffMember();
@@ -56,23 +53,20 @@ export function InviteDialog({ onClose }: { onClose(): void }) {
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
       const body = inviteStaffBody.parse(value);
-      const known = deactivatedWith(staff.data, body.email);
-      if (known) {
-        setReactivateOffer(known);
-        return;
-      }
       try {
         await invite.mutateAsync(body);
         onClose();
       } catch (error) {
         if (!(error instanceof ApiError)) throw error;
         if (showServerIssues(formApi, error.issues)) return;
-        // The list may be stale: someone was Deactivated since it loaded.
-        const fresh =
+        // Refetched, not cached: they may have been Deactivated since the list loaded.
+        const owner =
           error.status === 409
-            ? deactivatedWith((await staff.refetch()).data, body.email)
+            ? (await staff.refetch()).data?.find(
+                (person) => person.state === 'deactivated' && person.email === body.email,
+              )
             : undefined;
-        if (fresh) setReactivateOffer(fresh);
+        if (owner) setReactivateOffer(owner);
         else setFormError(error.message);
       }
     },

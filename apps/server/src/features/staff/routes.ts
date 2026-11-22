@@ -15,7 +15,7 @@ import {
 } from '@ping/shared';
 import { type Context, Hono } from 'hono';
 import type { Auth } from '../../auth';
-import { createWithActorTx, signedIn } from '../../auth/actor';
+import { type ActorTx, createWithActorTx, signedIn } from '../../auth/actor';
 import { requestEmailChange } from '../../auth/email-change';
 import type { Database } from '../../db';
 import type { Mailer, SendResult } from '../../lib/email';
@@ -36,6 +36,7 @@ import {
   requireCanManageInvites,
   requireCanManageStaffMember,
   requireCanReadOwnStaffMember,
+  type StaffManagement,
 } from '../../permissions/staff';
 import { deactivateStaffMember } from '../../system-actions';
 import {
@@ -49,7 +50,7 @@ import {
   findEmailOwnerState,
   findStaffMember,
   listStaffMembers,
-  lockStaffManagement,
+  lockAndReadActiveAdmins,
   markInviteEmailFailed,
   reactivate,
   recordEmailChangeRequested,
@@ -64,6 +65,23 @@ const EMAIL_IN_USE: Record<StaffState, string> = {
   invited: 'That person has already been invited. Resend their invite from the list.',
   deactivated: 'That email belongs to a Deactivated Staff member. Reactivate them instead.',
 };
+
+/**
+ * How changing a role, Deactivating and reactivating start: take the staff-management
+ * lock, decide with the active Admins read under it, then load the target (404 when
+ * unknown). A Member is refused before anything about the target is read.
+ */
+async function loadManagedStaffMember(
+  ctx: ActorTx,
+  action: StaffManagement['action'],
+  staffId: string,
+): Promise<StaffMemberView> {
+  const activeAdminIds = await lockAndReadActiveAdmins(ctx);
+  requireCanManageStaffMember(ctx.actor, { action, targetStaffId: staffId, activeAdminIds });
+  const found = await findStaffMember(ctx, staffId);
+  if (!found) throw new NotFoundError();
+  return found;
+}
 
 /** An Invited person as the list shows them, with a fresh invite just sent (or not). */
 function invitedView(
@@ -156,14 +174,7 @@ export function staffRoutes(options: {
           const { staffId } = c.req.valid('param');
           const { role } = c.req.valid('json');
           const person = await withActorTx(c, async (ctx) => {
-            const activeAdminIds = await lockStaffManagement(ctx);
-            requireCanManageStaffMember(ctx.actor, {
-              action: 'changeRole',
-              targetStaffId: staffId,
-              activeAdminIds,
-            });
-            const found = await findStaffMember(ctx, staffId);
-            if (!found) throw new NotFoundError();
+            const found = await loadManagedStaffMember(ctx, 'changeRole', staffId);
             if (found.state === 'deactivated') {
               throw new ConflictError('Reactivate them before changing their role.');
             }
@@ -181,14 +192,7 @@ export function staffRoutes(options: {
       .post('/:staffId/deactivate', signedIn(auth), validate('param', staffParams), async (c) => {
         const { staffId } = c.req.valid('param');
         const { person, changes } = await withActorTx(c, async (ctx) => {
-          const activeAdminIds = await lockStaffManagement(ctx);
-          requireCanManageStaffMember(ctx.actor, {
-            action: 'deactivate',
-            targetStaffId: staffId,
-            activeAdminIds,
-          });
-          const found = await findStaffMember(ctx, staffId);
-          if (!found) throw new NotFoundError();
+          const found = await loadManagedStaffMember(ctx, 'deactivate', staffId);
           if (found.state === 'invited') {
             throw new ConflictError('They haven’t joined yet. Cancel their invite instead.');
           }
@@ -211,14 +215,7 @@ export function staffRoutes(options: {
       .post('/:staffId/reactivate', signedIn(auth), validate('param', staffParams), async (c) => {
         const { staffId } = c.req.valid('param');
         const person = await withActorTx(c, async (ctx) => {
-          const activeAdminIds = await lockStaffManagement(ctx);
-          requireCanManageStaffMember(ctx.actor, {
-            action: 'reactivate',
-            targetStaffId: staffId,
-            activeAdminIds,
-          });
-          const found = await findStaffMember(ctx, staffId);
-          if (!found) throw new NotFoundError();
+          const found = await loadManagedStaffMember(ctx, 'reactivate', staffId);
           if (found.state !== 'deactivated') throw new ConflictError('They aren’t Deactivated.');
           await reactivate(ctx, staffId);
           return { ...found, state: 'active' } satisfies StaffMemberView;
