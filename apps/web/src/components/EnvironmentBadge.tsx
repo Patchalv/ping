@@ -9,9 +9,5 @@ import { meta } from '#/lib/meta';
 export function EnvironmentBadge() {
   const label = environmentLabel(meta('ping-environment'));
   if (!label) return null;
-  return (
-    <Badge variant="tag" className="border-chrome-foreground/40 text-chrome-foreground">
-      {label}
-    </Badge>
-  );
+  return <Badge variant="chrome">{label}</Badge>;
 }

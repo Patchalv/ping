@@ -20,6 +20,8 @@ const badgeVariants = cva(
         tag: 'border-border text-muted-foreground',
         ping: 'bg-ping font-bold text-ping-foreground tabular-nums',
         saved: 'border-saved/40 text-saved',
+        // A quiet label on the navy chrome, such as "Staging" beside the wordmark.
+        chrome: 'border-chrome-foreground/40 text-chrome-foreground',
       },
     },
     defaultVariants: {

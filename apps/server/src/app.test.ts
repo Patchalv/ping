@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { copyFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { HTTPException } from 'hono/http-exception';
 import { describe, expect, it } from 'vitest';
 import { createApp } from './app';
@@ -220,6 +221,23 @@ describe('the environment in the SPA', () => {
       expect(html).toContain('<meta name="ping-environment" content="staging">');
     },
   );
+
+  it("marks the web app's real index.html", async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'ping-web-dist-'));
+    copyFileSync(
+      fileURLToPath(new URL('../../web/index.html', import.meta.url)),
+      join(dir, 'index.html'),
+    );
+    const res = await createApp({
+      auth,
+      database,
+      trustedOrigins,
+      invites,
+      environment: 'staging',
+      webDistDir: dir,
+    }).request('/');
+    expect(await res.text()).toContain('<title>Ping (Staging)</title>');
+  });
 
   it.each(['production', 'local'] as const)(
     'leaves index.html as it is in %s',

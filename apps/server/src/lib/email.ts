@@ -9,7 +9,7 @@
 // - A failure reaches the caller as an error that never holds the address, so the caller
 //   can mark the invite and report to Sentry.
 import nodemailer from 'nodemailer';
-import type { EmailSettings } from '../config';
+import type { EmailSettings, PingEnvironment } from '../config';
 
 const FROM_ADDRESS = 'Ping <no-reply@ping.bypatrick.app>';
 
@@ -40,8 +40,6 @@ export type SendResult = 'sent' | 'held';
 
 export type Mailer = { send(message: MailMessage): Promise<SendResult> };
 
-export type MailEnvironment = 'production' | 'staging' | 'local';
-
 /**
  * Whether staging may email `address`. Each allowlist entry is `*` (everyone), `@domain`
  * (any address at exactly that domain) or an exact address. Case is ignored.
@@ -57,7 +55,7 @@ function isAllowlisted(allowlist: readonly string[], address: string): boolean {
 
 export function createMailer(options: {
   transport: MailTransport;
-  environment: MailEnvironment;
+  environment: PingEnvironment;
   /** Staging only: who it may send to (see isAllowlisted). */
   allowlist: readonly string[];
   log?: (line: string) => void;

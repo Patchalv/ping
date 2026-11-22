@@ -73,7 +73,7 @@ function withRuntimeHead(
       `<meta name="sentry-environment" content="${escapeAttribute(sentry.environment)}">`;
   }
   if (environment === 'staging') {
-    html = html.replace('<title>Ping</title>', '<title>Ping (Staging)</title>');
+    html = html.replace(/<title>([^<]*)<\/title>/, '<title>$1 (Staging)</title>');
     meta += '<meta name="ping-environment" content="staging">';
   }
   return meta ? html.replace('</head>', `${meta}</head>`) : html;

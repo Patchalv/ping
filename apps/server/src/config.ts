@@ -3,7 +3,7 @@
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { RolePasswords } from './db/migrate';
-import type { MailEnvironment, SmtpSettings } from './lib/email';
+import type { SmtpSettings } from './lib/email';
 
 const envLocal = fileURLToPath(new URL('../../../.env.local', import.meta.url));
 
@@ -37,7 +37,7 @@ export type ServerConfig = {
  * Resend", so a deploy before the secrets are set still boots.
  */
 export type EmailSettings = {
-  environment: MailEnvironment;
+  environment: PingEnvironment;
   smtp?: SmtpSettings;
   /** Staging only sends to these addresses, lowercased. */
   allowlist: string[];
@@ -59,7 +59,7 @@ function readEnvironment(env: NodeJS.ProcessEnv, isProduction: boolean): PingEnv
   return environment ?? 'local';
 }
 
-function readEmail(env: NodeJS.ProcessEnv, environment: MailEnvironment): EmailSettings {
+function readEmail(env: NodeJS.ProcessEnv, environment: PingEnvironment): EmailSettings {
   const { SMTP_HOST: host, SMTP_USER: user, SMTP_PASSWORD: password } = env;
   const given = [host, user, password].filter(Boolean).length;
   if (given > 0 && given < 3) {
