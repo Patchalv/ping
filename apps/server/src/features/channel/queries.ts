@@ -67,7 +67,7 @@ export async function listPublicChannels({ tx, actor }: ActorTx): Promise<Browse
       name: channel.name,
       description: channel.description,
       memberCount,
-      ownRow: channelMember.staffId,
+      actorRow: channelMember.staffId,
     })
     .from(channel)
     .leftJoin(
@@ -76,7 +76,7 @@ export async function listPublicChannels({ tx, actor }: ActorTx): Promise<Browse
     )
     .where(and(eq(channel.visibility, 'public'), isNull(channel.archivedAt)))
     .orderBy(asc(channel.name), asc(channel.id));
-  return rows.map(({ ownRow, ...rest }) => ({ ...rest, isMember: ownRow !== null }));
+  return rows.map(({ actorRow, ...rest }) => ({ ...rest, isMember: actorRow !== null }));
 }
 
 /**
@@ -104,7 +104,7 @@ export async function lockChannelMembership({ tx }: ActorTx, channelId: string):
 }
 
 /** Who else is in the Channel: its other active members and active Channel admins. */
-export async function countOtherActiveMembers(
+export async function countOthersInChannel(
   { tx, actor }: ActorTx,
   channelId: string,
 ): Promise<{ otherActiveMembers: number; otherActiveChannelAdmins: number }> {

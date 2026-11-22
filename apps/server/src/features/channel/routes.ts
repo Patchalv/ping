@@ -20,7 +20,7 @@ import {
 } from '../../permissions/channel';
 import { createChannel } from '../../system-actions';
 import {
-  countOtherActiveMembers,
+  countOthersInChannel,
   findChannel,
   joinChannel,
   leaveChannel,
@@ -107,7 +107,7 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           await lockChannelMembership(ctx, channelId);
           const found = await findChannel(ctx, channelId);
           if (!found) throw new NotFoundError();
-          const others = await countOtherActiveMembers(ctx, channelId);
+          const others = await countOthersInChannel(ctx, channelId);
           requireCanLeaveChannel(ctx.actor, { ...found, ...others });
           await leaveChannel(ctx, channelId);
         });

@@ -8,8 +8,9 @@ import {
   canLeaveChannel,
   canListOwnChannels,
   canReadChannel,
-  LAST_CHANNEL_ADMIN,
-  ONLY_MEMBER,
+  LAST_CHANNEL_ADMIN_MESSAGE,
+  ONLY_MEMBER_ARCHIVED_MESSAGE,
+  ONLY_MEMBER_MESSAGE,
   requireCanCreateChannel,
   requireCanReadChannel,
 } from './channel';
@@ -18,9 +19,9 @@ import { allow, deny, requireAllowed } from './decision';
 const member: Actor = { staffId: '00000000-0000-4000-8000-0000000000a1', role: 'member' };
 const admin: Actor = { staffId: '00000000-0000-4000-8000-0000000000a2', role: 'admin' };
 
-const publicChannel = { visibility: 'public' as const, isMember: false };
-const privateChannel = { visibility: 'private' as const, isMember: false };
-const privateAsMember = { visibility: 'private' as const, isMember: true };
+const publicChannel = { visibility: 'public' as const, isMember: false, isArchived: false };
+const privateChannel = { visibility: 'private' as const, isMember: false, isArchived: false };
+const privateAsMember = { visibility: 'private' as const, isMember: true, isArchived: false };
 
 describe('canCreateChannel', () => {
   it.each([
@@ -131,17 +132,31 @@ describe('canLeaveChannel', () => {
         otherActiveChannelAdmins: 0,
         otherActiveMembers: 2,
       }),
-    ).toEqual(deny({ kind: 'refused', message: LAST_CHANNEL_ADMIN }));
-    expect(LAST_CHANNEL_ADMIN).toBe(
+    ).toEqual(deny({ kind: 'refused', message: LAST_CHANNEL_ADMIN_MESSAGE }));
+    expect(LAST_CHANNEL_ADMIN_MESSAGE).toBe(
       'You’re the last Channel admin here. Make another member Channel admin before you leave.',
+    );
+  });
+
+  it('stops the only member of an Archived channel without telling them to archive it', () => {
+    expect(
+      canLeaveChannel(member, {
+        ...publicChannel,
+        ...channelAdmin,
+        ...nobodyElse,
+        isArchived: true,
+      }),
+    ).toEqual(deny({ kind: 'refused', message: ONLY_MEMBER_ARCHIVED_MESSAGE }));
+    expect(ONLY_MEMBER_ARCHIVED_MESSAGE).toBe(
+      'You’re the only member of this Channel. Add someone and make them Channel admin, then leave.',
     );
   });
 
   it('stops the only member, and says to archive the Channel or hand it over', () => {
     expect(canLeaveChannel(admin, { ...privateAsMember, ...channelAdmin, ...nobodyElse })).toEqual(
-      deny({ kind: 'refused', message: ONLY_MEMBER }),
+      deny({ kind: 'refused', message: ONLY_MEMBER_MESSAGE }),
     );
-    expect(ONLY_MEMBER).toBe(
+    expect(ONLY_MEMBER_MESSAGE).toBe(
       'You’re the only member of this Channel. Archive it instead, or add someone, make them Channel admin, then leave.',
     );
   });
@@ -154,7 +169,12 @@ describe('canLeaveChannel', () => {
         otherActiveChannelAdmins: 1,
         otherActiveMembers: 1,
       }),
-    ).toEqual(deny({ kind: 'refused', message: 'You’re not a member of this Channel.' }));
+    ).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'You’re not a member of this Channel, so there’s nothing to leave.',
+      }),
+    );
   });
 
   it.each([

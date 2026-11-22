@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ApiError, call, OFFLINE_MESSAGE } from './api-client';
+import { ApiError, call, callNoContent, OFFLINE_MESSAGE } from './api-client';
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json' } });
@@ -46,5 +46,20 @@ describe('call', () => {
       throw new TypeError('Failed to fetch');
     }).catch((e: unknown) => e);
     expect(error).toMatchObject({ status: 0, message: OFFLINE_MESSAGE });
+  });
+});
+
+describe('callNoContent', () => {
+  it('resolves on a success with no body', async () => {
+    await expect(
+      callNoContent(async () => new Response(null, { status: 204 })),
+    ).resolves.toBeUndefined();
+  });
+
+  it('still throws the server’s message for a refusal', async () => {
+    const error = await callNoContent(async () =>
+      json(403, { error: { code: 'forbidden', message: 'You can’t leave yet.' } }),
+    ).catch((e: unknown) => e);
+    expect(error).toMatchObject({ status: 403, message: 'You can’t leave yet.' });
   });
 });

@@ -7,6 +7,9 @@ import { allow, type Decision, deny, requireAllowed } from './decision';
 /** What the decisions need to know about a Channel and the actor's place in it. */
 type ChannelAccess = { visibility: ChannelVisibility; isMember: boolean };
 
+/** Joining also needs to know whether the Channel is Archived. */
+type JoinAccess = ChannelAccess & { isArchived: boolean };
+
 /** Anyone can create a Channel, and becomes its Channel admin. */
 export function canCreateChannel(_actor: Actor): Decision {
   return allow();
@@ -32,10 +35,7 @@ export function canBrowseChannels(_actor: Actor): Decision {
  * Anyone can join a Public channel; joining one they're already in changes nothing. Only
  * Channel admins add people to a Private channel, and nobody joins an Archived channel.
  */
-export function canJoinChannel(
-  actor: Actor,
-  channel: ChannelAccess & { isArchived: boolean },
-): Decision {
+export function canJoinChannel(actor: Actor, channel: JoinAccess): Decision {
   const read = canReadChannel(actor, channel);
   if (!read.allow) return read;
   if (channel.visibility === 'private') {
@@ -51,18 +51,23 @@ export function canJoinChannel(
 }
 
 /** Why the last active Channel admin can't leave, while other members stay. */
-export const LAST_CHANNEL_ADMIN =
+export const LAST_CHANNEL_ADMIN_MESSAGE =
   'You’re the last Channel admin here. Make another member Channel admin before you leave.';
 
 /** Why the last active Channel admin can't leave when they're the only member. */
-export const ONLY_MEMBER =
+export const ONLY_MEMBER_MESSAGE =
   'You’re the only member of this Channel. Archive it instead, or add someone, make them Channel admin, then leave.';
+
+/** The same, in an Archived channel, which is already as archived as it gets. */
+export const ONLY_MEMBER_ARCHIVED_MESSAGE =
+  'You’re the only member of this Channel. Add someone and make them Channel admin, then leave.';
 
 /**
  * What leaving needs to know: the actor's place in the Channel, and who else is there.
  * "Other" counts leave out the actor and Deactivated Staff members.
  */
 type LeaveAccess = ChannelAccess & {
+  isArchived: boolean;
   isChannelAdmin: boolean;
   otherActiveChannelAdmins: number;
   otherActiveMembers: number;
@@ -76,12 +81,20 @@ export function canLeaveChannel(actor: Actor, channel: LeaveAccess): Decision {
   const read = canReadChannel(actor, channel);
   if (!read.allow) return read;
   if (!channel.isMember) {
-    return deny({ kind: 'refused', message: 'You’re not a member of this Channel.' });
+    return deny({
+      kind: 'refused',
+      message: 'You’re not a member of this Channel, so there’s nothing to leave.',
+    });
   }
   if (channel.isChannelAdmin && channel.otherActiveChannelAdmins === 0) {
     return deny({
       kind: 'refused',
-      message: channel.otherActiveMembers === 0 ? ONLY_MEMBER : LAST_CHANNEL_ADMIN,
+      message:
+        channel.otherActiveMembers > 0
+          ? LAST_CHANNEL_ADMIN_MESSAGE
+          : channel.isArchived
+            ? ONLY_MEMBER_ARCHIVED_MESSAGE
+            : ONLY_MEMBER_MESSAGE,
     });
   }
   return allow();
@@ -91,10 +104,7 @@ export function requireCanBrowseChannels(actor: Actor): void {
   requireAllowed(canBrowseChannels(actor));
 }
 
-export function requireCanJoinChannel(
-  actor: Actor,
-  channel: ChannelAccess & { isArchived: boolean },
-): void {
+export function requireCanJoinChannel(actor: Actor, channel: JoinAccess): void {
   requireAllowed(canJoinChannel(actor, channel));
 }
 

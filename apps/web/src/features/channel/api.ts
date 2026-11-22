@@ -4,7 +4,7 @@
 import type { BrowseChannel, ChannelView, CreateChannelBody } from '@ping/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { call } from '../../lib/api-client';
+import { call, callNoContent } from '../../lib/api-client';
 
 const channels = api.api.channels;
 
@@ -77,15 +77,9 @@ export function useLeaveChannel({ onLeft }: { onLeft(): void }) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: async (channel: Pick<ChannelView, 'id' | 'visibility'>): Promise<void> => {
-      await call(async () => {
-        const res = await channels[':channelId'].leave.$post({ param: { channelId: channel.id } });
-        // 204: no body to read.
-        return {
-          ok: res.ok,
-          status: res.status,
-          json: () => (res.ok ? Promise.resolve() : res.json()),
-        };
-      });
+      await callNoContent(() =>
+        channels[':channelId'].leave.$post({ param: { channelId: channel.id } }),
+      );
     },
     onSuccess: (_nothing, channel) => {
       onLeft();

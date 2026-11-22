@@ -34,6 +34,18 @@ export async function call<T>(send: () => Promise<ApiResponse<T>>): Promise<T> {
   throw await toApiError(res);
 }
 
+/** Like call(), for a success that has no body to read (202, 204). */
+export async function callNoContent(send: () => Promise<ApiResponse<unknown>>): Promise<void> {
+  await call(async () => {
+    const res = await send();
+    return {
+      ok: res.ok,
+      status: res.status,
+      json: () => (res.ok ? Promise.resolve() : res.json()),
+    };
+  });
+}
+
 async function toApiError(res: { status: number; json(): Promise<unknown> }): Promise<ApiError> {
   try {
     const { error } = (await res.json()) as {
