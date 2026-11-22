@@ -1,8 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { RICH_TEXT_MESSAGES } from './rich-text';
-import { threadResponseBody, threadResponseParams } from './thread-response';
+import { threadResponseBody, threadResponseCount, threadResponseParams } from './thread-response';
 
 const EMPTY = 'Write something before sending.';
+
+describe('threadResponseCount', () => {
+  it.each([
+    [0, '0 Thread Responses'],
+    [1, '1 Thread Response'],
+    [3, '3 Thread Responses'],
+  ])('reads %i as "%s"', (count, label) => {
+    expect(threadResponseCount(count)).toBe(label);
+  });
+});
 
 const body = {
   type: 'doc',

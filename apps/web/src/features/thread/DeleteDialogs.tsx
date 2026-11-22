@@ -1,4 +1,4 @@
-import type { ThreadView } from '@ping/shared';
+import { type ThreadView, threadResponseCount } from '@ping/shared';
 import { useNavigate } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { Button } from '#/components/ui/button';
@@ -19,6 +19,7 @@ function ConfirmDelete({
   title,
   children,
   pending,
+  waiting = false,
   error,
   onConfirm,
   onClose,
@@ -26,6 +27,8 @@ function ConfirmDelete({
   title: string;
   children: ReactNode;
   pending: boolean;
+  /** Still finding out what would go, so Delete waits. */
+  waiting?: boolean;
   error: string | null;
   onConfirm(): void;
   onClose(): void;
@@ -45,7 +48,7 @@ function ConfirmDelete({
         {error ? <FormError>{error}</FormError> : null}
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button variant="destructive" disabled={pending} onClick={onConfirm}>
+          <Button variant="destructive" disabled={pending || waiting} onClick={onConfirm}>
             {pending ? 'Deleting…' : 'Delete'}
           </Button>
         </DialogFooter>
@@ -64,8 +67,11 @@ export function DeleteThreadDialog({
   onClose,
 }: {
   thread: ThreadView;
-  /** Live Thread Responses by anyone but the viewer. */
-  othersResponseCount: number;
+  /**
+   * Thread Responses by anyone but the viewer that still have text. Undefined until the
+   * Thread Responses have loaded, so the count is never a guess.
+   */
+  othersResponseCount: number | undefined;
   onClose(): void;
 }) {
   const navigate = useNavigate();
@@ -77,15 +83,16 @@ export function DeleteThreadDialog({
     <ConfirmDelete
       title="Delete this Thread?"
       pending={remove.isPending}
+      waiting={othersResponseCount === undefined}
       error={remove.isError ? remove.error.message : null}
       onConfirm={() => remove.mutate()}
       onClose={onClose}
     >
-      {othersResponseCount > 0
-        ? `This also deletes ${othersResponseCount} ${
-            othersResponseCount === 1 ? 'Thread Response' : 'Thread Responses'
-          } by other people. It can’t be undone.`
-        : 'It goes for everyone, with its Thread Responses. It can’t be undone.'}
+      {othersResponseCount === undefined
+        ? 'Checking its Thread Responses…'
+        : othersResponseCount > 0
+          ? `This also deletes ${threadResponseCount(othersResponseCount)} by other people. It can’t be undone.`
+          : 'It goes for everyone, with its Thread Responses. It can’t be undone.'}
     </ConfirmDelete>
   );
 }

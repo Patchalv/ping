@@ -5,6 +5,7 @@ import {
   type ThreadResponseBody,
   type ThreadResponseView,
   threadResponseBody,
+  threadResponseCount,
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
@@ -31,7 +32,7 @@ export function ThreadResponseList({
   return (
     <section aria-label="Thread Responses" className="mt-5 border-t pt-4">
       <h3 className="text-small font-semibold text-muted-foreground">
-        {responses.length} {responses.length === 1 ? 'Thread Response' : 'Thread Responses'}
+        {threadResponseCount(responses.length)}
       </h3>
       <ol className="mt-3 grid gap-4">
         {responses.map((response) => (

@@ -69,16 +69,18 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
   );
 }
 
-type Dialog = 'none' | 'edit' | 'delete';
+type OpenDialog = 'none' | 'edit' | 'delete';
 
 function ThreadBody({ thread }: { thread: ThreadView }) {
   const responses = useThreadResponses(thread.channelId, thread.id);
   const staffMemberId = authClient.useSession().data?.user.id;
-  const [dialog, setDialog] = useState<Dialog>('none');
+  const [dialog, setDialog] = useState<OpenDialog>('none');
   const list = responses.data?.responses ?? [];
-  const othersResponseCount = list.filter(
-    (r) => !r.isDeleted && r.author.staffId !== staffMemberId,
-  ).length;
+  // What a Thread delete takes with it: other people's text, not placeholders. Unknown
+  // until the Thread Responses load.
+  const othersResponseCount = responses.isSuccess
+    ? list.filter((r) => !r.isDeleted && r.author.staffId !== staffMemberId).length
+    : undefined;
   return (
     <>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-5">

@@ -1,8 +1,8 @@
 // Threads: the request schemas both apps use, and the shapes the server answers with.
 import { z } from 'zod';
 import { channelParams } from './channel';
+import type { ContentActions, EditedMark } from './edited';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
-import type { ContentActions, EditedMark } from './thread-response';
 
 export const THREAD_TITLE_MAX = 200;
 /** How many Threads a Thread list loads at a time (screens.md › Baseline behaviours). */

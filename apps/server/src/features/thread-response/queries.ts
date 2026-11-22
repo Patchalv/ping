@@ -1,7 +1,12 @@
 // The Thread Response feature's queries. Each takes the request's ActorTx from
 // withActorTx, so row-level security applies to every one: a Private channel the actor
 // isn't in, and everything in it, read as missing.
-import { extractBodyText, type RichTextDoc, type ThreadResponseView } from '@ping/shared';
+import {
+  extractBodyText,
+  type RichTextDoc,
+  type ThreadResponseView,
+  toEditedMark,
+} from '@ping/shared';
 import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
@@ -179,16 +184,7 @@ export async function listThreadResponses(
       threadId: row.threadId,
       author: { staffId: row.authorId, name: row.authorName, isDeactivated: row.authorDeactivated },
       createdAt: row.createdAt.toISOString(),
-      edited:
-        row.editedAt === null || isDeleted
-          ? null
-          : {
-              at: row.editedAt.toISOString(),
-              by:
-                row.editedBy === null || row.editedBy === row.authorId
-                  ? null
-                  : { staffId: row.editedBy, name: row.editorName ?? '' },
-            },
+      edited: isDeleted ? null : toEditedMark(row),
       // Written only through the allowlist, so it reads back as one.
       body: isDeleted ? null : (row.body as RichTextDoc),
       isDeleted,

@@ -1,6 +1,7 @@
 // Thread Responses: the request schemas both apps use, and the shapes the server answers
 // with.
 import { z } from 'zod';
+import type { ContentActions, EditedMark } from './edited';
 import { EMPTY_RICH_TEXT, extractBodyText, type RichTextDoc, richTextDoc } from './rich-text';
 import { type ThreadAuthor, threadParams } from './thread';
 
@@ -22,18 +23,6 @@ export const threadResponseParams = threadParams.extend({
   threadResponseId: z.uuid({ error: 'That isn’t a Thread Response.' }),
 });
 
-/**
- * The "edited" mark. `by` is set only when someone other than the author made the last
- * edit, for "edited by <name>".
- */
-export type EditedMark = { at: string; by: { staffId: string; name: string } | null };
-
-/**
- * What the viewer may do with a Thread or Thread Response, decided by the server's
- * permissions module. The web only hides the controls they can't use.
- */
-export type ContentActions = { canEdit: boolean; canDelete: boolean };
-
 /** A Thread Response as the Thread view shows it. A deleted one has no body. */
 export type ThreadResponseView = {
   id: string;
@@ -48,3 +37,8 @@ export type ThreadResponseView = {
 
 /** GET …/threads/:threadId/responses: all of a Thread's Thread Responses, oldest first. */
 export type ThreadResponseList = { responses: ThreadResponseView[] };
+
+/** "1 Thread Response", "3 Thread Responses". */
+export function threadResponseCount(count: number): string {
+  return `${count} ${count === 1 ? 'Thread Response' : 'Thread Responses'}`;
+}

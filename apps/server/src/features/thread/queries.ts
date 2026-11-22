@@ -8,6 +8,7 @@ import {
   type ThreadAuthor,
   type ThreadPage,
   type ThreadView,
+  toEditedMark,
 } from '@ping/shared';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -174,16 +175,7 @@ export async function findThread(
     ...toThread(rest),
     // Written only through the allowlist, so it reads back as one.
     body: body as RichTextDoc,
-    edited:
-      editedAt === null
-        ? null
-        : {
-            at: editedAt.toISOString(),
-            by:
-              editedBy === null || editedBy === rest.authorId
-                ? null
-                : { staffId: editedBy, name: editorName ?? '' },
-          },
+    edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
     canRespond: canSendThreadResponse(actor, access).allow,
     canEdit: canEditThread(actor, access, authorship).allow,
     canDelete: canDeleteThread(actor, access, authorship).allow,
@@ -233,14 +225,14 @@ export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<v
 /**
  * Records a company Admin changing someone else's Thread (product.md › Audit log). Only
  * the author or an Admin gets this far, so a change by anyone else is an Admin's. A System
- * thread has no author to record.
+ * thread is nobody's content, so deleting one records nothing.
  */
 export async function auditAdminChange(
   { tx, actor }: ActorTx,
   kind: Extract<AuditEventKind, 'admin_edited_thread' | 'admin_deleted_thread'>,
   where: { channelId: string; authorId: string | null },
 ): Promise<void> {
-  if (where.authorId === actor.staffId) return;
+  if (where.authorId === null || where.authorId === actor.staffId) return;
   await tx.insert(auditEvent).values({
     actorId: actor.staffId,
     kind,
