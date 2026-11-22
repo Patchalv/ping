@@ -5,6 +5,7 @@ export const PASSWORD = 'ping-local-dev-password';
 export const SEED = {
   frontDesk: '00000000-0000-4000-8000-000000000101',
   owners: '00000000-0000-4000-8000-000000000102',
+  teaching: '00000000-0000-4000-8000-000000000103',
 } as const;
 
 /**

@@ -39,6 +39,19 @@ describe('routes', () => {
     });
   });
 
+  it('reads an open Thread’s path, inside its Channel', async () => {
+    const threadId = '00000000-0000-4000-8000-000000000201';
+    expect(await resolve(`/channels/${id}/threads/${threadId}`)).toMatchObject({
+      notFound: false,
+      routeId: '/channels/$channelId/threads/$threadId',
+      params: { channelId: id, threadId },
+    });
+  });
+
+  it('reads a Thread path with a bad Thread ID as not found', async () => {
+    expect(await resolve(`/channels/${id}/threads/heater`)).toMatchObject({ notFound: true });
+  });
+
   it('reads a Members tab path with a bad Channel ID as not found', async () => {
     expect(await resolve('/channels/front-desk/members')).toMatchObject({ notFound: true });
   });

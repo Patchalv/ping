@@ -1,7 +1,7 @@
 import type { ChannelView } from '@ping/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
 import { ChevronLeftIcon, LockIcon } from 'lucide-react';
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
 import {
@@ -21,8 +21,25 @@ import { MembersTab } from './MembersTab';
 
 type ChannelTab = 'threads' | 'members';
 
-/** The Channel view: its Channel bar above the Thread feed or the Members tab. */
-export function ChannelPage({ channelId, tab }: { channelId: string; tab: ChannelTab }) {
+/**
+ * The Channel view: its Channel bar above the Thread feed or the Members tab, with an
+ * open Thread's panel beside them. The Thread pieces come from the router, because one
+ * feature never imports another: `startThread` is the + New Thread control, `children`
+ * the feed, and `panel` the open Thread.
+ */
+export function ChannelPage({
+  channelId,
+  tab,
+  startThread,
+  children,
+  panel,
+}: {
+  channelId: string;
+  tab: ChannelTab;
+  startThread?: ReactNode;
+  children?: ReactNode;
+  panel?: ReactNode;
+}) {
   const channel = useChannel(channelId);
   if (channel.isPending) {
     return <p className="px-6 py-10 text-center text-muted-foreground">Loading…</p>;
@@ -37,33 +54,42 @@ export function ChannelPage({ channelId, tab }: { channelId: string; tab: Channe
     );
   }
   return (
-    <>
-      <ChannelBar channel={channel.data} />
-      {tab === 'members' ? (
-        <MembersTab channel={channel.data} />
-      ) : (
-        <section className="px-4 pt-3 pb-20 md:px-5" aria-label="Threads">
-          <div className="mx-auto my-12 max-w-md text-center">
-            <p className="font-semibold">No Threads yet</p>
-            <p className="text-muted-foreground">Threads started in this Channel show up here.</p>
-          </div>
-        </section>
-      )}
-    </>
+    <div className="flex h-full min-h-0">
+      <div className="min-w-0 flex-1 overflow-auto">
+        <ChannelBar channel={channel.data} tab={tab} startThread={startThread} />
+        {tab === 'members' ? (
+          <MembersTab channel={channel.data} />
+        ) : (
+          <section className="px-4 pt-3 pb-20 md:px-5" aria-label="Threads">
+            {children}
+          </section>
+        )}
+      </div>
+      {panel}
+    </div>
   );
 }
 
 const TAB_CLASS =
   'border-b-2 border-transparent pb-1.5 text-small font-semibold text-muted-foreground hover:text-foreground aria-[current=page]:border-primary aria-[current=page]:text-foreground';
 
-function ChannelBar({ channel }: { channel: ChannelView }) {
+function ChannelBar({
+  channel,
+  tab,
+  startThread,
+}: {
+  channel: ChannelView;
+  tab: ChannelTab;
+  startThread: ReactNode;
+}) {
   const isPrivate = channel.visibility === 'private';
   return (
     <section
       className="sticky top-0 z-10 border-b bg-background px-4 pt-2.5 md:px-5 md:pt-3"
       aria-label="Channel"
     >
-      <div className="flex min-w-0 items-center gap-2.5">
+      {/* Wraps when an open Thread's panel leaves the bar narrow. */}
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1.5">
         {/* Phone only: the sidebar is the home screen, so the Channel view needs a way back. */}
         <Link
           className="-ml-1 inline-flex shrink-0 items-center text-sm font-semibold text-primary md:hidden"
@@ -82,9 +108,13 @@ function ChannelBar({ channel }: { channel: ChannelView }) {
         <span className="ml-auto shrink-0 text-small text-muted-foreground">
           {channel.memberCount} {channel.memberCount === 1 ? 'member' : 'members'}
         </span>
-        {/* Join sits where + New Thread will, for a Public channel you haven't joined. */}
+        {/* Members start Threads, except in an Archived channel. Join sits in + New
+            Thread's place for a Public channel you haven't joined. */}
         {channel.isMember ? (
-          <LeaveAction channel={channel} />
+          <>
+            {channel.isArchived ? null : startThread}
+            <LeaveAction channel={channel} />
+          </>
         ) : channel.isArchived ? null : (
           <JoinAction channel={channel} />
         )}
@@ -94,13 +124,14 @@ function ChannelBar({ channel }: { channel: ChannelView }) {
           {channel.description}
         </p>
       ) : null}
-      {/* The router marks the current tab with aria-current="page". Exact, or Threads
-          would also match the Members path. */}
+      {/* The router marks the current tab with aria-current="page". Threads matches its
+          open Threads' paths too, but only exactly on the Members tab, whose path it
+          would also match. */}
       <nav className="mt-2 flex gap-4" aria-label="Channel tabs">
         <Link
           to="/channels/$channelId"
           params={{ channelId: channel.id }}
-          activeOptions={{ exact: true }}
+          activeOptions={{ exact: tab === 'members' }}
           className={TAB_CLASS}
         >
           Threads

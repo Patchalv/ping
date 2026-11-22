@@ -25,8 +25,9 @@ export type Actor = {
 const ADMINS: ReadonlySet<ActorKind> = new Set(['adminNonMember', 'adminMember']);
 
 /**
- * Each actor's place in the row's Channel. The author is an ordinary member until Threads
- * exist. The Deactivated actor was a member before their Deactivation.
+ * Each actor's place in the row's Channel. The author is an ordinary member who started the
+ * row's Thread, when it has one. The Deactivated actor was a member before their
+ * Deactivation.
  */
 export const CHANNEL_ROLE: Record<ActorKind, 'channelAdmin' | 'member' | null> = {
   author: 'member',

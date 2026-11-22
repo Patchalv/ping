@@ -85,6 +85,7 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 - The standard actors are in `actors.ts`. Each is a real Staff member signed in through Better Auth. The Deactivated actor replays a cookie from before their Deactivation.
 - Deny rows assert the status and that the database is unchanged: every table's rows are checksummed before and after.
 - Rows with a Channel use the Channel fixtures in `run-row.ts`. Each row gets a fresh Channel of its `channel` kind (`public`, `private`, or `archived`, which is Public), and `CHANNEL_ROLE` in `actors.ts` sets each actor's place in it: Channel admin, member, or not a member.
+- A row with `thread: true` also gets a Thread in its Channel, started by the `author` actor (or, for any other actor, by another member), passed to `request` as `ctx.thread`.
 - Every new or changed endpoint needs at least one allow row, plus a deny row for every standard actor who shouldn't pass.
 
 ### The route-coverage guard (`apps/server/src/test/route-coverage.test.ts`)
@@ -105,7 +106,7 @@ DATABASE_URL='<url>' pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke
 
 ### Playwright (`e2e/`)
 
-The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin, nothing cached reaching the next person to sign in on the same browser, a lost session returning to sign-in, a failed network call, an empty sign-in, and form mistakes (found by the schema or by the server) shown on their field, focused, and cleared when fixed. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
+The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin, nothing cached reaching the next person to sign in on the same browser, a lost session returning to sign-in, a failed network call, an empty sign-in, starting a Thread with formatting and reading it in its panel, Join in place of New Thread for a non-member, and form mistakes (found by the schema or by the server) shown on their field, focused, and cleared when fixed. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
 
 Locally nothing sets `Fly-Client-IP`, so Better Auth's sign-in rate limiter would put every test in one bucket. Each test sends its own address.
 

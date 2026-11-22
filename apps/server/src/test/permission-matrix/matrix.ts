@@ -21,6 +21,8 @@ export type RowContext = {
   channel: { id: string } | undefined;
   /** The row's target Staff member, when `target` asks for one. */
   target: { id: string } | undefined;
+  /** The row's Thread, in the row's Channel, when `thread` asks for one. */
+  thread: { id: string } | undefined;
 };
 
 export type MatrixRow = {
@@ -36,6 +38,8 @@ export type MatrixRow = {
    * Channel as a plain member or as a second Channel admin; or the actor themself.
    */
   target?: 'invited' | 'active' | 'deactivated' | 'member' | 'channelAdmin' | 'self';
+  /** A Thread in the row's Channel, started by the author actor (or, for any other actor, by a member). */
+  thread?: true;
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -96,6 +100,14 @@ const mayAdd = (channel: ChannelKind) => (actor: ActorKind) =>
 /** Appoint or remove a Channel admin: Channel admins; company Admins on a Public channel. */
 const maySetChannelAdmin = (channel: ChannelKind) => (actor: ActorKind) =>
   CHANNEL_ROLE[actor] === 'channelAdmin' || (channel === 'public' && ADMINS.has(actor));
+
+/** Reading: anyone, except that a Private channel the actor isn't in is hidden (404). */
+const readsChannel =
+  (channel: ChannelKind) =>
+  (actor: ActorKind): MatrixRow['expect'] =>
+    channel === 'private' && !CHANNEL_ROLE[actor]
+      ? { allow: false, status: 404 }
+      : { allow: true, status: 200 };
 
 const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdmin';
 const CHANNEL_KINDS = ['public', 'private', 'archived'] as const;
@@ -362,6 +374,59 @@ export const MATRIX: MatrixRow[] = [
       membershipChange(channel, 204, maySetChannelAdmin(channel)),
     ),
   ),
+
+  // Threads. From "Start and read Threads" (#38).
+
+  // Start a Thread: Channel members only, company Admins included. A non-member of a
+  // Public channel must join first (403); a Private channel they aren't in is hidden
+  // (404). Nobody starts one in an Archived channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads',
+        action: `start a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads`,
+          method: 'POST',
+          body: {
+            title: 'Heater broken in room 2',
+            body: {
+              type: 'doc',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Since Monday.' }] }],
+            },
+          },
+        }),
+      },
+      membershipChange(channel, 201, (actor) => CHANNEL_ROLE[actor] !== null),
+    ),
+  ),
+
+  // Read a Channel's Thread list, and one Thread: anyone who can read the Channel.
+  // Archived channels stay readable.
+  ...CHANNEL_KINDS.flatMap((channel) => [
+    ...rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/threads',
+        action: `list the Threads of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/threads` }),
+      },
+      readsChannel(channel),
+    ),
+    ...rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/threads/:threadId',
+        action: `read a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads/${ctx.thread?.id}`,
+        }),
+      },
+      readsChannel(channel),
+    ),
+  ]),
 
   // Read your own role: anyone. From "Invites, bootstrap-admin and email" (#32).
   ...rowsFor(

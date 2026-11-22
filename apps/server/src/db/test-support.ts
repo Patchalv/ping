@@ -282,6 +282,39 @@ export async function insertChannel(
   return { id, name };
 }
 
+export type ThreadFixture = { id: string; channelId: string; title: string };
+
+/**
+ * Inserts an ordinary Thread as the owner, behind row-level security. `latestActivityAt`
+ * lets a test order Threads without waiting.
+ */
+export async function insertThread(options: {
+  channelId: string;
+  authorId: string;
+  title?: string;
+  bodyText?: string;
+  latestActivityAt?: Date;
+}): Promise<ThreadFixture> {
+  const id = randomUUID();
+  const title = options.title ?? `Test thread ${id.slice(0, 8)}`;
+  const bodyText = options.bodyText ?? '';
+  const body = {
+    type: 'doc',
+    content: bodyText
+      ? [{ type: 'paragraph', content: [{ type: 'text', text: bodyText }] }]
+      : [{ type: 'paragraph' }],
+  };
+  const at = options.latestActivityAt ?? new Date();
+  await asOwner((query) =>
+    query(
+      `insert into thread (id, channel_id, author_id, title, body, body_text, created_at, latest_activity_at)
+       values ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [id, options.channelId, options.authorId, title, JSON.stringify(body), bodyText, at],
+    ),
+  );
+  return { id, channelId: options.channelId, title };
+}
+
 /**
  * A checksum of every row of every table in the public schema, read as the owner. Two
  * equal snapshots mean nothing was inserted, updated or deleted in between.

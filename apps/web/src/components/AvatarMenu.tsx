@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from '#/components/ui/dropdown-menu';
 import { authClient } from '../lib/auth-client';
+import { clearDrafts } from '../lib/drafts';
 import { isThemeChoice, setThemeChoice, useThemeChoice } from '../lib/theme';
 import { FormError } from './FormError';
 import { StaffAvatar } from './StaffAvatar';
@@ -33,6 +34,8 @@ export function AvatarMenu({ user, children }: { user: User; children?: ReactNod
     const { error } = await authClient.signOut();
     setSigningOut(false);
     if (error) setSignOutFailed(true);
+    // Unsent drafts stay with the person who wrote them, not the browser.
+    else clearDrafts();
   }
 
   return (

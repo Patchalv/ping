@@ -5,6 +5,7 @@ import {
   createStaffMember,
   databaseSnapshot,
   insertChannel,
+  insertThread,
 } from '../../db/test-support';
 import { jsonHeaders, type TestApp } from '../test-app';
 import { CHANNEL_ROLE, createActor } from './actors';
@@ -70,6 +71,17 @@ async function joinedTarget(channel: { id: string } | undefined, channelAdmin: b
 }
 
 /**
+ * The row's Thread, in its Channel. The author actor started it; for every other actor, a
+ * fresh member of the Channel did.
+ */
+async function threadFixture({ actor, channel }: Pick<RowContext, 'actor' | 'channel'>) {
+  if (!channel) throw new Error('A Thread needs a row with a Channel');
+  const authorId =
+    actor.kind === 'author' ? actor.staff.id : (await joinedTarget(channel, false)).id;
+  return insertThread({ channelId: channel.id, authorId });
+}
+
+/**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
  */
@@ -77,7 +89,8 @@ export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
   const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
   const target = row.target ? await targetFixtures[row.target]({ actor, channel }) : undefined;
-  const request = row.request({ actor, channel, target });
+  const thread = row.thread ? await threadFixture({ actor, channel }) : undefined;
+  const request = row.request({ actor, channel, target, thread });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();
   const res = await testApp.app.request(request.path, {
