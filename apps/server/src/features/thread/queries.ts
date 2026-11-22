@@ -12,6 +12,7 @@ import {
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import type { ThreadChannelAccess } from '../../permissions/thread';
 
 const { channel, channelMember, staffMember, thread, user } = schema;
 
@@ -25,9 +26,7 @@ const PREVIEW_LENGTH = 240;
 export async function findThreadChannel(
   { tx, actor }: ActorTx,
   channelId: string,
-): Promise<
-  { visibility: 'public' | 'private'; isMember: boolean; isArchived: boolean } | undefined
-> {
+): Promise<ThreadChannelAccess | undefined> {
   const [row] = await tx
     .select({
       visibility: channel.visibility,

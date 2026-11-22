@@ -6,7 +6,7 @@ import { canReadChannel } from './channel';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
 /** What the decisions need to know about the Thread's Channel and the actor's place in it. */
-type ThreadChannelAccess = {
+export type ThreadChannelAccess = {
   visibility: ChannelVisibility;
   isMember: boolean;
   isArchived: boolean;

@@ -35,6 +35,7 @@ export {
   EMPTY_RICH_TEXT,
   extractBodyText,
   isAllowedLinkHref,
+  RICH_TEXT_MESSAGES,
   type RichTextBlock,
   type RichTextDoc,
   type RichTextInline,

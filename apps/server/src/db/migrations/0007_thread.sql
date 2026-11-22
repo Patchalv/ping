@@ -46,15 +46,9 @@ CREATE INDEX "thread_search_idx" ON "thread" USING gin ("search");--> statement-
 GRANT SELECT, INSERT ON "thread" TO ping_app;--> statement-breakpoint
 ALTER TABLE "thread" ENABLE ROW LEVEL SECURITY;--> statement-breakpoint
 ALTER TABLE "thread" FORCE ROW LEVEL SECURITY;--> statement-breakpoint
+-- With no WITH CHECK, Postgres checks inserted and updated rows against USING too.
 CREATE POLICY thread_visible ON "thread" FOR ALL TO ping_app
   USING (
-    (SELECT public.current_staff_is_active())
-    AND (
-      channel_id = ANY (ARRAY(SELECT public.current_staff_channel_ids()))
-      OR channel_id IN (SELECT c.id FROM public.channel c WHERE c.visibility = 'public')
-    )
-  )
-  WITH CHECK (
     (SELECT public.current_staff_is_active())
     AND (
       channel_id = ANY (ARRAY(SELECT public.current_staff_channel_ids()))

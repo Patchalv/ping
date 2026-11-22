@@ -2,7 +2,7 @@
 // Composer). It offers only the allowlist (ADR 0003): StarterKit without horizontal
 // rules, headings 1–3, and links limited to http, https and mailto. The server checks
 // again, whatever arrives.
-import { isAllowedLinkHref, type RichTextDoc } from '@ping/shared';
+import { isAllowedLinkHref, RICH_TEXT_MESSAGES, type RichTextDoc } from '@ping/shared';
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
@@ -40,8 +40,6 @@ const EXTENSIONS = [
     },
   }),
 ];
-
-const LINK_MESSAGE = 'Links must start with http://, https:// or mailto:.';
 
 type Props = {
   /** The starting document. Later changes come from the editor, through onChange. */
@@ -280,7 +278,7 @@ function LinkForm({
     // "example.com" means https://example.com.
     const full = /^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`;
     if (!isAllowedLinkHref(full)) {
-      setError(LINK_MESSAGE);
+      setError(RICH_TEXT_MESSAGES.link);
       return;
     }
     editor.chain().focus().extendMarkRange('link').setLink({ href: full }).run();

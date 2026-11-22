@@ -1,5 +1,7 @@
 import {
   EMPTY_RICH_TEXT,
+  extractBodyText,
+  type RichTextDoc,
   type StartThreadBody,
   startThreadBody,
   THREAD_TITLE_MAX,
@@ -8,7 +10,7 @@ import {
 import { revalidateLogic } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { Button } from '#/components/ui/button';
 import {
@@ -21,6 +23,8 @@ import {
 } from '#/components/ui/dialog';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
+import { authClient } from '../../lib/auth-client';
+import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
 import { useStartThread } from './api';
 
 /**
@@ -53,9 +57,18 @@ export function StartThreadButton({ channelId }: { channelId: string }) {
   );
 }
 
-const defaultValues: StartThreadBody = { title: '', body: EMPTY_RICH_TEXT };
+type Draft = { title: string; body: RichTextDoc };
 
-/** The composer for a new Thread: a title and a rich-text description (screens.md › Composer). */
+const EMPTY: Draft = { title: '', body: EMPTY_RICH_TEXT };
+
+const isEmpty = (draft: StartThreadBody) =>
+  draft.title.trim() === '' && extractBodyText(draft.body as RichTextDoc) === '';
+
+/**
+ * The composer for a new Thread: a title and a rich-text description (screens.md ›
+ * Composer). It keeps one unsent draft per Channel in this browser until it's sent or
+ * emptied.
+ */
 function StartThreadDialog({
   channelId,
   onClose,
@@ -68,16 +81,35 @@ function StartThreadDialog({
   const start = useStartThread(channelId);
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
+  const staffMemberId = authClient.useSession().data?.user.id;
+  const key = staffMemberId ? draftKey(staffMemberId, 'new-thread', channelId) : null;
+  // Restored once, when the composer opens.
+  const [defaultValues] = useState<StartThreadBody>(() =>
+    key ? (readDraft<Draft>(key) ?? EMPTY) : EMPTY,
+  );
+  // Once sent, a late debounced save mustn't bring the draft back.
+  const sent = useRef(false);
 
   const form = useAppForm({
     formId: 'start-thread',
     defaultValues,
     validationLogic: revalidateLogic(),
     validators: { onDynamic: startThreadBody },
+    listeners: {
+      onChangeDebounceMs: 400,
+      onChange: ({ formApi }) => {
+        if (!key || sent.current) return;
+        const value = formApi.state.values;
+        saveDraft(key, isEmpty(value) ? null : value);
+      },
+    },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
       try {
-        onStarted(await start.mutateAsync(startThreadBody.parse(value)));
+        const thread = await start.mutateAsync(startThreadBody.parse(value));
+        sent.current = true;
+        if (key) saveDraft(key, null);
+        onStarted(thread);
       } catch (error) {
         if (!(error instanceof ApiError)) throw error;
         if (!showServerIssues(formApi, error.issues)) setFormError(error.message);

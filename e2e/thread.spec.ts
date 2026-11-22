@@ -73,3 +73,28 @@ test('a Staff member reading a Public channel they haven’t joined sees Join, n
   await expect(bar.getByRole('button', { name: 'Join' })).toBeVisible();
   await expect(bar.getByRole('button', { name: 'New Thread' })).toHaveCount(0);
 });
+
+test('an unsent new Thread is kept as a draft, and cleared once started', async ({ page }) => {
+  const title = `Draft ${test.info().project.name} ${Date.now()}`;
+  await signIn(page, 'laura.gomez@example.com');
+  await page.goto(`/channels/${SEED.teaching}`);
+  await page.getByRole('button', { name: 'New Thread' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New Thread' });
+  await dialog.getByLabel('Title').fill(title);
+  await dialog.getByRole('textbox', { name: 'Description' }).click();
+  await page.keyboard.type('Bring the projector back.');
+  // The draft saves after a short pause in typing.
+  await page.waitForTimeout(600);
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+
+  await page.reload();
+  await page.getByRole('button', { name: 'New Thread' }).click();
+  await expect(dialog.getByLabel('Title')).toHaveValue(title);
+  await expect(dialog.getByText('Bring the projector back.')).toBeVisible();
+  await dialog.getByRole('button', { name: 'Start Thread' }).click();
+  await expect(page.getByRole('region', { name: title })).toBeVisible();
+
+  await page.goto(`/channels/${SEED.teaching}`);
+  await page.getByRole('button', { name: 'New Thread' }).click();
+  await expect(dialog.getByLabel('Title')).toHaveValue('');
+});

@@ -7,7 +7,7 @@ import { cn } from '#/lib/utils';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { useThread } from './api';
-import { Byline } from './ThreadList';
+import { Byline } from './Byline';
 
 /**
  * The Thread view: a side panel on the right of the Channel view on a laptop, full
