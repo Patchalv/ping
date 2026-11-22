@@ -2,6 +2,7 @@
 // with.
 import { z } from 'zod';
 import type { ContentActions, EditedMark } from './edited';
+import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, extractBodyText, type RichTextDoc, richTextDoc } from './rich-text';
 import { type ThreadAuthor, threadParams } from './thread';
 
@@ -33,6 +34,9 @@ export type ThreadResponseView = {
   /** Null once deleted: the "Thread Response deleted" placeholder. */
   body: RichTextDoc | null;
   isDeleted: boolean;
+  /** Empty once deleted: a Thread Response's reactions go with its content. */
+  reactions: ReactionSummary[];
+  canReact: boolean;
 } & ContentActions;
 
 /** GET …/threads/:threadId/responses: all of a Thread's Thread Responses, oldest first. */

@@ -354,6 +354,35 @@ export async function insertThreadResponse(options: {
 }
 
 /**
+ * Inserts a reaction as the owner, behind row-level security, to a Thread or a Thread
+ * Response (exactly one of `threadId` and `threadResponseId`). Returns its ID.
+ */
+export async function insertReaction(options: {
+  channelId: string;
+  staffId: string;
+  threadId?: string;
+  threadResponseId?: string;
+  emoji?: string;
+}): Promise<string> {
+  const id = randomUUID();
+  await asOwner((query) =>
+    query(
+      `insert into reaction (id, channel_id, thread_id, thread_response_id, staff_id, emoji)
+       values ($1, $2, $3, $4, $5, $6)`,
+      [
+        id,
+        options.channelId,
+        options.threadId ?? null,
+        options.threadResponseId ?? null,
+        options.staffId,
+        options.emoji ?? '👍',
+      ],
+    ),
+  );
+  return id;
+}
+
+/**
  * A checksum of every row of every table in the public schema, read as the owner. Two
  * equal snapshots mean nothing was inserted, updated or deleted in between.
  */

@@ -11,11 +11,14 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
+import { canReact } from '../../permissions/reaction';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 import { canDeleteThreadResponse, canEditThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, staffMember, thread, threadResponse, user } = schema;
+const { auditEvent, channel, channelMember, reaction, staffMember, thread, threadResponse, user } =
+  schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, when the Thread is in that
@@ -108,7 +111,7 @@ export async function editThreadResponse(
 
 /**
  * Deletes a Thread Response's content for real, keeping the row as the "Thread Response
- * deleted" placeholder. Its reactions, Mentions and Attachments go with their slices.
+ * deleted" placeholder. Its reactions go with it; Mentions and Attachments will, as their slices add them.
  */
 export async function deleteThreadResponse(
   { tx, actor }: ActorTx,
@@ -118,6 +121,9 @@ export async function deleteThreadResponse(
     .update(threadResponse)
     .set({ body: null, bodyText: null, deletedAt: sql`now()`, deletedBy: actor.staffId })
     .where(eq(threadResponse.id, threadResponseId));
+  // The row-level security policy lets this remove other people's reactions only once
+  // the Thread Response is marked deleted, which the update above has just done.
+  await tx.delete(reaction).where(eq(reaction.threadResponseId, threadResponseId));
 }
 
 /**
@@ -164,6 +170,7 @@ export async function listThreadResponses(
       editorName: editor.name,
       body: threadResponse.body,
       deletedAt: threadResponse.deletedAt,
+      reactions: reactionSummarySql(reaction.threadResponseId, threadResponse.id, actor.staffId),
     })
     .from(threadResponse)
     .innerJoin(staffMember, eq(staffMember.id, threadResponse.authorId))
@@ -188,6 +195,8 @@ export async function listThreadResponses(
       // Written only through the allowlist, so it reads back as one.
       body: isDeleted ? null : (row.body as RichTextDoc),
       isDeleted,
+      reactions: isDeleted ? [] : row.reactions,
+      canReact: !isDeleted && canReact(actor, access).allow,
       canEdit: !isDeleted && canEditThreadResponse(actor, access, response).allow,
       canDelete: !isDeleted && canDeleteThreadResponse(actor, access, response).allow,
     };

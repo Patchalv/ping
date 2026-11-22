@@ -554,6 +554,74 @@ export const MATRIX: MatrixRow[] = [
     ),
   ]),
 
+  // Reactions. From "Reactions" (#40).
+
+  // React to a Thread or a Thread Response, and take a reaction back: Channel members
+  // only, company Admins included. A non-member of a Public channel must join first
+  // (403); a Private channel they aren't in is hidden (404). Nobody reacts in an
+  // Archived channel.
+  ...CHANNEL_KINDS.flatMap((channel) => {
+    const reacts = membershipChange(channel, 200, (actor) => CHANNEL_ROLE[actor] !== null);
+    return [
+      ...rowsFor(
+        {
+          route: 'PUT /api/channels/:channelId/threads/:threadId/reactions/:emoji',
+          action: `react to a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          thread: true,
+          request: (ctx) => ({
+            path: `${threadPath(ctx)}/reactions/${encodeURIComponent('👍')}`,
+            method: 'PUT',
+          }),
+        },
+        reacts,
+      ),
+      ...rowsFor(
+        {
+          route: 'DELETE /api/channels/:channelId/threads/:threadId/reactions/:emoji',
+          action: `take back a reaction to a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          thread: true,
+          request: (ctx) => ({
+            path: `${threadPath(ctx)}/reactions/${encodeURIComponent('👍')}`,
+            method: 'DELETE',
+          }),
+        },
+        reacts,
+      ),
+      ...rowsFor(
+        {
+          route:
+            'PUT /api/channels/:channelId/threads/:threadId/responses/:threadResponseId/reactions/:emoji',
+          action: `react to a Thread Response in a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          thread: true,
+          response: true,
+          request: (ctx) => ({
+            path: `${threadPath(ctx)}/responses/${ctx.response?.id}/reactions/${encodeURIComponent('🎉')}`,
+            method: 'PUT',
+          }),
+        },
+        reacts,
+      ),
+      ...rowsFor(
+        {
+          route:
+            'DELETE /api/channels/:channelId/threads/:threadId/responses/:threadResponseId/reactions/:emoji',
+          action: `take back a reaction to a Thread Response in a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          thread: true,
+          response: true,
+          request: (ctx) => ({
+            path: `${threadPath(ctx)}/responses/${ctx.response?.id}/reactions/${encodeURIComponent('🎉')}`,
+            method: 'DELETE',
+          }),
+        },
+        reacts,
+      ),
+    ];
+  }),
+
   // Read your own role: anyone. From "Invites, bootstrap-admin and email" (#32).
   ...rowsFor(
     {

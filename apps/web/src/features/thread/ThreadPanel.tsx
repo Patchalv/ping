@@ -14,6 +14,7 @@ import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
+import { Reactions } from './Reactions';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
 /**
@@ -101,6 +102,12 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
           </div>
           <h2 className="mt-2 text-lg font-bold [overflow-wrap:anywhere]">{thread.title}</h2>
           <RichTextView doc={thread.body} className="mt-2" />
+          <Reactions
+            channelId={thread.channelId}
+            threadId={thread.id}
+            reactions={thread.reactions}
+            canReact={thread.canReact}
+          />
         </article>
         {responses.isError ? (
           <p className="mt-5 text-destructive" role="alert">

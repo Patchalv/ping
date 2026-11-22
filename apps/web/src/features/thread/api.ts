@@ -2,6 +2,7 @@
 // hooks and never call hc or read a response themselves.
 import type {
   EditThreadBody,
+  ReactionList,
   StartThreadBody,
   ThreadPage,
   ThreadResponseBody,
@@ -162,5 +163,36 @@ export function useDeleteThreadResponse(
         }),
       ),
     onSuccess: refresh,
+  });
+}
+
+/** What a reaction is on: the Thread itself, or one of its Thread Responses. */
+export type ReactionTarget = { threadResponseId?: string };
+
+/**
+ * Adds or takes back the viewer's reaction to a Thread, or to a Thread Response when
+ * `target` names one. Refetches what shows reactions: the Thread, its Thread Responses and
+ * its row in the list.
+ */
+export function useReact(channelId: string, threadId: string, target: ReactionTarget = {}) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ emoji, add }: { emoji: string; add: boolean }): Promise<ReactionList> => {
+      const { threadResponseId } = target;
+      if (threadResponseId) {
+        const param = { channelId, threadId, threadResponseId, emoji };
+        const route = responses[':threadResponseId'].reactions[':emoji'];
+        return call(() => (add ? route.$put({ param }) : route.$delete({ param })));
+      }
+      const param = { channelId, threadId, emoji };
+      const route = threads[':threadId'].reactions[':emoji'];
+      return call(() => (add ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.responses(channelId, threadId) }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+      ]),
   });
 }

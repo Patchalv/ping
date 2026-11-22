@@ -4,6 +4,7 @@ import { Button } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
 import { useThreads } from './api';
 import { Byline } from './Byline';
+import { ThumbsUpButton } from './Reactions';
 
 /**
  * The Channel's feed: Thread rows by Latest activity, 50 at a time (screens.md › Channel
@@ -60,20 +61,40 @@ export function ThreadList({
   );
 }
 
-/** A Thread row: a white card with the author, time, title and a preview. */
+/**
+ * A Thread row: a white card with the author, time, title and a preview. The whole card
+ * opens the Thread (the title's link stretches over it); the 👍 button sits above that
+ * link, because a button can't live inside one.
+ */
 function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
   return (
-    <Link
-      to="/channels/$channelId/threads/$threadId"
-      params={{ channelId: thread.channelId, threadId: thread.id }}
-      aria-current={open ? 'true' : undefined}
+    <div
       className={cn(
-        'block rounded-lg border border-transparent bg-card px-4 py-3 text-card-foreground outline-none transition-colors hover:border-border focus-visible:ring-3 focus-visible:ring-ring/50',
+        'relative rounded-lg border border-transparent bg-card px-4 py-3 text-card-foreground transition-colors focus-within:ring-3 focus-within:ring-ring/50 hover:border-border',
         open && 'border-primary/60 hover:border-primary/60',
       )}
     >
-      <Byline author={thread.author} at={thread.createdAt} />
-      <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">{thread.title}</h2>
+      <div className="flex items-start gap-2">
+        <Byline author={thread.author} at={thread.createdAt} />
+        <div className="relative z-10 -mt-1 -mr-2 ml-auto">
+          <ThumbsUpButton
+            channelId={thread.channelId}
+            threadId={thread.id}
+            reactions={thread.reactions}
+            canReact={thread.canReact}
+          />
+        </div>
+      </div>
+      <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">
+        <Link
+          to="/channels/$channelId/threads/$threadId"
+          params={{ channelId: thread.channelId, threadId: thread.id }}
+          aria-current={open ? 'true' : undefined}
+          className="outline-none after:absolute after:inset-0 after:rounded-lg"
+        >
+          {thread.title}
+        </Link>
+      </h2>
       {thread.preview ? (
         <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground [overflow-wrap:anywhere]">
           {thread.preview}
@@ -82,6 +103,6 @@ function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
       <p className="mt-1.5 text-xs text-muted-foreground">
         {threadResponseCount(thread.responseCount)}
       </p>
-    </Link>
+    </div>
   );
 }

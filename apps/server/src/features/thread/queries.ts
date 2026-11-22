@@ -3,6 +3,7 @@
 // Threads, read as missing.
 import {
   extractBodyText,
+  type ReactionSummary,
   type RichTextDoc,
   THREAD_PAGE_SIZE,
   type ThreadAuthor,
@@ -14,7 +15,9 @@ import { and, desc, eq, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
+import { canReact } from '../../permissions/reaction';
 import {
   canDeleteThread,
   canEditThread,
@@ -23,7 +26,8 @@ import {
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, staffMember, thread, threadResponse, user } = schema;
+const { auditEvent, channel, channelMember, reaction, staffMember, thread, threadResponse, user } =
+  schema;
 
 /** How much of the description a Thread row previews. */
 const PREVIEW_LENGTH = 240;
@@ -75,7 +79,7 @@ export async function startThread(
   return row.id;
 }
 
-const threadColumns = {
+const threadColumns = (actorId: string) => ({
   id: thread.id,
   channelId: thread.channelId,
   title: thread.title,
@@ -88,7 +92,8 @@ const threadColumns = {
   // Deleted ones count: their placeholders still show in the Thread.
   responseCount: sql<number>`(
     select count(*)::int from ${threadResponse} where ${threadResponse.threadId} = ${thread.id})`,
-};
+  reactions: reactionSummarySql(reaction.threadId, thread.id, actorId),
+});
 
 type ThreadColumns = {
   id: string;
@@ -101,9 +106,13 @@ type ThreadColumns = {
   authorName: string | null;
   authorDeactivated: boolean;
   responseCount: number;
+  reactions: ReactionSummary[];
 };
 
-function toThread({ authorId, authorName, authorDeactivated, ...row }: ThreadColumns) {
+function toThread(
+  { authorId, authorName, authorDeactivated, ...row }: ThreadColumns,
+  canReactHere: boolean,
+) {
   const author: ThreadAuthor | null =
     authorId === null
       ? null
@@ -111,6 +120,7 @@ function toThread({ authorId, authorName, authorDeactivated, ...row }: ThreadCol
   return {
     ...row,
     author,
+    canReact: canReactHere,
     createdAt: row.createdAt.toISOString(),
     latestActivityAt: row.latestActivityAt.toISOString(),
   };
@@ -121,7 +131,8 @@ function toThread({ authorId, authorName, authorDeactivated, ...row }: ThreadCol
  * is the last Thread of the page before; the next page starts below it.
  */
 export async function listThreads(
-  { tx }: ActorTx,
+  { tx, actor }: ActorTx,
+  access: ThreadChannelAccess,
   channelId: string,
   after: string | undefined,
 ): Promise<ThreadPage> {
@@ -132,7 +143,7 @@ export async function listThreads(
     : undefined;
   const rows = await tx
     .select({
-      ...threadColumns,
+      ...threadColumns(actor.staffId),
       preview: sql<string>`left(regexp_replace(${thread.bodyText}, '\\s+', ' ', 'g'), ${PREVIEW_LENGTH})`,
     })
     .from(thread)
@@ -142,8 +153,12 @@ export async function listThreads(
     .orderBy(desc(thread.latestActivityAt), desc(thread.id))
     .limit(THREAD_PAGE_SIZE + 1);
   const page = rows.slice(0, THREAD_PAGE_SIZE);
+  const mayReact = canReact(actor, access).allow;
   return {
-    threads: page.map(({ preview, ...row }) => ({ ...toThread(row), preview })),
+    threads: page.map(({ preview, ...row }) => ({
+      ...toThread(row, mayReact),
+      preview,
+    })),
     nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
   };
 }
@@ -162,7 +177,7 @@ export async function findThread(
 ): Promise<ThreadView | undefined> {
   const [row] = await tx
     .select({
-      ...threadColumns,
+      ...threadColumns(actor.staffId),
       body: thread.body,
       editedAt: thread.editedAt,
       editedBy: thread.editedBy,
@@ -177,7 +192,7 @@ export async function findThread(
   const { body, editedAt, editedBy, editorName, ...rest } = row;
   const authorship = { authorId: rest.authorId };
   return {
-    ...toThread(rest),
+    ...toThread(rest, canReact(actor, access).allow),
     // Written only through the allowlist, so it reads back as one.
     body: body as RichTextDoc,
     edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
@@ -220,8 +235,8 @@ export async function editThread(
 
 /**
  * Deletes a Thread for real. Its Thread Responses (other people's included) go with it by
- * cascade; reactions, Mentions, Attachments, Pings and Saved entries will too, as their
- * slices add them.
+ * cascade, and so do all their reactions (and the Thread's own); Mentions, Attachments,
+ * Pings and Saved entries will too, as their slices add them.
  */
 export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<void> {
   await tx.delete(thread).where(eq(thread.id, threadId));

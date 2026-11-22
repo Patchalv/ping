@@ -50,7 +50,7 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             const found = await findThreadChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             requireCanReadThreads(ctx.actor, found);
-            return listThreads(ctx, channelId, after);
+            return listThreads(ctx, found, channelId, after);
           });
           return c.json(page);
         },

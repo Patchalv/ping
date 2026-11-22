@@ -76,6 +76,8 @@ describe('Thread routes', () => {
         createdAt: expect.any(String),
         latestActivityAt: started.createdAt,
         responseCount: 0,
+        reactions: [],
+        canReact: true,
         edited: null,
         canRespond: true,
         canEdit: true,
@@ -184,6 +186,8 @@ describe('Thread routes', () => {
         createdAt: new Date(now - 60_000).toISOString(),
         latestActivityAt: new Date(now - 60_000).toISOString(),
         responseCount: 0,
+        reactions: [],
+        canReact: true,
       });
     });
 
