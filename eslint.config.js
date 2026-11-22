@@ -7,6 +7,9 @@ import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
+  // Agent worktrees are full checkouts of the repo; linting them from the main
+  // checkout runs the type-aware rules once per worktree and exhausts the heap.
+  { ignores: ['.claude/worktrees/**'] },
   {
     files: [
       'apps/*/src/**/*.{ts,tsx}',
