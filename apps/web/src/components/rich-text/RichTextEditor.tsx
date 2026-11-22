@@ -62,7 +62,8 @@ export function RichTextEditor({ defaultValue, onChange, onBlur, attributes }: P
         tabindex: '0',
         class: cn(
           PROSE,
-          'min-h-28 px-3 py-2 outline-none max-md:text-[1rem] [&_p.is-editor-empty:first-child]:min-h-6',
+          // A long description scrolls inside the editor, so the actions below stay in reach.
+          'max-h-[50dvh] min-h-28 overflow-y-auto px-3 py-2 outline-none max-md:text-[1rem] [&_p.is-editor-empty:first-child]:min-h-6',
         ),
       },
     },

@@ -139,7 +139,7 @@ Every one of Ping's tables has RLS enabled and forced, with an explicit policy. 
 
 Search runs through the same policies.
 
-The visibility rule guards reads, which is what the backstop is for. Most write rules (who may edit, delete or resolve) live only in the server's permissions module. Two writes are guarded in the database too, because a mistake there would hand out access: creating a Channel goes through `create_channel` (`channel` is read-only for `ping_app`), and membership writes have their own `channel_member` policies, so nobody can make themself Channel admin or remove others with raw SQL.
+The visibility rule guards reads, which is what the backstop is for. Most write rules (who may edit, delete or resolve) live only in the server's permissions module. Three writes are guarded in the database too: creating a Channel goes through `create_channel` (`channel` is read-only for `ping_app`), and membership writes have their own `channel_member` policies, so nobody can make themself Channel admin or remove others with raw SQL, because a mistake there would hand out access. And a Thread inserted through `ping_app` must be an ordinary one by the acting Staff member (a restrictive `thread_insert_as_self` policy), so nobody posts in someone else's name or as Ping. System threads are started by system functions only.
 
 Policies never ask "is the current Staff member a member of this row's Channel?" once per row. They call set-returning helpers (`current_staff_channel_ids()`, `current_staff_admin_channel_ids()`) as `channel_id = ANY (ARRAY(SELECT …))`, which Postgres runs once per statement. Threads, Thread Responses and search copy this. A test reads the query plan to prove it.
 

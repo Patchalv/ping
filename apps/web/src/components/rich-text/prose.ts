@@ -2,7 +2,8 @@
 // container, so both match. Body text is 15px (DESIGN.md › Typography); headings step up
 // within the six sizes.
 export const PROSE = [
-  'text-base leading-[1.45] break-words',
+  // anywhere, not break-word: a long URL or word must not widen its container.
+  'text-base leading-[1.45] [overflow-wrap:anywhere]',
   '[&>*+*]:mt-2 [&_li>*+*]:mt-1',
   // The editor's h1–h3. The view renders them two levels down, marked with data-level,
   // and an attribute outranks a tag, so the view's h3 still looks like an h1.

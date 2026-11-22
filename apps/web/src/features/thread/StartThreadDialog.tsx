@@ -61,6 +61,17 @@ type Draft = { title: string; body: RichTextDoc };
 
 const EMPTY: Draft = { title: '', body: EMPTY_RICH_TEXT };
 
+/**
+ * A saved draft, if it still has the composer's shape and its description passes the
+ * allowlist. A damaged or out-of-date one is dropped rather than crashing the editor.
+ */
+function restoreDraft(key: string | null): Draft {
+  const saved = key ? readDraft<{ title?: unknown; body?: unknown }>(key) : null;
+  if (!saved || typeof saved.title !== 'string') return EMPTY;
+  const body = startThreadBody.shape.body.safeParse(saved.body);
+  return body.success ? { title: saved.title, body: body.data } : EMPTY;
+}
+
 const isEmpty = (draft: StartThreadBody) =>
   draft.title.trim() === '' && extractBodyText(draft.body as RichTextDoc) === '';
 
@@ -84,9 +95,7 @@ function StartThreadDialog({
   const staffMemberId = authClient.useSession().data?.user.id;
   const key = staffMemberId ? draftKey(staffMemberId, 'new-thread', channelId) : null;
   // Restored once, when the composer opens.
-  const [defaultValues] = useState<StartThreadBody>(() =>
-    key ? (readDraft<Draft>(key) ?? EMPTY) : EMPTY,
-  );
+  const [defaultValues] = useState<StartThreadBody>(() => restoreDraft(key));
   // Once sent, a late debounced save mustn't bring the draft back.
   const sent = useRef(false);
 

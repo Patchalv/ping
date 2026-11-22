@@ -74,6 +74,28 @@ test('a Staff member reading a Public channel they haven’t joined sees Join, n
   await expect(bar.getByRole('button', { name: 'New Thread' })).toHaveCount(0);
 });
 
+test('a description over the limit is shown on the editor, which takes focus', async ({ page }) => {
+  await signIn(page, 'jordi.puig@example.com');
+  await page.goto(`/channels/${SEED.frontDesk}`);
+  await page.getByRole('button', { name: 'New Thread' }).click();
+  const dialog = page.getByRole('dialog', { name: 'New Thread' });
+  await dialog.getByLabel('Title').fill('Too long');
+  const description = dialog.getByRole('textbox', { name: 'Description' });
+  await description.click();
+  // Typing 20,001 characters would be slow; the editor's own insert is the same edit.
+  await description.evaluate((element) => {
+    // TipTap puts its editor on the editable element.
+    const { editor } = element as unknown as {
+      editor: { commands: { insertContent(text: string): void } };
+    };
+    editor.commands.insertContent('x'.repeat(20_001));
+  });
+  await dialog.getByLabel('Title').focus();
+  await dialog.getByRole('button', { name: 'Start Thread' }).click();
+  await expect(dialog.getByText('Keep the text to 20,000 characters or fewer.')).toBeVisible();
+  await expect(description).toBeFocused();
+});
+
 test('an unsent new Thread is kept as a draft, and cleared once started', async ({ page }) => {
   const title = `Draft ${test.info().project.name} ${Date.now()}`;
   await signIn(page, 'laura.gomez@example.com');
