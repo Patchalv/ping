@@ -14,7 +14,7 @@ import type {
 } from '@ping/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { call } from '../../lib/api-client';
+import { call, callNoContent } from '../../lib/api-client';
 
 const staff = api.api.staff;
 const invites = api.api.invites;
@@ -70,15 +70,7 @@ export function useResendInvite() {
 
 export function useCancelInvite() {
   return useStaffMutation(async (staffId: string): Promise<void> => {
-    await call(async () => {
-      const res = await staff[':staffId'].invite.$delete({ param: { staffId } });
-      // 204: no body to read.
-      return {
-        ok: res.ok,
-        status: res.status,
-        json: () => (res.ok ? Promise.resolve() : res.json()),
-      };
-    });
+    await callNoContent(() => staff[':staffId'].invite.$delete({ param: { staffId } }));
   });
 }
 
@@ -134,15 +126,7 @@ export function useChangeName(staffId: string) {
 export function useRequestEmailChange(staffId: string) {
   return useMutation({
     mutationFn: async (body: ChangeEmailBody): Promise<void> => {
-      await call(async () => {
-        const res = await staff[':staffId'].email.$post({ param: { staffId }, json: body });
-        // 202: no body to read.
-        return {
-          ok: res.ok,
-          status: res.status,
-          json: () => (res.ok ? Promise.resolve() : res.json()),
-        };
-      });
+      await callNoContent(() => staff[':staffId'].email.$post({ param: { staffId }, json: body }));
     },
   });
 }

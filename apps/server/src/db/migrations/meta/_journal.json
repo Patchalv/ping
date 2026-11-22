@@ -36,6 +36,13 @@
       "when": 1795343660878,
       "tag": "0004_self_demotion",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1795347323453,
+      "tag": "0005_channel_member_joined_at",
+      "breakpoints": true
     }
   ]
 }

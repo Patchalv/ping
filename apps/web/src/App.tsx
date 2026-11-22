@@ -51,7 +51,7 @@ export function App() {
   // An invite link opens the set-password page, signed in or not. It sits outside the
   // router on purpose: the router lives inside the signed-in app (one per Staff member),
   // and this page comes before anyone is signed in, like SignIn. Accepting signs the new
-  // Staff member in and lands them on the signed-in home (Browse channels from #36).
+  // Staff member in and lands them on Browse channels (screens.md › Other flows).
   const [inviteToken, setInviteToken] = useState(() =>
     window.location.pathname === ACCEPT_INVITE_PATH ? tokenFromHash(window.location.hash) : null,
   );
@@ -70,7 +70,7 @@ export function App() {
           token={inviteToken}
           onAccepted={() => {
             // Through the router, whose history would miss a bare replaceState.
-            void router.navigate({ to: '/', replace: true });
+            void router.navigate({ to: '/browse', replace: true });
             setInviteToken(null);
             void refetch();
           }}

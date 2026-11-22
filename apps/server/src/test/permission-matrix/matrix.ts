@@ -123,6 +123,71 @@ export const MATRIX: MatrixRow[] = [
     (actor) => (CHANNEL_ROLE[actor] ? { allow: true, status: 200 } : { allow: false, status: 404 }),
   ),
 
+  // Browse channels, join and leave. From "Browse, join and leave Public channels" (#36).
+  ...rowsFor(
+    {
+      route: 'GET /api/channels/browse',
+      action: 'browse the Public channels',
+      channel: null,
+      request: () => ({ path: '/api/channels/browse' }),
+    },
+    allowed(200),
+  ),
+
+  // Join a Public channel: anyone. A member joining again changes nothing.
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/join',
+      action: 'join a Public channel',
+      channel: 'public',
+      request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/join`, method: 'POST' }),
+    },
+    allowed(200),
+  ),
+
+  // Join a Private channel: nobody. Its members are refused; everyone else gets 404,
+  // company Admins included.
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/join',
+      action: 'join a Private channel',
+      channel: 'private',
+      request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/join`, method: 'POST' }),
+    },
+    (actor) => ({ allow: false, status: CHANNEL_ROLE[actor] ? 403 : 404 }),
+  ),
+
+  // Join an Archived channel: nobody.
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/join',
+      action: 'join an Archived Public channel',
+      channel: 'archived',
+      request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/join`, method: 'POST' }),
+    },
+    refused,
+  ),
+
+  // Leave a Channel: any member, except its last active Channel admin (the channelAdmin
+  // actor is the fixture's only one). Archived channels can still be left. A Private
+  // channel the actor isn't in answers 404; a Public one they aren't in, 403.
+  ...(['public', 'private', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/leave',
+        action: `leave a ${{ public: 'Public', private: 'Private', archived: 'Archived Public' }[channel]} channel`,
+        channel,
+        request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/leave`, method: 'POST' }),
+      },
+      (actor): MatrixRow['expect'] => {
+        const role = CHANNEL_ROLE[actor];
+        if (role === 'member') return { allow: true, status: 204 };
+        if (role === 'channelAdmin') return { allow: false, status: 403 };
+        return { allow: false, status: channel === 'private' ? 404 : 403 };
+      },
+    ),
+  ),
+
   // Read your own role: anyone. From "Invites, bootstrap-admin and email" (#32).
   ...rowsFor(
     {

@@ -12,6 +12,7 @@ import {
 } from '@tanstack/react-router';
 import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
+import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
 
@@ -42,6 +43,13 @@ function ChannelRoute() {
   return <ChannelPage key={channelId} channelId={channelId} />;
 }
 
+// Browse channels: every Public channel, to join. Accepting an invite lands here.
+const browseRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/browse',
+  component: BrowseChannelsPage,
+});
+
 // The Admins' Staff members screen, from the avatar menu. A Member who opens it gets the
 // server's refusal.
 const staffRoute = createRoute({
@@ -50,7 +58,7 @@ const staffRoute = createRoute({
   component: StaffMembersPage,
 });
 
-const routeTree = rootRoute.addChildren([homeRoute, channelRoute, staffRoute]);
+const routeTree = rootRoute.addChildren([homeRoute, browseRoute, channelRoute, staffRoute]);
 
 /** The browser's router by default; tests pass a memory history. */
 export function createAppRouter(history?: RouterHistory) {
