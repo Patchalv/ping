@@ -79,6 +79,9 @@ function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
           {thread.preview}
         </p>
       ) : null}
+      <p className="mt-1.5 text-xs text-muted-foreground">
+        {thread.responseCount} {thread.responseCount === 1 ? 'Thread Response' : 'Thread Responses'}
+      </p>
     </Link>
   );
 }

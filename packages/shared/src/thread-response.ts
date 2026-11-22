@@ -4,9 +4,7 @@ import { z } from 'zod';
 import { EMPTY_RICH_TEXT, extractBodyText, type RichTextDoc, richTextDoc } from './rich-text';
 import { type ThreadAuthor, threadParams } from './thread';
 
-export const THREAD_RESPONSE_MESSAGES = {
-  empty: 'Write something before sending.',
-} as const;
+const EMPTY_MESSAGE = 'Write something before sending.';
 
 /**
  * POST …/threads/:threadId/responses (send) and PATCH …/responses/:threadResponseId
@@ -15,7 +13,7 @@ export const THREAD_RESPONSE_MESSAGES = {
 export const threadResponseBody = z.object({
   body: richTextDoc
     .default(EMPTY_RICH_TEXT)
-    .refine((doc) => extractBodyText(doc).trim() !== '', THREAD_RESPONSE_MESSAGES.empty),
+    .refine((doc) => extractBodyText(doc).trim() !== '', EMPTY_MESSAGE),
 });
 export type ThreadResponseBody = z.input<typeof threadResponseBody>;
 

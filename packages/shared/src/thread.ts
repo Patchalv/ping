@@ -8,20 +8,23 @@ export const THREAD_TITLE_MAX = 200;
 /** How many Threads a Thread list loads at a time (screens.md › Baseline behaviours). */
 export const THREAD_PAGE_SIZE = 50;
 
-/** POST /api/channels/:channelId/threads: start a Thread. */
-export const startThreadBody = z.object({
+/** A Thread's title and description, the same rules when starting and editing one. */
+const threadContent = {
   title: z
     .string({ error: 'Give the Thread a title.' })
     .trim()
     .min(1, 'Give the Thread a title.')
     .max(THREAD_TITLE_MAX, `Keep the title to ${THREAD_TITLE_MAX} characters or fewer.`),
   body: richTextDoc.default(EMPTY_RICH_TEXT),
-});
+};
+
+/** POST /api/channels/:channelId/threads: start a Thread. */
+export const startThreadBody = z.object(threadContent);
 export type StartThreadBody = z.input<typeof startThreadBody>;
 
 /** PATCH /api/channels/:channelId/threads/:threadId: edit a Thread's title and description. */
-export const editThreadBody = startThreadBody;
-export type EditThreadBody = StartThreadBody;
+export const editThreadBody = z.object(threadContent);
+export type EditThreadBody = z.input<typeof editThreadBody>;
 
 /** Routes under /api/channels/:channelId/threads/:threadId, and the SPA's Thread route. */
 export const threadParams = channelParams.extend({
