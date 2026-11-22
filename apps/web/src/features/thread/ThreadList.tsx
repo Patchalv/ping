@@ -4,7 +4,7 @@ import { Button } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
 import { useThreads } from './api';
 import { Byline } from './Byline';
-import { ThumbsUpButton } from './Reactions';
+import { Reactions } from './Reactions';
 
 /**
  * The Channel's feed: Thread rows by Latest activity, 50 at a time (screens.md › Channel
@@ -63,7 +63,7 @@ export function ThreadList({
 
 /**
  * A Thread row: a white card with the author, time, title and a preview. The whole card
- * opens the Thread (the title's link stretches over it); the 👍 button sits above that
+ * opens the Thread (the title's link stretches over it); its reactions sit above that
  * link, because a button can't live inside one.
  */
 function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
@@ -74,17 +74,7 @@ function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
         open && 'border-primary/60 hover:border-primary/60',
       )}
     >
-      <div className="flex items-start gap-2">
-        <Byline author={thread.author} at={thread.createdAt} />
-        <div className="relative z-10 -mt-1 -mr-2 ml-auto">
-          <ThumbsUpButton
-            channelId={thread.channelId}
-            threadId={thread.id}
-            reactions={thread.reactions}
-            canReact={thread.canReact}
-          />
-        </div>
-      </div>
+      <Byline author={thread.author} at={thread.createdAt} />
       <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">
         <Link
           to="/channels/$channelId/threads/$threadId"
@@ -100,9 +90,16 @@ function ThreadRow({ thread, open }: { thread: ThreadRowData; open: boolean }) {
           {thread.preview}
         </p>
       ) : null}
-      <p className="mt-1.5 text-xs text-muted-foreground">
-        {threadResponseCount(thread.responseCount)}
-      </p>
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-xs text-muted-foreground">{threadResponseCount(thread.responseCount)}</p>
+        <Reactions
+          channelId={thread.channelId}
+          threadId={thread.id}
+          reactions={thread.reactions}
+          canReact={thread.canReact}
+          className="relative z-10 mt-0"
+        />
+      </div>
     </div>
   );
 }
