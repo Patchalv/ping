@@ -39,6 +39,10 @@ const everyAllowedFormat = doc(
     text(' mail', [link('mailto:someone@example.com')]),
     text(' plain', [link('http://example.com')]),
     text(' 🎉 emoji'),
+    // A line break inside formatted text carries the marks around it.
+    text('linked', [link('https://example.com')]),
+    { type: 'hardBreak', marks: [link('https://example.com'), { type: 'bold' }] },
+    text('lines', [link('https://example.com')]),
   ),
   { type: 'codeBlock', attrs: { language: null }, content: [text('const x = 1;')] },
   { type: 'blockquote', content: [p(text('Quoted'))] },
@@ -54,6 +58,7 @@ const everyAllowedFormat = doc(
       label: 'Jordi Puig',
       mentionSuggestionChar: '@',
     },
+    marks: [{ type: 'bold' }],
   }),
   { type: 'paragraph' },
 );

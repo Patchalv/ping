@@ -2,19 +2,24 @@
 // URL. Params and search params are validated with the zod schemas in packages/shared; a
 // path that fails them is not found. The server answers every non-API path with
 // index.html, so a deep link loads the app and lands here.
-import { channelParams } from '@ping/shared';
+import { channelParams, threadParams } from '@ping/shared';
 import {
   createRootRoute,
   createRoute,
   createRouter,
   notFound,
+  Outlet,
   type RouterHistory,
+  useParams,
 } from '@tanstack/react-router';
 import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
+import { StartThreadButton } from './features/thread/StartThreadDialog';
+import { ThreadList } from './features/thread/ThreadList';
+import { ThreadPanel } from './features/thread/ThreadPanel';
 
 const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: PageNotFound });
 
@@ -34,7 +39,8 @@ const channelRouteParams = {
   stringify: (params: { channelId: string }) => params,
 };
 
-// The Channel view, on its Threads tab.
+// The Channel view, on its Threads tab. An open Thread is a child route, so the feed stays
+// mounted (and scrolled) behind its panel.
 const channelRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/channels/$channelId',
@@ -44,7 +50,39 @@ const channelRoute = createRoute({
 
 function ChannelRoute() {
   const { channelId } = channelRoute.useParams();
-  return <ChannelPage key={channelId} channelId={channelId} tab="threads" />;
+  const { threadId } = useParams({ strict: false });
+  return (
+    <ChannelPage
+      key={channelId}
+      channelId={channelId}
+      tab="threads"
+      startThread={<StartThreadButton channelId={channelId} />}
+      panel={<Outlet />}
+    >
+      <ThreadList channelId={channelId} openThreadId={threadId} />
+    </ChannelPage>
+  );
+}
+
+// An open Thread: a panel beside the feed on a laptop, full screen on a phone. Its IDs
+// must pass the schema, or it's not found.
+const threadRoute = createRoute({
+  getParentRoute: () => channelRoute,
+  path: 'threads/$threadId',
+  params: {
+    parse: (raw: Record<string, string>) => {
+      const parsed = threadParams.safeParse(raw);
+      if (!parsed.success) throw notFound();
+      return { threadId: parsed.data.threadId };
+    },
+    stringify: (params: { threadId: string }) => params,
+  },
+  component: ThreadRoute,
+});
+
+function ThreadRoute() {
+  const { channelId, threadId } = threadRoute.useParams();
+  return <ThreadPanel key={threadId} channelId={channelId} threadId={threadId} />;
 }
 
 // The same Channel view, on its Members tab.
@@ -78,7 +116,7 @@ const staffRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   browseRoute,
-  channelRoute,
+  channelRoute.addChildren([threadRoute]),
   channelMembersRoute,
   staffRoute,
 ]);

@@ -47,7 +47,9 @@ export function AppShell() {
   const [editingProfile, setEditingProfile] = useState(false);
 
   return (
-    <SidebarProvider className="grid h-dvh grid-rows-[auto_minmax(0,1fr)] bg-chrome">
+    // One column, held to the viewport: a wide Thread panel shrinks the feed beside it
+    // instead of pushing the page past the window's edge.
+    <SidebarProvider className="grid h-dvh grid-cols-[minmax(0,1fr)] grid-rows-[auto_minmax(0,1fr)] bg-chrome">
       <TopBar>
         {session ? (
           <AvatarMenu user={session.user}>

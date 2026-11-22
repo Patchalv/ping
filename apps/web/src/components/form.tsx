@@ -16,6 +16,8 @@
 //       <form.SubmitButton pending="Creating…">Create channel</form.SubmitButton>
 //     </form.Form>
 //   </form.AppForm>
+
+import type { RichTextDoc } from '@ping/shared';
 import {
   type AnyFieldApi,
   type AnyFormApi,
@@ -24,6 +26,7 @@ import {
   useStore,
 } from '@tanstack/react-form';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
+import { RichTextEditor } from '#/components/rich-text/RichTextEditor';
 import { Button } from '#/components/ui/button';
 import {
   Field,
@@ -32,6 +35,7 @@ import {
   FieldLabel,
   FieldLegend,
   FieldSet,
+  FieldTitle,
 } from '#/components/ui/field';
 import { Input } from '#/components/ui/input';
 import { RadioGroup } from '#/components/ui/radio-group';
@@ -43,7 +47,7 @@ const { fieldContext, formContext, useFieldContext, useFormContext } = createFor
 
 /**
  * What every bound field needs: its control's id, its error, and the props that tie the
- * two together. A custom field (the TipTap editor in #38) uses this to get the same wiring.
+ * two together. A custom field (RichTextField, below) uses this to get the same wiring.
  * @public
  */
 export function useFieldWiring<TValue>() {
@@ -168,6 +172,37 @@ function RadioGroupField({ legend, children }: { legend: ReactNode; children: Re
 }
 
 /**
+ * A rich-text field: the TipTap editor (ADR 0003). Its editable element is a div, which a
+ * <label> can't point at, so the label names it through aria-labelledby, and the wiring's
+ * id, data-field and aria attributes go on that div, the element that takes focus.
+ */
+function RichTextField({ label }: { label: ReactNode }) {
+  const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<RichTextDoc>();
+  const labelId = `${id}-label`;
+  const attributes: Record<string, string> = {
+    id,
+    'data-field': field.name,
+    'aria-labelledby': labelId,
+  };
+  if (controlProps['aria-invalid']) attributes['aria-invalid'] = 'true';
+  if (controlProps['aria-describedby']) {
+    attributes['aria-describedby'] = controlProps['aria-describedby'];
+  }
+  return (
+    <Field {...fieldProps}>
+      <FieldTitle id={labelId}>{label}</FieldTitle>
+      <RichTextEditor
+        defaultValue={field.state.value}
+        attributes={attributes}
+        onChange={change}
+        onBlur={field.handleBlur}
+      />
+      {errorNode}
+    </Field>
+  );
+}
+
+/**
  * The <form> element. It submits through TanStack Form, then moves focus to the first field
  * with an error, in page order, whether the schema or the server found it.
  */
@@ -231,7 +266,7 @@ function SubmitButton({
 export const { useAppForm } = createFormHook({
   fieldContext,
   formContext,
-  fieldComponents: { TextField, TextareaField, RadioGroupField },
+  fieldComponents: { TextField, TextareaField, RadioGroupField, RichTextField },
   formComponents: { Form, SubmitButton },
 });
 

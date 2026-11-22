@@ -34,14 +34,12 @@ export {
 export {
   EMPTY_RICH_TEXT,
   extractBodyText,
-  RICH_TEXT_MAX,
-  RICH_TEXT_MESSAGES,
+  isAllowedLinkHref,
   type RichTextBlock,
   type RichTextDoc,
   type RichTextInline,
   type RichTextListItem,
   type RichTextMark,
-  richTextDoc,
 } from './rich-text';
 export {
   redactSensitiveText,

@@ -4,7 +4,7 @@
 import { z } from 'zod';
 
 /** The most text a body may hold, across all its nodes. */
-export const RICH_TEXT_MAX = 20_000;
+const RICH_TEXT_MAX = 20_000;
 /** How deeply blocks may nest (lists in quotes in lists…). The document is level 0. */
 const MAX_DEPTH = 12;
 /** How many nodes a body may hold, so a crafted document can't make the walk expensive. */
@@ -44,10 +44,11 @@ export type RichTextMark =
 
 export type RichTextInline =
   | { type: 'text'; text: string; marks?: RichTextMark[] }
-  | { type: 'hardBreak' }
+  | { type: 'hardBreak'; marks?: RichTextMark[] }
   | {
       type: 'mention';
       attrs: { id: string; label?: string | null; mentionSuggestionChar?: '@' | null };
+      marks?: RichTextMark[];
     };
 
 export type RichTextBlock =
@@ -133,15 +134,18 @@ const NODE_ATTRS: Record<string, AttrCheck> = {
 const PLAIN_MARKS: ReadonlySet<string> = new Set(['bold', 'italic', 'underline', 'strike', 'code']);
 
 const LINK_ATTRS: AttrCheck = {
-  href: { required: true, ok: isAllowedHref },
+  href: { required: true, ok: isAllowedLinkHref },
   target: { ok: (v) => v === null || v === '_blank' },
   rel: { ok: nullableString(100) },
   class: { ok: (v) => v === null },
   title: { ok: nullableString(200) },
 };
 
-/** http, https or mailto, as an absolute URL. Relative links are refused too. */
-function isAllowedHref(value: unknown): boolean {
+/**
+ * http, https or mailto, as an absolute URL. Relative links are refused too. The editor
+ * and the renderer use it as well, so neither makes or shows a link the server refuses.
+ */
+export function isAllowedLinkHref(value: unknown): boolean {
   if (typeof value !== 'string' || value.length > LINK_HREF_MAX) return false;
   // Control characters (a tab hiding "java\tscript:") and outer spaces are refused outright.
   const hasControl = [...value].some((ch) => {
@@ -220,7 +224,11 @@ function checkNode(
     if (record.content !== undefined) refuse();
     return;
   }
-  if (record.text !== undefined || record.marks !== undefined) refuse();
+  if (record.text !== undefined) refuse();
+  // Inline nodes carry the marks around them: TipTap puts a link's mark on a line break
+  // inside it. Blocks carry none.
+  if (INLINES.has(type)) checkMarks(record.marks, false);
+  else if (record.marks !== undefined) refuse();
   checkContent(record.content, type, depth, budget);
 }
 
