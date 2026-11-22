@@ -325,6 +325,25 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
+  // Appoint someone outside the Channel: only a company Admin, on a Public channel. A
+  // Channel admin is asked to add them first.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/members/:staffId',
+        action: `appoint someone outside a ${CHANNEL_KIND_NAME[channel]} channel as its Channel admin`,
+        channel,
+        target: 'active',
+        request: (ctx) => ({
+          path: memberPath(ctx),
+          method: 'PATCH',
+          body: { isChannelAdmin: true },
+        }),
+      },
+      membershipChange(channel, 204, (actor) => channel === 'public' && ADMINS.has(actor)),
+    ),
+  ),
+
   // Make yourself Channel admin: a company Admin of a Public channel, member or not. A
   // Channel admin already is one, so it changes nothing.
   ...CHANNEL_KINDS.flatMap((channel) =>
