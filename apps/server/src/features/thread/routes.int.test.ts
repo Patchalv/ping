@@ -79,10 +79,12 @@ describe('Thread routes', () => {
         reactions: [],
         canReact: true,
         pingCount: 0,
+        isSaved: false,
         resolvedAt: null,
         edited: null,
         canRespond: true,
         ping: null,
+        isMuted: false,
         canResolve: true,
         canEdit: true,
         canDelete: true,
@@ -193,6 +195,7 @@ describe('Thread routes', () => {
         reactions: [],
         canReact: true,
         pingCount: 0,
+        isSaved: false,
         resolvedAt: null,
       });
     });

@@ -8,8 +8,10 @@ import type { Auth } from './auth';
 import type { PingEnvironment, SentrySettings } from './config';
 import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
+import { channelMuteRoutes, threadMuteRoutes } from './features/mute/routes';
 import { markReadRoutes, pingRoutes } from './features/ping/routes';
 import { reactionRoutes } from './features/reaction/routes';
+import { savedRoutes, saveRoutes } from './features/saved/routes';
 import { placementRoutes, sectionRoutes } from './features/section/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
 import { emailChangeRoutes } from './features/staff/email-change-routes';
@@ -113,7 +115,11 @@ export function createApp(options: AppOptions) {
     .route('/api/channels/:channelId/threads/:threadId/responses', threadResponseRoutes(options))
     .route('/api/channels/:channelId/threads/:threadId', reactionRoutes(options))
     .route('/api/channels/:channelId/threads/:threadId/ping', markReadRoutes(options))
+    .route('/api/channels/:channelId/threads/:threadId/saved', saveRoutes(options))
+    .route('/api/channels/:channelId/threads/:threadId/mute', threadMuteRoutes(options))
+    .route('/api/channels/:channelId/mute', channelMuteRoutes(options))
     .route('/api/pings', pingRoutes(options))
+    .route('/api/saved', savedRoutes(options))
     .route('/api/sections', sectionRoutes(options))
     .route('/api/channels/:channelId/section', placementRoutes(options))
     .route('/api/live', liveRoutes(options))

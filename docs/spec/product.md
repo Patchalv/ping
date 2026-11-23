@@ -221,7 +221,7 @@ Sources: [Exactly when does a Ping appear, update and clear?](https://github.com
 ## Mute
 
 - A Staff member can **Mute** a whole Channel they're a member of, or a single Thread they can read.
-- While muted, new Thread Responses don't Ping them. New Threads and Mentions still do.
+- While muted, new Thread Responses don't Ping them. New Threads and Mentions still do, and so does a new Thread Response in a Thread they've Saved: Saving wins over a mute.
 - Leaving a Channel drops your mutes for it.
 
 ## Attachments

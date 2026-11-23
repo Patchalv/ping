@@ -48,6 +48,7 @@ describe('Channel routes', () => {
         isMember: true,
         isChannelAdmin: true,
         isArchived: false,
+        isMuted: false,
       });
 
       const read = await request(`/api/channels/${channel.id}`);
@@ -126,8 +127,8 @@ describe('Channel routes', () => {
       const res = await request('/api/channels');
       expect(res.status).toBe(200);
       expect((await res.json()) as SidebarChannel[]).toEqual([
-        { id: alpha.id, name: 'Alpha', visibility: 'private' },
-        { id: zebra.id, name: 'Zebra', visibility: 'public' },
+        { id: alpha.id, name: 'Alpha', visibility: 'private', isMuted: false },
+        { id: zebra.id, name: 'Zebra', visibility: 'public', isMuted: false },
       ]);
     });
   });

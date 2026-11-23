@@ -6,7 +6,7 @@ import type { QueryKey } from '@tanstack/react-query';
 import { channelKeys } from '../features/channel/api';
 import { sectionKeys } from '../features/section/api';
 import { staffKeys } from '../features/staff/api';
-import { pingKeys, threadKeys } from '../features/thread/api';
+import { pingKeys, savedKeys, threadKeys } from '../features/thread/api';
 
 export function liveInvalidations(event: LiveEvent): QueryKey[] {
   switch (event.kind) {
@@ -26,11 +26,12 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
     case 'thread.created':
       return [threadKeys.list(event.channelId)];
     case 'thread.changed':
-      // The Pings view shows the same Thread rows: a new title, or Resolved.
+      // The Pings and Saved views show the same Thread rows: a new title, or Resolved.
       return [
         threadKeys.list(event.channelId),
         threadKeys.detail(event.channelId, event.threadId),
         pingKeys.list(),
+        savedKeys.list(),
       ];
     case 'thread.deleted':
       return [threadKeys.list(event.channelId), threadKeys.detail(event.channelId, event.threadId)];
@@ -49,6 +50,9 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
       ];
     case 'section.changed':
       return [sectionKeys.mine()];
+    case 'attention.changed':
+      // Saving Acknowledges a Ping; mutes show on the Channel, the sidebar and the Thread.
+      return [savedKeys.all, pingKeys.all, threadKeys.all, channelKeys.all];
     case 'staff.changed':
       // Names and roles show in the Staff members list, member lists and bylines.
       return [staffKeys.all, channelKeys.all, threadKeys.all];

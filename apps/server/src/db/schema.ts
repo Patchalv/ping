@@ -377,6 +377,58 @@ export const ping = pgTable(
 );
 
 /**
+ * A Thread on a Staff member's Saved list (data-model.md › Attention). Removing it from
+ * Saved deletes the row; deleting the Thread takes it with it.
+ */
+export const savedThread = pgTable(
+  'saved_thread',
+  {
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    threadId: uuid('thread_id').notNull(),
+    channelId: uuid('channel_id').notNull(),
+    savedAt: timestamp('saved_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.staffId, t.threadId] }),
+    index('saved_thread_staff_id_saved_at_idx').on(t.staffId, t.savedAt),
+    foreignKey({
+      name: 'saved_thread_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
+ * A Staff member's Mute of a whole Channel (`threadId` null) or of one Thread in it
+ * (data-model.md › Attention). At most one of each, so the null counts as a value.
+ */
+export const mute = pgTable(
+  'mute',
+  {
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channel.id),
+    threadId: uuid('thread_id'),
+  },
+  (t) => [
+    unique('mute_staff_id_channel_id_thread_id_unique')
+      .on(t.staffId, t.channelId, t.threadId)
+      .nullsNotDistinct(),
+    foreignKey({
+      name: 'mute_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+  ],
+);
+
+/**
  * A Section (data-model.md › Sidebar Sections): a named group of Channels in one Staff
  * member's sidebar. Visible only to its owner. Unique on (id, staff_id) so section_channel
  * can tie a placement to a Section of the same owner.

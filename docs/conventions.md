@@ -54,7 +54,7 @@ apps/server/src/
   db/              schema, migrations, withStaffTx() (the only owner of the ping_app pool)
   permissions/     the single permissions module (ADR 0002)
   system-actions/  the only owner of the ping_system pool and the only caller of system functions (ADR 0004)
-  features/<channel|thread|thread-response|ping|saved|search|attachment|staff|section>/
+  features/<channel|thread|thread-response|ping|saved|mute|search|attachment|staff|section>/
                    routes.ts, queries.ts, colocated tests
   lib/             errors, validation, sse/ (live updates: the hub, publish() and GET /api/live), and later storage and email
   test/            permission-matrix/, rls/, the catalog guard, route coverage

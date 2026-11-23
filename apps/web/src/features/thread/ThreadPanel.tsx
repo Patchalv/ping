@@ -1,6 +1,14 @@
 import type { ThreadView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { CheckIcon, ChevronLeftIcon, CircleCheckIcon, RotateCcwIcon, XIcon } from 'lucide-react';
+import {
+  BellIcon,
+  BellOffIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  CircleCheckIcon,
+  RotateCcwIcon,
+  XIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
@@ -10,12 +18,13 @@ import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
-import { useMarkRead, useSetResolved, useThread, useThreadResponses } from './api';
+import { useMarkRead, useMuteThread, useSetResolved, useThread, useThreadResponses } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
 import { Reactions } from './Reactions';
+import { SaveButton } from './SaveButton';
 import { ResolvedBadge } from './ThreadList';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
@@ -31,7 +40,8 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
   const title = thread.data?.title ?? 'Thread';
   return (
     <SidePanel label={title}>
-      <header className="flex items-center gap-2 border-b px-4 py-2 md:px-5">
+      {/* Wraps on a phone: the Thread's controls drop under the way back when they don't fit. */}
+      <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2 md:px-5">
         {/* Phone: the panel covers the Channel, so the way back says where it goes. */}
         <Link
           to="/channels/$channelId"
@@ -44,6 +54,7 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
         {thread.data?.resolvedAt ? <ResolvedBadge /> : null}
         <div className="ml-auto flex items-center gap-2">
+          {thread.data ? <ThreadAttention thread={thread.data} /> : null}
           {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
           {thread.data?.ping ? (
             <Button
@@ -101,6 +112,35 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
         <ThreadBody thread={thread.data} />
       )}
     </SidePanel>
+  );
+}
+
+/**
+ * Save and Mute for the open Thread. On a phone they show only their icons, so the
+ * header fits.
+ */
+function ThreadAttention({ thread }: { thread: ThreadView }) {
+  const mute = useMuteThread(thread.channelId, thread.id);
+  return (
+    <>
+      <SaveButton thread={thread} className="max-md:[&>span]:sr-only" />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="max-md:[&>span]:sr-only"
+        aria-pressed={thread.isMuted}
+        title={
+          thread.isMuted
+            ? 'Muted: new Thread Responses here don’t Ping you'
+            : 'Stop new Thread Responses here Pinging you'
+        }
+        disabled={mute.isPending}
+        onClick={() => mute.mutate(!thread.isMuted)}
+      >
+        {thread.isMuted ? <BellOffIcon aria-hidden="true" /> : <BellIcon aria-hidden="true" />}
+        <span>{thread.isMuted ? 'Muted' : 'Mute'}</span>
+      </Button>
+    </>
   );
 }
 

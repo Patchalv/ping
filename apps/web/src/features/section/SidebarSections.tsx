@@ -333,9 +333,17 @@ function ChannelLink({ channel, pingCount }: { channel: SidebarChannel; pingCoun
       {isPrivate ? <LockIcon aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
       <span className={pingCount > 0 ? 'font-bold' : undefined}>{channel.name}</span>
       {pingCount > 0 ? (
-        <span className="ml-auto text-xs font-semibold">
+        // A muted Channel's count is grey: it still counts, but asks for less.
+        <span
+          className={cn(
+            'ml-auto text-xs font-semibold',
+            channel.isMuted && 'font-normal text-sidebar-muted-foreground',
+          )}
+        >
           {pingCount}
-          <span className="sr-only"> Threads with Pings</span>
+          <span className="sr-only">
+            {channel.isMuted ? ' Threads with Pings, muted' : ' Threads with Pings'}
+          </span>
         </span>
       ) : null}
     </SidebarMenuButton>
