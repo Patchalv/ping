@@ -1,19 +1,6 @@
-// The signed-in app, as the router's root: dark top bar, dark sidebar, and the current
-// route in an inset panel (screens.md › Laptop). On a phone the sidebar is the home
-// screen, and any other route replaces it.
-import type { SidebarChannel } from '@ping/shared';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import {
-  BellIcon,
-  CompassIcon,
-  HashIcon,
-  LockIcon,
-  PlusIcon,
-  SearchIcon,
-  UserPenIcon,
-  UsersIcon,
-} from 'lucide-react';
-import { type ComponentProps, type ReactNode, useState } from 'react';
+import { BellIcon, CompassIcon, PlusIcon, SearchIcon, UserPenIcon, UsersIcon } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
 import { DropdownMenuItem, DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
 import { Input } from '#/components/ui/input';
@@ -21,7 +8,6 @@ import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
-  SidebarGroupLabel,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -33,6 +19,7 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
+import { NewSectionButton, SidebarSections } from '../features/section/SidebarSections';
 import { useCurrentStaffMember } from '../features/staff/api';
 import { ProfileDialog } from '../features/staff/ProfileDialog';
 import { usePingSummary } from '../features/thread/api';
@@ -176,31 +163,20 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
           </SidebarMenu>
         </SidebarGroup>
         <SidebarSeparator />
-        <SidebarGroup>
-          <SidebarGroupLabel render={(props: ComponentProps<'h2'>) => <h2 {...props} />}>
-            Channels
-          </SidebarGroupLabel>
-          {channels.isError ? (
-            <p className="px-2 py-1 text-sm text-sidebar-muted-foreground" role="alert">
-              {channels.error.message}
-            </p>
-          ) : channels.data?.length === 0 ? (
-            <p className="px-2 py-1 text-sm text-sidebar-muted-foreground">
-              You’re not in any Channels yet.
-            </p>
-          ) : channels.data ? (
-            <SidebarMenu>
-              {channels.data.map((channel) => (
-                <SidebarMenuItem key={channel.id}>
-                  <ChannelLink channel={channel} pingCount={countIn(channel.id)} />
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          ) : null}
-        </SidebarGroup>
+        {/* The Staff member's own Sections, then the default Channels section. */}
+        {channels.isError ? (
+          <p className="px-4 py-1 text-sm text-sidebar-muted-foreground" role="alert">
+            {channels.error.message}
+          </p>
+        ) : channels.data ? (
+          <SidebarSections channels={channels.data} pingCountIn={countIn} />
+        ) : null}
         <SidebarSeparator />
         <SidebarGroup>
           <SidebarMenu>
+            <SidebarMenuItem>
+              <NewSectionButton />
+            </SidebarMenuItem>
             <SidebarMenuItem>
               <SidebarMenuButton
                 className="text-sidebar-muted-foreground"
@@ -220,31 +196,5 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
         </SidebarGroup>
       </SidebarContent>
     </nav>
-  );
-}
-
-function ChannelLink({ channel, pingCount }: { channel: SidebarChannel; pingCount: number }) {
-  const isPrivate = channel.visibility === 'private';
-  return (
-    <SidebarMenuButton
-      render={
-        <Link
-          to="/channels/$channelId"
-          params={{ channelId: channel.id }}
-          activeProps={{ 'aria-current': 'page' }}
-          // The lock icon is decorative, so the name says Private for screen readers.
-          aria-label={isPrivate ? `${channel.name}, Private` : undefined}
-        />
-      }
-    >
-      {isPrivate ? <LockIcon aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
-      <span className={pingCount > 0 ? 'font-bold' : undefined}>{channel.name}</span>
-      {pingCount > 0 ? (
-        <span className="ml-auto text-xs font-semibold">
-          {pingCount}
-          <span className="sr-only"> Threads with Pings</span>
-        </span>
-      ) : null}
-    </SidebarMenuButton>
   );
 }

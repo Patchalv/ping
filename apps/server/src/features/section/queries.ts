@@ -16,23 +16,22 @@ const sectionOrder = [asc(section.position), asc(section.createdAt), asc(section
  * right even before that has run.
  */
 export async function listSections({ tx, actor }: ActorTx): Promise<SectionView[]> {
-  const [sections, placements] = await Promise.all([
-    tx
-      .select({ id: section.id, name: section.name, collapsed: section.collapsed })
-      .from(section)
-      .orderBy(...sectionOrder),
-    tx
-      .select({ sectionId: sectionChannel.sectionId, channelId: sectionChannel.channelId })
-      .from(sectionChannel)
-      .innerJoin(
-        channelMember,
-        and(
-          eq(channelMember.channelId, sectionChannel.channelId),
-          eq(channelMember.staffId, actor.staffId),
-        ),
-      )
-      .orderBy(asc(sectionChannel.position), asc(sectionChannel.channelId)),
-  ]);
+  // One after the other: a transaction is one connection, which runs one query at a time.
+  const sections = await tx
+    .select({ id: section.id, name: section.name, collapsed: section.collapsed })
+    .from(section)
+    .orderBy(...sectionOrder);
+  const placements = await tx
+    .select({ sectionId: sectionChannel.sectionId, channelId: sectionChannel.channelId })
+    .from(sectionChannel)
+    .innerJoin(
+      channelMember,
+      and(
+        eq(channelMember.channelId, sectionChannel.channelId),
+        eq(channelMember.staffId, actor.staffId),
+      ),
+    )
+    .orderBy(asc(sectionChannel.position), asc(sectionChannel.channelId));
   return sections.map((s) => ({
     ...s,
     channelIds: placements.filter((p) => p.sectionId === s.id).map((p) => p.channelId),

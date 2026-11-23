@@ -28,7 +28,6 @@ export const updateSectionBody = z
   .refine((body) => body.name !== undefined || body.collapsed !== undefined, {
     error: 'Rename the Section, or collapse or expand it.',
   });
-export type UpdateSectionBody = z.input<typeof updateSectionBody>;
 
 /** PUT /api/sections/order: every one of the Staff member's Sections, in their new order. */
 export const reorderSectionsBody = z.object({

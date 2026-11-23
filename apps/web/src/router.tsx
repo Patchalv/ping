@@ -16,6 +16,7 @@ import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
+import { SectionPicker } from './features/section/SectionPicker';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
 import { PingsPage } from './features/thread/PingsPage';
 import { StartThreadButton } from './features/thread/StartThreadDialog';
@@ -58,6 +59,7 @@ function ChannelRoute() {
       channelId={channelId}
       tab="threads"
       startThread={<StartThreadButton channelId={channelId} />}
+      sectionPicker={<SectionPicker channelId={channelId} />}
       panel={<Outlet />}
     >
       <ThreadList channelId={channelId} openThreadId={threadId} />
@@ -96,7 +98,14 @@ const channelMembersRoute = createRoute({
 
 function ChannelMembersRoute() {
   const { channelId } = channelMembersRoute.useParams();
-  return <ChannelPage key={channelId} channelId={channelId} tab="members" />;
+  return (
+    <ChannelPage
+      key={channelId}
+      channelId={channelId}
+      tab="members"
+      sectionPicker={<SectionPicker channelId={channelId} />}
+    />
+  );
 }
 
 // Browse channels: every Public channel, to join. Accepting an invite lands here.

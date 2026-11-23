@@ -63,7 +63,6 @@ export {
   SECTION_NAME_MAX,
   type SectionView,
   sectionParams,
-  type UpdateSectionBody,
   updateSectionBody,
 } from './section';
 export {
