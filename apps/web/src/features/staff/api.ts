@@ -20,8 +20,7 @@ const staff = api.api.staff;
 const invites = api.api.invites;
 
 /**
- * The query keys. Exported so live updates (#47) can refetch the list by key.
- * @public
+ * The query keys. Exported so live updates can refetch the list by key.
  */
 export const staffKeys = {
   all: ['staff'] as const,

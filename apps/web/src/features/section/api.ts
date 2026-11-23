@@ -12,10 +12,7 @@ import { type Placement, placeIn } from './sidebar-sections';
 
 const sections = api.api.sections;
 
-/**
- * The query keys. Exported so live updates (#47) can refetch by them.
- * @public
- */
+/** The query keys. Exported so live updates can refetch by them. */
 export const sectionKeys = {
   all: ['sections'] as const,
   mine: () => [...sectionKeys.all, 'mine'] as const,

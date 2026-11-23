@@ -34,6 +34,13 @@ export {
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
+  LIVE_CHANGE,
+  LIVE_RESYNC,
+  type LiveEvent,
+  liveEvent,
+  liveStreamHeaders,
+} from './live';
+export {
   listPingsQuery,
   type PingPage,
   type PingSummary,

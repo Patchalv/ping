@@ -32,13 +32,22 @@ export function signedIn(auth: Auth) {
 /** What every query in a request takes: its transaction and the Staff member it acts for. */
 export type ActorTx = { tx: Tx; actor: Actor };
 
+/**
+ * The Staff member `staffId` as an Actor, read in `tx` (whose app.staff_id is theirs), or
+ * undefined when they act for nobody: Deactivated or unknown.
+ */
+export async function findActor(tx: Tx, staffId: string): Promise<Actor | undefined> {
+  const role = await findActiveStaffRole(tx, staffId);
+  return role && { staffId, role };
+}
+
 export function createWithActorTx(database: Database) {
   return <T>(c: Context<SessionEnv>, fn: (ctx: ActorTx) => Promise<T>): Promise<T> => {
     const { staffId } = c.var.session;
     return database.withStaffTx(staffId, async (tx) => {
-      const role = await findActiveStaffRole(tx, staffId);
-      if (!role) throw new UnauthenticatedError();
-      return fn({ tx, actor: { staffId, role } });
+      const actor = await findActor(tx, staffId);
+      if (!actor) throw new UnauthenticatedError();
+      return fn({ tx, actor });
     });
   };
 }
