@@ -26,6 +26,13 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
     case 'thread.created':
       return [threadKeys.list(event.channelId)];
     case 'thread.changed':
+      // The Pings and Saved views show the same Thread rows: a new title, or Resolved.
+      return [
+        threadKeys.list(event.channelId),
+        threadKeys.detail(event.channelId, event.threadId),
+        pingKeys.list(),
+        savedKeys.list(),
+      ];
     case 'thread.deleted':
       return [threadKeys.list(event.channelId), threadKeys.detail(event.channelId, event.threadId)];
     case 'thread_response.created':

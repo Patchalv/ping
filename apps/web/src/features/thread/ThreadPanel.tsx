@@ -1,21 +1,31 @@
 import type { ThreadView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { BellIcon, BellOffIcon, CheckIcon, ChevronLeftIcon, XIcon } from 'lucide-react';
+import {
+  BellIcon,
+  BellOffIcon,
+  CheckIcon,
+  ChevronLeftIcon,
+  CircleCheckIcon,
+  RotateCcwIcon,
+  XIcon,
+} from 'lucide-react';
 import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
 import { Button, buttonVariants } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
+import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
-import { useMarkRead, useMuteThread, useThread, useThreadResponses } from './api';
+import { useMarkRead, useMuteThread, useSetResolved, useThread, useThreadResponses } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
 import { Reactions } from './Reactions';
 import { SaveButton } from './SaveButton';
+import { ResolvedBadge } from './ThreadList';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
 /**
@@ -25,10 +35,13 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
  */
 export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
   const thread = useThread(channelId, threadId);
+  const markRead = useMarkRead();
+  const setResolved = useSetResolved(channelId, threadId);
   const title = thread.data?.title ?? 'Thread';
   return (
     <SidePanel label={title}>
-      <header className="flex items-center gap-2 border-b px-4 py-2 md:px-5">
+      {/* Wraps on a phone: the Thread's controls drop under the way back when they don't fit. */}
+      <header className="flex flex-wrap items-center gap-2 border-b px-4 py-2 md:px-5">
         {/* Phone: the panel covers the Channel, so the way back says where it goes. */}
         <Link
           to="/channels/$channelId"
@@ -39,20 +52,49 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           Back to Channel
         </Link>
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
-        {thread.data ? <ThreadActions thread={thread.data} /> : null}
-        <Link
-          to="/channels/$channelId"
-          params={{ channelId }}
-          aria-label="Close Thread"
-          className={cn(
-            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-            'max-md:hidden',
-            thread.data ? undefined : 'ml-auto',
-          )}
-        >
-          <XIcon aria-hidden="true" />
-        </Link>
+        {thread.data?.resolvedAt ? <ResolvedBadge /> : null}
+        <div className="ml-auto flex items-center gap-2">
+          {thread.data ? <ThreadAttention thread={thread.data} /> : null}
+          {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
+          {thread.data?.ping ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={markRead.isPending}
+              onClick={() => markRead.mutate({ channelId, threadId })}
+            >
+              <CheckIcon aria-hidden="true" />
+              Mark read
+            </Button>
+          ) : null}
+          {thread.data?.canResolve ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={setResolved.isPending}
+              onClick={() => setResolved.mutate(!thread.data.resolvedAt)}
+            >
+              {thread.data.resolvedAt ? (
+                <RotateCcwIcon aria-hidden="true" />
+              ) : (
+                <CircleCheckIcon aria-hidden="true" />
+              )}
+              {thread.data.resolvedAt ? 'Reopen' : 'Resolve'}
+            </Button>
+          ) : null}
+          <Link
+            to="/channels/$channelId"
+            params={{ channelId }}
+            aria-label="Close Thread"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'max-md:hidden')}
+          >
+            <XIcon aria-hidden="true" />
+          </Link>
+        </div>
       </header>
+      {setResolved.isError ? (
+        <FormError className="mx-4 mt-2 md:mx-5">{setResolved.error.message}</FormError>
+      ) : null}
       {thread.isPending ? (
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
       ) : thread.isError ? (
@@ -74,15 +116,13 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
 }
 
 /**
- * The Thread's own controls in the panel's header: Save, Mute and, while it has a Ping,
- * Mark read. Opening the Thread never clears its Ping, so Mark read does.
+ * Save and Mute for the open Thread. On a phone they show only their icons, so the
+ * header fits.
  */
-function ThreadActions({ thread }: { thread: ThreadView }) {
-  const markRead = useMarkRead();
+function ThreadAttention({ thread }: { thread: ThreadView }) {
   const mute = useMuteThread(thread.channelId, thread.id);
   return (
-    // On a phone, Save and Mute show only their icons, so the header fits.
-    <div className="ml-auto flex items-center gap-1">
+    <>
       <SaveButton thread={thread} className="max-md:[&>span]:sr-only" />
       <Button
         variant="ghost"
@@ -100,18 +140,7 @@ function ThreadActions({ thread }: { thread: ThreadView }) {
         {thread.isMuted ? <BellOffIcon aria-hidden="true" /> : <BellIcon aria-hidden="true" />}
         <span>{thread.isMuted ? 'Muted' : 'Mute'}</span>
       </Button>
-      {thread.ping ? (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={markRead.isPending}
-          onClick={() => markRead.mutate({ channelId: thread.channelId, threadId: thread.id })}
-        >
-          <CheckIcon aria-hidden="true" />
-          Mark read
-        </Button>
-      ) : null}
-    </div>
+    </>
   );
 }
 

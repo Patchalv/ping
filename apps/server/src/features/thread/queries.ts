@@ -5,11 +5,12 @@ import {
   extractBodyText,
   type RichTextDoc,
   THREAD_PAGE_SIZE,
+  type ThreadListView,
   type ThreadPage,
   type ThreadView,
   toEditedMark,
 } from '@ping/shared';
-import { and, desc, eq, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
@@ -19,8 +20,9 @@ import { canReact } from '../../permissions/reaction';
 import {
   canDeleteThread,
   canEditThread,
+  canResolveThread,
+  type ResolveAccess,
   type ThreadAuthorship,
-  type ThreadChannelAccess,
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
@@ -33,12 +35,14 @@ const { auditEvent, channel, channelMember, mute, ping, staffMember, thread, use
 export async function findThreadChannel(
   { tx, actor }: ActorTx,
   channelId: string,
-): Promise<ThreadChannelAccess | undefined> {
+): Promise<ResolveAccess | undefined> {
   const [row] = await tx
     .select({
       visibility: channel.visibility,
       isMember: sql<boolean>`${channelMember.staffId} is not null`,
+      isChannelAdmin: sql<boolean>`coalesce(${channelMember.isChannelAdmin}, false)`,
       isArchived: sql<boolean>`${channel.archivedAt} is not null`,
+      resolvePolicy: channel.resolvePolicy,
     })
     .from(channel)
     .leftJoin(
@@ -73,32 +77,56 @@ export async function startThread(
   return row.id;
 }
 
+/** The column each sort orders by, with its name for the cursor's subquery. */
+const SORT = {
+  latest_activity: { column: thread.latestActivityAt, name: sql.raw('latest_activity_at') },
+  date_started: { column: thread.createdAt, name: sql.raw('created_at') },
+} as const;
+
+/** Which Threads each Status shows. */
+const STATUS = {
+  open: isNull(thread.resolvedAt),
+  resolved: isNotNull(thread.resolvedAt),
+  all: undefined,
+} as const;
+
 /**
- * A page of the Channel's Threads by Latest activity, newest first (ties by ID). `after`
- * is the last Thread of the page before; the next page starts below it.
+ * A page of one view of the Channel's Threads (product.md › A Channel's Thread list): by
+ * Status, with or without the viewer's Pings, by Latest activity or Date started, newest
+ * or oldest first, ties by ID. `after` is the last Thread of the page before; the next
+ * page starts beyond it, wherever it is now (it may have been resolved since). The Open
+ * view also counts the Resolved threads it hides.
  */
 export async function listThreads(
   { tx, actor }: ActorTx,
-  access: ThreadChannelAccess,
+  access: ResolveAccess,
   channelId: string,
-  after: string | undefined,
+  view: ThreadListView & { after?: string | undefined },
 ): Promise<ThreadPage> {
-  const below = after
-    ? sql`(${thread.latestActivityAt}, ${thread.id}) < (
-        select t.latest_activity_at, t.id from ${thread} t
-         where t.id = ${after} and t.channel_id = ${channelId})`
+  const { column, name } = SORT[view.sort];
+  const order = view.direction === 'asc' ? asc : desc;
+  const beyond = view.after
+    ? sql`(${column}, ${thread.id}) ${view.direction === 'asc' ? sql`>` : sql`<`} (
+        select t.${name}, t.id from ${thread} t
+         where t.id = ${view.after} and t.channel_id = ${channelId})`
     : undefined;
-  const rows = await tx
-    .select({
-      ...threadRowColumns(actor.staffId),
-      preview: threadPreviewSql,
-    })
-    .from(thread)
-    .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
-    .leftJoin(user, eq(user.id, thread.authorId))
-    .where(and(eq(thread.channelId, channelId), below))
-    .orderBy(desc(thread.latestActivityAt), desc(thread.id))
-    .limit(THREAD_PAGE_SIZE + 1);
+  // Row-level security leaves only the viewer's own Pings to find.
+  const withPings =
+    view.pings === 'with'
+      ? sql`exists (select 1 from ${ping} where ${ping.threadId} = ${thread.id})`
+      : undefined;
+  const inChannel = eq(thread.channelId, channelId);
+  const [rows, resolvedHidden] = await Promise.all([
+    tx
+      .select({ ...threadRowColumns(actor.staffId), preview: threadPreviewSql })
+      .from(thread)
+      .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
+      .leftJoin(user, eq(user.id, thread.authorId))
+      .where(and(inChannel, STATUS[view.status], withPings, beyond))
+      .orderBy(order(column), order(thread.id))
+      .limit(THREAD_PAGE_SIZE + 1),
+    view.status === 'open' ? countResolved(tx, and(inChannel, withPings)) : 0,
+  ]);
   const page = rows.slice(0, THREAD_PAGE_SIZE);
   const mayReact = canReact(actor, access).allow;
   return {
@@ -107,7 +135,16 @@ export async function listThreads(
       preview,
     })),
     nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
+    resolvedHidden,
   };
+}
+
+async function countResolved(tx: ActorTx['tx'], where: ReturnType<typeof and>) {
+  const [row] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(thread)
+    .where(and(where, STATUS.resolved));
+  return row?.count ?? 0;
 }
 
 const editor = alias(user, 'editor');
@@ -118,7 +155,7 @@ const editor = alias(user, 'editor');
  */
 export async function findThread(
   { tx, actor }: ActorTx,
-  access: ThreadChannelAccess,
+  access: ResolveAccess,
   channelId: string,
   threadId: string,
 ): Promise<ThreadView | undefined> {
@@ -155,6 +192,7 @@ export async function findThread(
         ? { count: rest.pingCount, firstAt: new Date(pingFirstAt).toISOString() }
         : null,
     isMuted,
+    canResolve: canResolveThread(actor, access, authorship).allow,
     canEdit: canEditThread(actor, access, authorship).allow,
     canDelete: canDeleteThread(actor, access, authorship).allow,
   };
@@ -189,6 +227,31 @@ export async function editThread(
       editedBy: actor.staffId,
     })
     .where(eq(thread.id, threadId));
+}
+
+/**
+ * Resolves an open Thread, marking who resolved it and when, or reopens a Resolved one.
+ * Latest activity doesn't move. Resolving a Resolved thread again keeps its first
+ * resolver; reopening an open one changes nothing.
+ */
+export async function setThreadResolved(
+  { tx, actor }: ActorTx,
+  channelId: string,
+  threadId: string,
+  resolved: boolean,
+): Promise<void> {
+  const target = and(eq(thread.id, threadId), eq(thread.channelId, channelId));
+  if (resolved) {
+    await tx
+      .update(thread)
+      .set({ resolvedAt: sql`now()`, resolvedBy: actor.staffId })
+      .where(and(target, isNull(thread.resolvedAt)));
+  } else {
+    await tx
+      .update(thread)
+      .set({ resolvedAt: null, resolvedBy: null })
+      .where(and(target, isNotNull(thread.resolvedAt)));
+  }
 }
 
 /**

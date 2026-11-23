@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { RICH_TEXT_MESSAGES } from './rich-text';
-import { listThreadsQuery, startThreadBody, threadParams } from './thread';
+import {
+  DEFAULT_THREAD_LIST_VIEW,
+  listThreadsQuery,
+  startThreadBody,
+  threadListView,
+  threadParams,
+} from './thread';
 
 const body = {
   type: 'doc',
@@ -61,7 +67,52 @@ describe('threadParams', () => {
 
 describe('listThreadsQuery', () => {
   it('takes an optional Thread ID to load the page after', () => {
-    expect(listThreadsQuery.parse({})).toEqual({});
+    expect(listThreadsQuery.parse({}).after).toBeUndefined();
     expect(listThreadsQuery.safeParse({ after: 'x' }).success).toBe(false);
+  });
+
+  it('defaults to Open Threads, with or without Pings, by Latest activity, newest first', () => {
+    expect(listThreadsQuery.parse({})).toEqual(DEFAULT_THREAD_LIST_VIEW);
+    expect(DEFAULT_THREAD_LIST_VIEW).toEqual({
+      status: 'open',
+      pings: 'all',
+      sort: 'latest_activity',
+      direction: 'desc',
+    });
+  });
+
+  it('takes every Status, Pings, sort and direction choice', () => {
+    expect(
+      listThreadsQuery.parse({
+        status: 'resolved',
+        pings: 'with',
+        sort: 'date_started',
+        direction: 'asc',
+      }),
+    ).toEqual({ status: 'resolved', pings: 'with', sort: 'date_started', direction: 'asc' });
+    expect(listThreadsQuery.parse({ status: 'all' }).status).toBe('all');
+  });
+
+  it.each([
+    ['status', 'closed'],
+    ['pings', 'unread'],
+    ['sort', 'title'],
+    ['direction', 'sideways'],
+  ])('refuses an unknown %s', (key, value) => {
+    expect(listThreadsQuery.safeParse({ [key]: value }).success).toBe(false);
+  });
+});
+
+describe('threadListView', () => {
+  it('reads back a stored view', () => {
+    const view = { status: 'all', pings: 'with', sort: 'date_started', direction: 'asc' };
+    expect(threadListView.parse(view)).toEqual(view);
+  });
+
+  it('fills a choice missing from an older stored view with its default', () => {
+    expect(threadListView.parse({ status: 'resolved' })).toEqual({
+      ...DEFAULT_THREAD_LIST_VIEW,
+      status: 'resolved',
+    });
   });
 });

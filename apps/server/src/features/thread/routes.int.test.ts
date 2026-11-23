@@ -80,10 +80,12 @@ describe('Thread routes', () => {
         canReact: true,
         pingCount: 0,
         isSaved: false,
+        resolvedAt: null,
         edited: null,
         canRespond: true,
         ping: null,
         isMuted: false,
+        canResolve: true,
         canEdit: true,
         canDelete: true,
       });
@@ -194,6 +196,7 @@ describe('Thread routes', () => {
         canReact: true,
         pingCount: 0,
         isSaved: false,
+        resolvedAt: null,
       });
     });
 
@@ -379,6 +382,311 @@ describe('Thread routes', () => {
       expect(await adminAudit(channel.id)).toEqual([
         { actor_id: admin.id, kind: 'admin_deleted_thread', target_staff_id: staff.id },
       ]);
+    });
+  });
+
+  // From "Resolve, reopen and Thread list controls" (#41).
+  describe('PUT and DELETE /api/channels/:channelId/threads/:threadId/resolved', () => {
+    /** A Channel with an author and another member, and the author's open Thread. */
+    async function threadToResolve(resolvePolicy?: 'any_member' | 'author_and_channel_admins') {
+      const channelAdmin = await createStaffMember();
+      const author = await createStaffMember();
+      const other = await createStaffMember();
+      const channel = await insertChannel({
+        ...(resolvePolicy ? { resolvePolicy } : {}),
+        members: [
+          { staffId: channelAdmin.id, channelAdmin: true },
+          { staffId: author.id },
+          { staffId: other.id },
+        ],
+      });
+      const thread = await insertThread({
+        channelId: channel.id,
+        authorId: author.id,
+        latestActivityAt: new Date(Date.now() - 3_600_000),
+      });
+      const path = `/api/channels/${channel.id}/threads/${thread.id}/resolved`;
+      return { channelAdmin, author, other, channel, thread, path };
+    }
+
+    const stored = async (threadId: string) =>
+      (
+        await asOwner((query) =>
+          query<{ resolved_at: Date | null; resolved_by: string | null; latest_activity_at: Date }>(
+            'select resolved_at, resolved_by, latest_activity_at from thread where id = $1',
+            [threadId],
+          ),
+        )
+      ).rows[0];
+
+    it('resolves a Thread, and reopens it, without moving Latest activity', async () => {
+      const { other, thread, path } = await threadToResolve();
+      const before = await stored(thread.id);
+      const request = await as(other);
+
+      const resolved = await request(path, { method: 'PUT' });
+      expect(resolved.status).toBe(200);
+      const view = (await resolved.json()) as ThreadView;
+      expect(view.resolvedAt).toEqual(expect.any(String));
+      expect(view.canResolve).toBe(true);
+      expect(await stored(thread.id)).toEqual({
+        resolved_at: expect.any(Date),
+        resolved_by: other.id,
+        latest_activity_at: before?.latest_activity_at,
+      });
+
+      const reopened = await request(path, { method: 'DELETE' });
+      expect(reopened.status).toBe(200);
+      expect(((await reopened.json()) as ThreadView).resolvedAt).toBeNull();
+      expect(await stored(thread.id)).toEqual({
+        resolved_at: null,
+        resolved_by: null,
+        latest_activity_at: before?.latest_activity_at,
+      });
+    });
+
+    it('Pings nobody', async () => {
+      const { other, channel, path } = await threadToResolve();
+      await (await as(other))(path, { method: 'PUT' });
+      await (await as(other))(path, { method: 'DELETE' });
+      const pings = await asOwner((query) =>
+        query('select 1 from ping where channel_id = $1', [channel.id]),
+      );
+      expect(pings.rowCount).toBe(0);
+    });
+
+    it('keeps the first resolver when a Resolved thread is resolved again', async () => {
+      const { author, other, thread, path } = await threadToResolve();
+      await (await as(author))(path, { method: 'PUT' });
+      const first = await stored(thread.id);
+      const again = await (await as(other))(path, { method: 'PUT' });
+      expect(again.status).toBe(200);
+      expect(await stored(thread.id)).toEqual(first);
+    });
+
+    it('answers 404 for a Thread in another Channel, like a missing one', async () => {
+      const { other, channel } = await threadToResolve();
+      const elsewhere = await insertChannel({ members: [{ staffId: other.id }] });
+      const thread = await insertThread({ channelId: elsewhere.id, authorId: other.id });
+      const request = await as(other);
+      for (const id of [thread.id, randomUUID()]) {
+        const res = await request(`/api/channels/${channel.id}/threads/${id}/resolved`, {
+          method: 'PUT',
+        });
+        expect(res.status).toBe(404);
+      }
+    });
+
+    it('lets only the author and Channel admins resolve when the Channel says so', async () => {
+      const { author, channelAdmin, other, path } = await threadToResolve(
+        'author_and_channel_admins',
+      );
+      const refused = await (await as(other))(path, { method: 'PUT' });
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toEqual({
+        error: {
+          code: 'forbidden',
+          message: 'Only the Thread’s author or a Channel admin can resolve or reopen it here.',
+        },
+      });
+      expect((await (await as(author))(path, { method: 'PUT' })).status).toBe(200);
+      expect((await (await as(channelAdmin))(path, { method: 'DELETE' })).status).toBe(200);
+    });
+
+    it.each([
+      ['a member, when any member may', 'any_member', 'other'],
+      [
+        'a Channel admin, when only the author and Channel admins may',
+        'author_and_channel_admins',
+        'channelAdmin',
+      ],
+    ] as const)(
+      'lets %s resolve a Deactivated Staff member’s Thread',
+      async (_name, policy, who) => {
+        const fixture = await threadToResolve(policy);
+        await asOwner((query) =>
+          query(
+            'update staff_member set deactivated_at = now(), deactivated_by = $2 where id = $1',
+            [fixture.author.id, fixture.channelAdmin.id],
+          ),
+        );
+        const res = await (await as(fixture[who]))(fixture.path, { method: 'PUT' });
+        expect(res.status).toBe(200);
+      },
+    );
+
+    it('says who may resolve on the Thread view', async () => {
+      const { other, channel, thread } = await threadToResolve('author_and_channel_admins');
+      const view = (await (
+        await (
+          await as(other)
+        )(`/api/channels/${channel.id}/threads/${thread.id}`)
+      ).json()) as ThreadView;
+      expect(view.canResolve).toBe(false);
+    });
+  });
+
+  describe('GET /api/channels/:channelId/threads: the Thread list controls', () => {
+    /**
+     * A Channel with four Threads, started an hour apart, whose Latest activity runs the
+     * other way: "Old start" is the most recently active. Two are Resolved, and the viewer
+     * has a Ping on one open and one Resolved.
+     */
+    async function listFixture() {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const hour = 3_600_000;
+      const now = Date.now();
+      const make = (title: string, startedAgo: number, activeAgo: number, resolved = false) =>
+        insertThread({
+          channelId: channel.id,
+          authorId: staff.id,
+          title,
+          createdAt: new Date(now - startedAgo * hour),
+          latestActivityAt: new Date(now - activeAgo * hour),
+          resolved,
+        });
+      const threads = {
+        oldStart: await make('Old start', 4, 0),
+        midStart: await make('Mid start', 3, 1),
+        resolvedPinged: await make('Resolved pinged', 2, 2, true),
+        resolvedQuiet: await make('Resolved quiet', 1, 3, true),
+      };
+      for (const thread of [threads.midStart, threads.resolvedPinged]) {
+        await asOwner((query) =>
+          query('insert into ping (staff_id, thread_id, channel_id) values ($1, $2, $3)', [
+            staff.id,
+            thread.id,
+            channel.id,
+          ]),
+        );
+      }
+      const list = async (search: string) => {
+        const res = await request(`/api/channels/${channel.id}/threads${search}`);
+        expect(res.status).toBe(200);
+        const page = (await res.json()) as ThreadPage;
+        return { ...page, titles: page.threads.map((t) => t.title) };
+      };
+      return { channel, threads, list };
+    }
+
+    it('shows Open Threads by default, and how many Resolved ones it hides', async () => {
+      const { list } = await listFixture();
+      const page = await list('');
+      expect(page.titles).toEqual(['Old start', 'Mid start']);
+      expect(page.resolvedHidden).toBe(2);
+      expect(page.threads.every((t) => t.resolvedAt === null)).toBe(true);
+    });
+
+    it('shows only Resolved threads, or all of them', async () => {
+      const { list } = await listFixture();
+      const resolved = await list('?status=resolved');
+      expect(resolved.titles).toEqual(['Resolved pinged', 'Resolved quiet']);
+      expect(resolved.threads.every((t) => t.resolvedAt !== null)).toBe(true);
+      expect(resolved.resolvedHidden).toBe(0);
+      const all = await list('?status=all');
+      expect(all.titles).toEqual(['Old start', 'Mid start', 'Resolved pinged', 'Resolved quiet']);
+      expect(all.resolvedHidden).toBe(0);
+    });
+
+    it('shows only Threads where the viewer has a Ping, and counts hidden ones the same way', async () => {
+      const { list } = await listFixture();
+      const withPings = await list('?pings=with');
+      expect(withPings.titles).toEqual(['Mid start']);
+      expect(withPings.resolvedHidden).toBe(1);
+      expect((await list('?pings=with&status=all')).titles).toEqual([
+        'Mid start',
+        'Resolved pinged',
+      ]);
+    });
+
+    it('sorts by Date started or Latest activity, newest or oldest first', async () => {
+      const { list } = await listFixture();
+      expect((await list('?status=all&sort=date_started')).titles).toEqual([
+        'Resolved quiet',
+        'Resolved pinged',
+        'Mid start',
+        'Old start',
+      ]);
+      expect((await list('?status=all&sort=date_started&direction=asc')).titles).toEqual([
+        'Old start',
+        'Mid start',
+        'Resolved pinged',
+        'Resolved quiet',
+      ]);
+      expect((await list('?status=all&direction=asc')).titles).toEqual([
+        'Resolved quiet',
+        'Resolved pinged',
+        'Mid start',
+        'Old start',
+      ]);
+    });
+
+    it.each([
+      ['Latest activity, newest first', 'sort=latest_activity&direction=desc', (i: number) => -i],
+      ['Latest activity, oldest first', 'sort=latest_activity&direction=asc', (i: number) => i],
+      ['Date started, newest first', 'sort=date_started&direction=desc', (i: number) => i],
+      ['Date started, oldest first', 'sort=date_started&direction=asc', (i: number) => -i],
+    ])('pages by %s, the next page starting after the cursor', async (_name, search, rank) => {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const now = Date.now();
+      // Thread i was started i seconds after the first, and was last active i seconds before now.
+      for (let i = 0; i < 52; i++) {
+        await insertThread({
+          channelId: channel.id,
+          authorId: staff.id,
+          title: `Thread ${i}`,
+          createdAt: new Date(now - 100_000 + i * 1000),
+          latestActivityAt: new Date(now - i * 1000),
+        });
+      }
+      const expected = Array.from({ length: 52 }, (_, i) => i)
+        .sort((a, b) => rank(b) - rank(a))
+        .map((i) => `Thread ${i}`);
+      const path = `/api/channels/${channel.id}/threads?${search}`;
+      const first = (await (await request(path)).json()) as ThreadPage;
+      expect(first.nextCursor).toBe(first.threads[49]?.id);
+      const second = (await (
+        await request(`${path}&after=${first.nextCursor}`)
+      ).json()) as ThreadPage;
+      expect([...first.threads, ...second.threads].map((t) => t.title)).toEqual(expected);
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it('continues after a cursor Thread that was resolved between pages', async () => {
+      const { staff, channel, request } = await memberOfNewChannel();
+      const now = Date.now();
+      const ids: string[] = [];
+      for (let i = 0; i < 51; i++) {
+        ids.push(
+          (
+            await insertThread({
+              channelId: channel.id,
+              authorId: staff.id,
+              title: `Thread ${i}`,
+              latestActivityAt: new Date(now - i * 1000),
+            })
+          ).id,
+        );
+      }
+      const first = (await (
+        await request(`/api/channels/${channel.id}/threads`)
+      ).json()) as ThreadPage;
+      await request(`/api/channels/${channel.id}/threads/${first.nextCursor}/resolved`, {
+        method: 'PUT',
+      });
+      const second = (await (
+        await request(`/api/channels/${channel.id}/threads?after=${first.nextCursor}`)
+      ).json()) as ThreadPage;
+      expect(second.threads.map((t) => t.title)).toEqual(['Thread 50']);
+    });
+
+    it('refuses an unknown choice with a message', async () => {
+      const { channel, request } = await memberOfNewChannel();
+      const res = await request(`/api/channels/${channel.id}/threads?status=closed`);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        error: { issues: [{ path: 'status', message: 'Choose Open, Resolved or All.' }] },
+      });
     });
   });
 });

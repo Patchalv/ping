@@ -7,6 +7,7 @@ import type {
   ReactionList,
   SavedPage,
   StartThreadBody,
+  ThreadListView,
   ThreadPage,
   ThreadResponseBody,
   ThreadResponseList,
@@ -27,7 +28,10 @@ const responses = threads[':threadId'].responses;
  */
 export const threadKeys = {
   all: ['threads'] as const,
+  /** Every view of a Channel's Thread list: invalidating this refetches them all. */
   list: (channelId: string) => [...threadKeys.all, 'list', channelId] as const,
+  listView: (channelId: string, view: ThreadListView) =>
+    [...threadKeys.list(channelId), view] as const,
   detail: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'detail', channelId, threadId] as const,
   responses: (channelId: string, threadId: string) =>
@@ -142,14 +146,20 @@ export function useMarkRead() {
   });
 }
 
-/** A Channel's Thread list, by Latest activity, 50 at a time with Load more. */
-export function useThreads(channelId: string) {
+/**
+ * One view of a Channel's Thread list, as the Thread list controls choose, 50 at a time
+ * with Load more.
+ */
+export function useThreads(channelId: string, view: ThreadListView) {
   return useInfiniteQuery({
-    queryKey: threadKeys.list(channelId),
+    queryKey: threadKeys.listView(channelId, view),
     initialPageParam: undefined as string | undefined,
     queryFn: ({ pageParam }): Promise<ThreadPage> =>
       call(() =>
-        threads.$get({ param: { channelId }, query: pageParam ? { after: pageParam } : {} }),
+        threads.$get({
+          param: { channelId },
+          query: pageParam ? { ...view, after: pageParam } : view,
+        }),
       ),
     getNextPageParam: (last) => last.nextCursor ?? undefined,
   });
@@ -195,6 +205,30 @@ export function useEditThread(channelId: string, threadId: string) {
     onSuccess: (thread) => {
       queryClient.setQueryData(threadKeys.detail(channelId, threadId), thread);
       return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
+    },
+  });
+}
+
+/**
+ * Resolves a Thread, or reopens it. It then shows in, or leaves, its Channel's views of
+ * Open and Resolved threads.
+ */
+export function useSetResolved(channelId: string, threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (resolved: boolean): Promise<ThreadView> => {
+      const route = threads[':threadId'].resolved;
+      const param = { channelId, threadId };
+      return call(() => (resolved ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: (thread) => {
+      queryClient.setQueryData(threadKeys.detail(channelId, threadId), thread);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+        // The Pings and Saved views show Resolved threads too, marked.
+        queryClient.invalidateQueries({ queryKey: pingKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: savedKeys.list() }),
+      ]);
     },
   });
 }

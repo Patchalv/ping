@@ -12,7 +12,7 @@ The first slice shipped a hand-rolled History-API router and a small `useResourc
   - A 4xx is never retried. A failed network call or a 5xx is retried twice.
   - A 401 from any query or mutation refetches the Better Auth session, so the app falls back to sign-in.
   - **One QueryClient per signed-in Staff member**, created under a React key of their ID. Signing out, or another person signing in on the same browser, discards the whole cache, so a cached Private channel can never reach the next person. Playwright checks it.
-- **Navigation lives in the URL, through TanStack Router, with code-based routes.** Params and search params are validated with the zod schemas in `packages/shared`. A path that fails them is not found.
+- **Navigation lives in the URL, through TanStack Router, with code-based routes.** Params and search params are validated with the zod schemas in `packages/shared`. A path that fails them is not found. Per-browser preferences that a shared link shouldn't carry (theme, panel widths, a Channel's Thread list controls) stay out of the URL: they live in `localStorage` through `lib/storage.ts`, are validated with the same zod schemas on read, and fall back to the defaults when storage is missing or blocked.
 - **Everything else is local `useState`.** A global store, or data held in React context, needs its own ADR.
 - **Effects only sync with something outside React**, such as document events, and each one says why in its lint-disable comment. ESLint bans `useEffect` in `apps/web` otherwise.
 

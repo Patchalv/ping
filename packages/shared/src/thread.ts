@@ -34,10 +34,37 @@ export const threadParams = channelParams.extend({
 });
 
 /**
- * GET /api/channels/:channelId/threads. `after` is the last Thread of the page before,
- * for Load more.
+ * The Thread list controls (product.md › A Channel's Thread list): Status, Pings ("with"
+ * means Threads where the viewer has a Ping now), sort and direction. Each choice falls
+ * back to its default, so a view stored by an older version still reads.
+ */
+const status = z.enum(['open', 'resolved', 'all'], { error: 'Choose Open, Resolved or All.' });
+const pings = z.enum(['all', 'with'], { error: 'Choose All or With Pings.' });
+const sort = z.enum(['latest_activity', 'date_started'], {
+  error: 'Choose Latest activity or Date started.',
+});
+const direction = z.enum(['desc', 'asc'], { error: 'Choose newest or oldest first.' });
+
+export const threadListView = z.object({
+  status: status.catch('open'),
+  pings: pings.catch('all'),
+  sort: sort.catch('latest_activity'),
+  direction: direction.catch('desc'),
+});
+export type ThreadListView = z.infer<typeof threadListView>;
+
+export const DEFAULT_THREAD_LIST_VIEW: ThreadListView = threadListView.parse({});
+
+/**
+ * GET /api/channels/:channelId/threads: one view of the list. Unlike a stored view, an
+ * unknown choice here is a mistake, so it's refused. `after` is the last Thread of the
+ * page before, for Load more.
  */
 export const listThreadsQuery = z.object({
+  status: status.default('open'),
+  pings: pings.default('all'),
+  sort: sort.default('latest_activity'),
+  direction: direction.default('desc'),
   after: z.uuid({ error: 'That isn’t a Thread.' }).optional(),
 });
 
@@ -65,13 +92,20 @@ export type ThreadRow = {
   pingCount: number;
   /** Whether the Thread is on the viewer's Saved list. */
   isSaved: boolean;
+  /** When the Thread was resolved, or null while it's open. */
+  resolvedAt: string | null;
 };
 
-/** A page of a Channel's Thread list, by Latest activity, newest first. */
+/** A page of one view of a Channel's Thread list. */
 export type ThreadPage = {
   threads: ThreadRow[];
   /** Pass as `after` to load the next page; null when this is the last. */
   nextCursor: string | null;
+  /**
+   * "N Resolved hidden": the Resolved threads the Open view leaves out that the Pings
+   * choice would show. 0 in the Resolved and All views.
+   */
+  resolvedHidden: number;
 };
 
 /**
@@ -87,4 +121,9 @@ export type ThreadView = Omit<ThreadRow, 'preview'> & {
   ping: ThreadPing | null;
   /** Whether the viewer muted this Thread (not the whole Channel). */
   isMuted: boolean;
+  /**
+   * Whether the viewer may resolve the Thread, or reopen it when it's Resolved: the
+   * Channel's "Who can resolve threads?" setting decides both.
+   */
+  canResolve: boolean;
 } & ContentActions;

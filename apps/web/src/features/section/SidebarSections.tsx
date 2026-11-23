@@ -32,7 +32,7 @@ import {
   SidebarMenuItem,
 } from '#/components/ui/sidebar';
 import { cn } from '#/lib/utils';
-import { useCollapseSection, usePlaceChannel, useReorderSections, useSections } from './api';
+import { useCollapseSection, usePlaceChannel, useReorderSections } from './api';
 import { DeleteSectionDialog, NewSectionDialog, RenameSectionDialog } from './SectionDialogs';
 import { groupChannels, moveSection, shownChannels } from './sidebar-sections';
 
@@ -46,11 +46,13 @@ const DEFAULT_GROUP = 'default';
 
 type Props = {
   channels: SidebarChannel[];
+  /** The Staff member's Sections, loaded by ChannelNav beside the Channels, or none. */
+  sections: SectionView[] | undefined;
+  sectionsError: Error | null;
   pingCountIn(channelId: string): number;
 };
 
-export function SidebarSections({ channels, pingCountIn }: Props) {
-  const sections = useSections();
+export function SidebarSections({ channels, sections, sectionsError, pingCountIn }: Props) {
   const place = usePlaceChannel();
   const reorder = useReorderSections();
   const collapse = useCollapseSection();
@@ -59,9 +61,9 @@ export function SidebarSections({ channels, pingCountIn }: Props) {
   const [renaming, setRenaming] = useState<SectionView | null>(null);
   const [deleting, setDeleting] = useState<SectionView | null>(null);
 
-  const groups = groupChannels(channels, sections.data);
+  const groups = groupChannels(channels, sections);
   const sectionIds = groups.sections.map((g) => g.section.id);
-  const failure = place.error ?? reorder.error ?? collapse.error ?? sections.error;
+  const failure = place.error ?? reorder.error ?? collapse.error ?? sectionsError;
 
   const endDrag = () => {
     setDragging(null);

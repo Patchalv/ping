@@ -14,6 +14,7 @@ export const threadRowColumns = (actorId: string) => ({
   isSystem: thread.isSystem,
   createdAt: thread.createdAt,
   latestActivityAt: thread.latestActivityAt,
+  resolvedAt: thread.resolvedAt,
   authorId: thread.authorId,
   authorName: user.name,
   authorDeactivated: sql<boolean>`${staffMember.deactivatedAt} is not null`,
@@ -44,6 +45,7 @@ export type ThreadRowColumns = {
   isSystem: boolean;
   createdAt: Date;
   latestActivityAt: Date;
+  resolvedAt: Date | null;
   authorId: string | null;
   authorName: string | null;
   authorDeactivated: boolean;
@@ -68,5 +70,6 @@ export function toThreadRow(
     canReact: canReactHere,
     createdAt: row.createdAt.toISOString(),
     latestActivityAt: row.latestActivityAt.toISOString(),
+    resolvedAt: row.resolvedAt?.toISOString() ?? null,
   };
 }

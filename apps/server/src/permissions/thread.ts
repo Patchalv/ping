@@ -1,6 +1,6 @@
 // Threads (permissions.md › Threads, Thread Responses and Attachments). Reading follows the
 // Channel: anyone who can read it reads its Threads. Starting one takes membership.
-import type { ChannelVisibility } from '@ping/shared';
+import type { ChannelVisibility, ResolvePolicy } from '@ping/shared';
 import type { Actor } from './actor';
 import { canReadChannel } from './channel';
 import { canDeleteContent, canEditContent } from './content';
@@ -62,6 +62,58 @@ export function canDeleteThread(
   thread: ThreadAuthorship,
 ): Decision {
   return canDeleteContent(actor, channel, thread.authorId, 'Thread');
+}
+
+/** What resolving needs beyond reading: the actor's role and the Channel's setting. */
+export type ResolveAccess = ThreadChannelAccess & {
+  isChannelAdmin: boolean;
+  resolvePolicy: ResolvePolicy;
+};
+
+/**
+ * Resolve, and reopen, by the Channel's "Who can resolve threads?" setting: any member, or
+ * only the Thread's author and Channel admins. Company Admins get no exception, and nobody
+ * does it in an Archived channel. A Deactivated author's Threads are like anyone else's.
+ */
+export function canResolveThread(
+  actor: Actor,
+  channel: ResolveAccess,
+  thread: ThreadAuthorship,
+): Decision {
+  const read = canReadChannel(actor, channel);
+  if (!read.allow) return read;
+  if (channel.isArchived) {
+    return deny({
+      kind: 'refused',
+      message: 'This Channel is archived, so nobody can resolve or reopen its Threads.',
+    });
+  }
+  if (!channel.isMember) {
+    return deny({
+      kind: 'refused',
+      message: 'Join this Channel to resolve or reopen its Threads.',
+    });
+  }
+  const isAuthor = thread.authorId !== null && thread.authorId === actor.staffId;
+  if (
+    channel.resolvePolicy === 'author_and_channel_admins' &&
+    !isAuthor &&
+    !channel.isChannelAdmin
+  ) {
+    return deny({
+      kind: 'refused',
+      message: 'Only the Thread’s author or a Channel admin can resolve or reopen it here.',
+    });
+  }
+  return allow();
+}
+
+export function requireCanResolveThread(
+  actor: Actor,
+  channel: ResolveAccess,
+  thread: ThreadAuthorship,
+): void {
+  requireAllowed(canResolveThread(actor, channel, thread));
 }
 
 export function requireCanEditThread(
