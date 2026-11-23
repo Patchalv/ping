@@ -29,15 +29,21 @@ describe('liveInvalidations', () => {
     ]);
   });
 
-  it.each(['thread.changed', 'thread.deleted'] as const)(
-    'refetches the feed and the Thread view for %s',
-    (kind) => {
-      expect(liveInvalidations({ kind, channelId, threadId })).toEqual([
-        ['threads', 'list', channelId],
-        ['threads', 'detail', channelId, threadId],
-      ]);
-    },
-  );
+  it('refetches the feed, the Thread view and the Pings view for a changed Thread', () => {
+    // The Pings view shows the same Thread rows: a new title, or Resolved.
+    expect(liveInvalidations({ kind: 'thread.changed', channelId, threadId })).toEqual([
+      ['threads', 'list', channelId],
+      ['threads', 'detail', channelId, threadId],
+      ['pings', 'list'],
+    ]);
+  });
+
+  it('refetches the feed and the Thread view for a deleted Thread', () => {
+    expect(liveInvalidations({ kind: 'thread.deleted', channelId, threadId })).toEqual([
+      ['threads', 'list', channelId],
+      ['threads', 'detail', channelId, threadId],
+    ]);
+  });
 
   it.each(['thread_response.created', 'thread_response.changed'] as const)(
     'refetches the Thread Responses, the Thread view and the feed for %s',
