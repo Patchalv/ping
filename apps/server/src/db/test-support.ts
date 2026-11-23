@@ -5,6 +5,7 @@
 // (CREATE DATABASE … TEMPLATE) and every test seeds its own fixtures with fresh UUIDs.
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import type { ResolvePolicy } from '@ping/shared';
 import { hashPassword } from 'better-auth/crypto';
 import pg from 'pg';
 import { LOCAL_ROLE_PASSWORDS } from '../config';
@@ -250,6 +251,7 @@ export async function insertChannel(
     visibility?: 'public' | 'private';
     name?: string;
     archived?: boolean;
+    resolvePolicy?: ResolvePolicy;
     members?: { staffId: string; channelAdmin?: boolean }[];
   } = {},
 ): Promise<ChannelFixture> {
@@ -260,8 +262,8 @@ export async function insertChannel(
   await asOwner(async (query) => {
     await query('begin');
     await query(
-      `insert into channel (id, name, description, visibility, created_by, archived_at, archived_by)
-       values ($1, $2, '', $3, $4, $5, $6)`,
+      `insert into channel (id, name, description, visibility, created_by, archived_at, archived_by, resolve_policy)
+       values ($1, $2, '', $3, $4, $5, $6, $7)`,
       [
         id,
         name,
@@ -269,6 +271,7 @@ export async function insertChannel(
         createdBy,
         options.archived ? new Date() : null,
         options.archived ? createdBy : null,
+        options.resolvePolicy ?? 'any_member',
       ],
     );
     for (const member of members) {
@@ -285,15 +288,18 @@ export async function insertChannel(
 export type ThreadFixture = { id: string; channelId: string; title: string };
 
 /**
- * Inserts an ordinary Thread as the owner, behind row-level security. `latestActivityAt`
- * lets a test order Threads without waiting.
+ * Inserts an ordinary Thread as the owner, behind row-level security. `createdAt` and
+ * `latestActivityAt` let a test order Threads without waiting; `resolved` marks it
+ * Resolved by its author.
  */
 export async function insertThread(options: {
   channelId: string;
   authorId: string;
   title?: string;
   bodyText?: string;
+  createdAt?: Date;
   latestActivityAt?: Date;
+  resolved?: boolean;
 }): Promise<ThreadFixture> {
   const id = randomUUID();
   const title = options.title ?? `Test thread ${id.slice(0, 8)}`;
@@ -305,11 +311,24 @@ export async function insertThread(options: {
       : [{ type: 'paragraph' }],
   };
   const at = options.latestActivityAt ?? new Date();
+  const resolvedAt = options.resolved ? new Date() : null;
   await asOwner((query) =>
     query(
-      `insert into thread (id, channel_id, author_id, title, body, body_text, created_at, latest_activity_at)
-       values ($1, $2, $3, $4, $5, $6, $7, $7)`,
-      [id, options.channelId, options.authorId, title, JSON.stringify(body), bodyText, at],
+      `insert into thread (id, channel_id, author_id, title, body, body_text, created_at,
+                           latest_activity_at, resolved_at, resolved_by)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+      [
+        id,
+        options.channelId,
+        options.authorId,
+        title,
+        JSON.stringify(body),
+        bodyText,
+        options.createdAt ?? at,
+        at,
+        resolvedAt,
+        resolvedAt ? options.authorId : null,
+      ],
     ),
   );
   return { id, channelId: options.channelId, title };

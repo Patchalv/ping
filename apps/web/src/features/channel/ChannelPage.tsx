@@ -25,7 +25,8 @@ type ChannelTab = 'threads' | 'members';
  * The Channel view: its Channel bar above the Thread feed or the Members tab, with an
  * open Thread's panel beside them. The Thread and Section pieces come from the router,
  * because one feature never imports another: `startThread` is the + New Thread control,
- * `sectionPicker` the Section picker (shown to members), `children` the feed, and `panel`
+ * `sectionPicker` the Section picker (shown to members), `listControls` the Thread list
+ * controls in the bar, `children` the feed, and `panel`
  * the open Thread.
  */
 export function ChannelPage({
@@ -33,6 +34,7 @@ export function ChannelPage({
   tab,
   startThread,
   sectionPicker,
+  listControls,
   children,
   panel,
 }: {
@@ -40,6 +42,7 @@ export function ChannelPage({
   tab: ChannelTab;
   startThread?: ReactNode;
   sectionPicker?: ReactNode;
+  listControls?: ReactNode;
   children?: ReactNode;
   panel?: ReactNode;
 }) {
@@ -64,6 +67,7 @@ export function ChannelPage({
           tab={tab}
           startThread={startThread}
           sectionPicker={sectionPicker}
+          listControls={listControls}
         />
         {tab === 'members' ? (
           <MembersTab channel={channel.data} />
@@ -86,11 +90,13 @@ function ChannelBar({
   tab,
   startThread,
   sectionPicker,
+  listControls,
 }: {
   channel: ChannelView;
   tab: ChannelTab;
   startThread: ReactNode;
   sectionPicker: ReactNode;
+  listControls: ReactNode;
 }) {
   const isPrivate = channel.visibility === 'private';
   return (
@@ -161,6 +167,7 @@ function ChannelBar({
           <div className="-mt-1 mb-0.5 ml-auto min-w-0">{sectionPicker}</div>
         ) : null}
       </div>
+      {tab === 'threads' ? listControls : null}
     </section>
   );
 }

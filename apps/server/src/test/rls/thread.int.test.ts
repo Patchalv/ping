@@ -214,15 +214,18 @@ describe('thread UPDATE', () => {
     ['channel_id', `channel_id = gen_random_uuid()`],
     ['is_system', `is_system = true`],
     ['created_at', `created_at = now() - interval '1 day'`],
-    ['resolved_at', `resolved_at = now()`],
-  ])('refuses changing %s: ping_app may only change the content', async (_col, set) => {
-    const { author, thread } = await channelWithThread('public');
-    await asPingApp(author.id, async (query) => {
-      await expect(query(`update thread set ${set} where id = $1`, [thread.id])).rejects.toThrow(
-        /permission denied/,
-      );
-    });
-  });
+    ['system_kind', `system_kind = 'channel_archived'`],
+  ])(
+    'refuses changing %s: ping_app may only change the content and resolved state',
+    async (_col, set) => {
+      const { author, thread } = await channelWithThread('public');
+      await asPingApp(author.id, async (query) => {
+        await expect(query(`update thread set ${set} where id = $1`, [thread.id])).rejects.toThrow(
+          /permission denied/,
+        );
+      });
+    },
+  );
 
   it('updates nothing in a Private channel the Staff member is not in, Admins included', async () => {
     const admin = await createStaffMember({ role: 'admin' });
@@ -238,6 +241,38 @@ describe('thread UPDATE', () => {
     await asPingApp(null, async (query) => {
       const result = await query(`update thread set title = 'Changed' where id = $1`, [thread.id]);
       expect(result.rowCount).toBe(0);
+    });
+  });
+});
+
+// Resolving and reopening arrived with "Resolve, reopen and Thread list controls" (#41).
+// Who may (per the Channel's "Who can resolve threads?") is the permissions module's job;
+// the database lets a visible Thread's resolved state change.
+describe('thread UPDATE of the resolved state', () => {
+  const resolve = `update thread set resolved_at = now(), resolved_by = $2 where id = $1`;
+  const reopen = `update thread set resolved_at = null, resolved_by = null where id = $1`;
+
+  it('lets a Staff member resolve and reopen a Thread they can see', async () => {
+    const member = await createStaffMember();
+    const { thread } = await channelWithThread('private', [member.id]);
+    await asPingApp(member.id, async (query) => {
+      expect((await query(resolve, [thread.id, member.id])).rowCount).toBe(1);
+      expect((await query(reopen, [thread.id])).rowCount).toBe(1);
+    });
+  });
+
+  it('resolves nothing in a Private channel the Staff member is not in, Admins included', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const { thread } = await channelWithThread('private');
+    await asPingApp(admin.id, async (query) => {
+      expect((await query(resolve, [thread.id, admin.id])).rowCount).toBe(0);
+    });
+  });
+
+  it('resolves nothing when app.staff_id is unset', async () => {
+    const { author, thread } = await channelWithThread('public');
+    await asPingApp(null, async (query) => {
+      expect((await query(resolve, [thread.id, author.id])).rowCount).toBe(0);
     });
   });
 });
