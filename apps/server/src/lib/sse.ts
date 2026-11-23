@@ -33,7 +33,10 @@ type LiveEvent =
   | { kind: 'ping.changed'; channelId: string; threadId?: string }
   // Someone was invited, re-invited, had their invite cancelled, changed their name or
   // role, or was Deactivated or reactivated.
-  | { kind: 'staff.changed'; staffId: string };
+  | { kind: 'staff.changed'; staffId: string }
+  // A Staff member changed their own Sidebar Sections or moved a Channel between them.
+  // Only they see Sections, so only their own sessions need it.
+  | { kind: 'section.changed'; staffId: string };
 
 export function publish(_event: LiveEvent): void {
   // Delivery arrives with #47.
