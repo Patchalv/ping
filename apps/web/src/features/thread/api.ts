@@ -21,8 +21,7 @@ const pings = api.api.pings;
 const responses = threads[':threadId'].responses;
 
 /**
- * The query keys. Exported so live updates (#47) can refetch a Channel's Threads.
- * @public
+ * The query keys. Exported so live updates can refetch a Channel's Threads.
  */
 export const threadKeys = {
   all: ['threads'] as const,
@@ -35,9 +34,9 @@ export const threadKeys = {
 
 /**
  * The query keys for Pings. Everything that Acknowledges or Pings invalidates `all`, so the
- * Pings view, its badge and the sidebar counts refetch together.
+ * Pings view, its badge and the sidebar counts refetch together. Live updates do too.
  */
-const pingKeys = {
+export const pingKeys = {
   all: ['pings'] as const,
   list: () => [...pingKeys.all, 'list'] as const,
   summary: () => [...pingKeys.all, 'summary'] as const,

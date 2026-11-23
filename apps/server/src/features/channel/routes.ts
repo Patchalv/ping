@@ -14,7 +14,7 @@ import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
 import {
   channelMemberActions,
@@ -133,7 +133,8 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           await cleanUpLostAccess(ctx.tx, channelId);
           await recordMembershipChange(ctx, 'channel_left', channelId, ctx.actor.staffId);
         });
-        publish({ kind: 'channel.changed', channelId });
+        // The leaver's other tabs hear it too, though they can no longer read a Private one.
+        publish({ kind: 'channel.changed', channelId, staffId: c.var.session.staffId });
         publish({ kind: 'ping.changed', channelId });
         return c.body(null, 204);
       })
@@ -217,7 +218,8 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
             await cleanUpLostAccess(ctx.tx, channelId);
             await recordMembershipChange(ctx, 'channel_member_removed', channelId, staffId);
           });
-          publish({ kind: 'channel.changed', channelId });
+          // The removed member hears it too, though they can no longer read a Private one.
+          publish({ kind: 'channel.changed', channelId, staffId });
           publish({ kind: 'ping.changed', channelId });
           return c.body(null, 204);
         },

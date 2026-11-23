@@ -850,6 +850,18 @@ export const MATRIX: MatrixRow[] = [
       },
     ),
   ),
+
+  // Open the live-update stream: every active Staff member. What reaches it is decided
+  // per event, in lib/sse/routes.int.test.ts.
+  ...rowsFor(
+    {
+      route: 'GET /api/live',
+      action: 'open the live-update stream',
+      channel: null,
+      request: () => ({ path: '/api/live' }),
+    },
+    allowed(200),
+  ),
 ];
 
 /** Every route the matrix covers, for the route-coverage guard. */

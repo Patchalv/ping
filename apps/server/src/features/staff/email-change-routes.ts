@@ -17,7 +17,7 @@ import type { Database } from '../../db';
 import { hashEmailChangeToken } from '../../lib/email-change';
 import { ConflictError, NotFoundError } from '../../lib/errors';
 import { rateLimit } from '../../lib/rate-limit';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { isUniqueViolation } from '../../lib/unique-violation';
 import { validate } from '../../lib/validate';
 
