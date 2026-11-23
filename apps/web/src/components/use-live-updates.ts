@@ -15,22 +15,22 @@ const LIVE_PATH = '/api/live';
 /** How long to wait before opening a new stream after the server refused or dropped one. */
 const RETRY_MS = 5000;
 
-export function useLiveUpdates(queryClient: QueryClient, onUnauthenticated: () => void): void {
+export function useLiveUpdates(queryClient: QueryClient, checkSession: () => void): void {
   // eslint-disable-next-line no-restricted-syntax -- syncs with the server's event stream, outside React: opened on sign-in, closed on sign-out.
   useEffect(() => {
     let source: EventSource | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
-    let opens = 0;
 
     function open() {
       const current = new EventSource(LIVE_PATH);
       source = current;
-      // A new stream can't resume the last one, so whatever was missed meanwhile is
-      // refetched. (The browser resumes within one stream itself, with Last-Event-ID.)
-      const isReopen = opens > 0;
-      opens += 1;
+      // Whatever changed before this stream opened (since the screens first fetched, or
+      // while a refused stream waited to retry) can't be replayed, so refetch it once. Later
+      // reconnects of the same stream resume with Last-Event-ID, which the browser sends.
+      let opened = false;
       current.addEventListener('open', () => {
-        if (isReopen) void queryClient.invalidateQueries();
+        if (!opened) void queryClient.invalidateQueries();
+        opened = true;
       });
       current.addEventListener(LIVE_CHANGE, (message) => {
         const parsed = liveEvent.safeParse(JSON.parse((message as MessageEvent<string>).data));
@@ -45,8 +45,9 @@ export function useLiveUpdates(queryClient: QueryClient, onUnauthenticated: () =
         // The browser retries a dropped stream itself. It gives up only when the server
         // answers with an error (signed out, Deactivated, or down for a deploy).
         if (current.readyState !== EventSource.CLOSED) return;
-        // A lost session returns to sign-in, which closes this stream for good.
-        onUnauthenticated();
+        // Check the session: if it's gone, App returns to sign-in, which closes this for
+        // good. If not (a deploy, say), try again shortly.
+        checkSession();
         retry = setTimeout(open, RETRY_MS);
       });
     }
@@ -56,5 +57,5 @@ export function useLiveUpdates(queryClient: QueryClient, onUnauthenticated: () =
       clearTimeout(retry);
       source?.close();
     };
-  }, [queryClient, onUnauthenticated]);
+  }, [queryClient, checkSession]);
 }

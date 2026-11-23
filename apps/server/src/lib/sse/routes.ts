@@ -7,8 +7,7 @@ import { LIVE_CHANGE, LIVE_RESYNC, liveStreamHeaders } from '@ping/shared';
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
 import type { Auth } from '../../auth';
-import { createWithActorTx, signedIn } from '../../auth/actor';
-import { findActiveStaffRole } from '../../auth/queries';
+import { createWithActorTx, findActor, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
 import { canReceiveLiveEvent, requireCanOpenLiveStream } from '../../permissions/live';
 import { validate } from '../validate';
@@ -26,34 +25,54 @@ export function liveRoutes({ auth, database }: { auth: Auth; database: Database 
       return ctx.actor.staffId;
     });
 
-    // Per event, as this Staff member: still active, and able to read the Channel.
+    // Per event, as this Staff member, in a short transaction of its own (the one exception
+    // to "one withActorTx per route": the stream outlives the request's): still active, and
+    // able to read the Channel.
     const receive: Receive = (event) =>
       database.withStaffTx(staffId, async (tx) => {
-        const role = await findActiveStaffRole(tx, staffId);
-        if (!role) return 'gone';
-        const ctx = { tx, actor: { staffId, role } };
+        const actor = await findActor(tx, staffId);
+        if (!actor) return 'gone';
         const channel =
-          'channelId' in event ? await findLiveChannelAccess(ctx, event.channelId) : undefined;
-        return canReceiveLiveEvent(ctx.actor, event, channel).allow ? 'deliver' : 'skip';
+          'channelId' in event
+            ? await findLiveChannelAccess({ tx, actor }, event.channelId)
+            : undefined;
+        return canReceiveLiveEvent(actor, event, channel).allow ? 'deliver' : 'skip';
       });
 
     return streamSSE(c, (stream) => {
-      const send = async (frame: LiveFrame) => {
-        if (stream.closed || stream.aborted) return;
-        await (frame.type === 'change'
-          ? stream.writeSSE({ id: frame.id, event: LIVE_CHANGE, data: JSON.stringify(frame.event) })
-          : stream.writeSSE({ event: LIVE_RESYNC, data: '' }));
+      const open = () => !stream.closed && !stream.aborted;
+      // A write to a socket the browser just dropped fails before onAbort fires: that's a
+      // normal disconnect, not an error to report.
+      const write = async (text: () => Promise<void>) => {
+        try {
+          if (open()) await text();
+        } catch (error) {
+          if (open()) throw error;
+        }
       };
+      const send = (frame: LiveFrame) =>
+        write(() =>
+          frame.type === 'change'
+            ? stream.writeSSE({
+                id: frame.id,
+                event: LIVE_CHANGE,
+                data: JSON.stringify(frame.event),
+              })
+            : frame.type === 'resync'
+              ? stream.writeSSE({ id: frame.id, event: LIVE_RESYNC, data: '' })
+              : // No data: the browser records the ID and dispatches nothing.
+                stream.writeSSE({ id: frame.id, data: '' }),
+        );
       // The stream stays open until the browser goes, or the hub cuts it off.
       return new Promise<void>((resolve) => {
         const disconnect = liveHub.connect(
           {
-            staffId,
             receive,
             send,
-            heartbeat: async () => {
-              if (!stream.closed && !stream.aborted) await stream.write(': heartbeat\n\n');
-            },
+            heartbeat: () =>
+              write(async () => {
+                await stream.write(': heartbeat\n\n');
+              }),
             close: resolve,
           },
           lastEventId,

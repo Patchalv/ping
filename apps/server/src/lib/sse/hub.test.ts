@@ -4,21 +4,28 @@ import { createLiveHub, type LiveClient, type LiveFrame, type Receive } from './
 
 const CHANNEL_A = '00000000-0000-4000-8000-00000000000a';
 const CHANNEL_B = '00000000-0000-4000-8000-00000000000b';
-const STAFF = '00000000-0000-4000-8000-000000000001';
 
 const created = (channelId: string): LiveEvent => ({ kind: 'channel.created', channelId });
 
 /** A client that records what it was sent, deciding with `receive`. */
 function recordingClient(receive: Receive = async () => 'deliver') {
+  // Position frames apart, so most tests read only what a Staff member would see.
   const frames: LiveFrame[] = [];
-  const client: LiveClient & { frames: LiveFrame[]; heartbeats: number; closed: boolean } = {
-    staffId: STAFF,
+  const positions: string[] = [];
+  const client: LiveClient & {
+    frames: LiveFrame[];
+    positions: string[];
+    heartbeats: number;
+    closed: boolean;
+  } = {
     frames,
+    positions,
     heartbeats: 0,
     closed: false,
     receive,
     send: (frame) => {
-      frames.push(frame);
+      if (frame.type === 'position') positions.push(frame.id);
+      else frames.push(frame);
     },
     heartbeat() {
       client.heartbeats += 1;
@@ -31,7 +38,7 @@ function recordingClient(receive: Receive = async () => 'deliver') {
 }
 
 const eventsOf = (frames: LiveFrame[]) =>
-  frames.map((frame) => (frame.type === 'change' ? frame.event : 'resync'));
+  frames.map((frame) => (frame.type === 'change' ? frame.event : frame.type));
 
 /** Lets every queued delivery run, well short of a heartbeat. */
 const settle = () => vi.advanceTimersByTimeAsync(100);
@@ -170,8 +177,9 @@ describe('live hub', () => {
       hub.connect(client, lastEventId);
       hub.publish(created(CHANNEL_A));
       await settle();
+      // The resync carries where the client now is, so its next reconnect can resume.
       expect(client.frames).toEqual([
-        { type: 'resync' },
+        { type: 'resync', id: 'boot1:4' },
         { type: 'change', id: 'boot1:5', event: created(CHANNEL_A) },
       ]);
     });
@@ -189,6 +197,26 @@ describe('live hub', () => {
         'boot1:3',
       ]);
     });
+  });
+
+  it('tells a new client where it starts, so a reconnect resumes even before any change', async () => {
+    const hub = createLiveHub({ bootId: 'boot1' });
+    hub.publish(created(CHANNEL_A));
+    hub.publish(created(CHANNEL_B));
+    const client = recordingClient();
+    hub.connect(client);
+    await settle();
+    expect(client.positions).toEqual(['boot1:2']);
+    expect(client.frames).toEqual([]);
+  });
+
+  it('tells a resuming client nothing about its position: its ID already says it', async () => {
+    const hub = createLiveHub({ bootId: 'boot1' });
+    hub.publish(created(CHANNEL_A));
+    const client = recordingClient();
+    hub.connect(client, 'boot1:1');
+    await settle();
+    expect(client.positions).toEqual([]);
   });
 
   it('sends every client a heartbeat every 25 seconds, without touching the checks', async () => {

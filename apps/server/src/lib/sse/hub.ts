@@ -12,12 +12,18 @@ import type { LiveEvent } from '@ping/shared';
 /** What a client's Staff member may do with an event: get it, not get it, or (Deactivated) be cut off. */
 export type Receive = (event: LiveEvent) => Promise<'deliver' | 'skip' | 'gone'>;
 
-/** One frame down a stream: a change with its ID, or a resync (refetch everything). */
-export type LiveFrame = { type: 'change'; id: string; event: LiveEvent } | { type: 'resync' };
+/**
+ * One frame down a stream, each with the ID a reconnect resumes from: a change; a resync
+ * (refetch everything); or a position, telling a new client where it starts, so it can
+ * resume even before it has received a change.
+ */
+export type LiveFrame =
+  | { type: 'change'; id: string; event: LiveEvent }
+  | { type: 'resync'; id: string }
+  | { type: 'position'; id: string };
 
 /** One open stream. */
 export type LiveClient = {
-  staffId: string;
   receive: Receive;
   send(frame: LiveFrame): Promise<void> | void;
   heartbeat(): Promise<void> | void;
@@ -52,7 +58,7 @@ export function createLiveHub(
   let seq = 0;
   let heartbeat: ReturnType<typeof setInterval> | undefined;
 
-  const idOf = (entry: Entry) => `${bootId}:${entry.seq}`;
+  const idOf = (at: number) => `${bootId}:${at}`;
 
   function drop(connection: Connection) {
     connection.open = false;
@@ -85,7 +91,11 @@ export function createLiveHub(
         drop(connection);
         connection.client.close();
       } else if (decision === 'deliver') {
-        await connection.client.send({ type: 'change', id: idOf(entry), event: entry.event });
+        await connection.client.send({
+          type: 'change',
+          id: idOf(entry.seq),
+          event: entry.event,
+        });
       }
     });
   }
@@ -120,11 +130,12 @@ export function createLiveHub(
       // Registered and replayed in one synchronous step, so nothing published meanwhile is
       // lost or sent twice.
       connections.add(connection);
-      if (lastEventId !== undefined) {
-        const missed = missedSince(lastEventId);
-        if (missed) for (const entry of missed) deliver(connection, entry);
-        else enqueue(connection, () => client.send({ type: 'resync' }));
-      }
+      const now = idOf(seq);
+      const missed = lastEventId === undefined ? undefined : missedSince(lastEventId);
+      if (lastEventId === undefined)
+        enqueue(connection, () => client.send({ type: 'position', id: now }));
+      else if (missed) for (const entry of missed) deliver(connection, entry);
+      else enqueue(connection, () => client.send({ type: 'resync', id: now }));
       heartbeat ??= setInterval(() => {
         for (const open of connections) enqueue(open, () => open.client.heartbeat());
       }, HEARTBEAT_MS);

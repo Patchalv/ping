@@ -3,11 +3,8 @@
 // at the moment it's sent, so losing access stops them at once.
 import type { LiveEvent } from '@ping/shared';
 import type { Actor } from './actor';
-import { canReadChannel } from './channel';
+import { type ChannelAccess, canReadChannel } from './channel';
 import { allow, type Decision, deny, requireAllowed } from './decision';
-
-/** What the decision needs to know about the event's Channel and the actor's place in it. */
-type ChannelAccess = Parameters<typeof canReadChannel>[1];
 
 /** Every active Staff member can open the stream; what reaches it is decided per event. */
 export function canOpenLiveStream(_actor: Actor): Decision {

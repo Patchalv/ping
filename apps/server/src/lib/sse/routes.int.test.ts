@@ -351,11 +351,27 @@ describe('GET /api/live', () => {
       ).toBe(false);
     });
 
+    it('resumes from where a stream started, even if it never received a change', async () => {
+      const staff = await createStaffMember();
+      const channel = await insertChannel({ members: [{ staffId: staff.id }] });
+      const first = await openStream(staff);
+      const [position] = await first.readUntil((frame) => frame.id !== undefined);
+      await first.close();
+
+      const missed = threadEvent(channel.id);
+      publish(missed);
+      const resumed = await openStream(staff, { 'last-event-id': position?.id ?? '' });
+      const frames = await resumed.readUntil((frame) => channelOf(frame) === channel.id);
+      expect(changeOf(frames.at(-1) as Frame)).toEqual(missed);
+      // A replay, not a resync.
+      expect(frames.some((frame) => frame.event === 'resync')).toBe(false);
+    });
+
     it('tells a client it can’t catch up to refetch everything', async () => {
       const staff = await createStaffMember();
       const stream = await openStream(staff, { 'last-event-id': 'an-earlier-server:12' });
       const frames = await stream.readUntil((frame) => frame.event === 'resync');
-      expect(frames.at(-1)).toEqual({ event: 'resync', data: '' });
+      expect(frames.at(-1)).toEqual({ event: 'resync', id: expect.any(String), data: '' });
     });
   });
 });
