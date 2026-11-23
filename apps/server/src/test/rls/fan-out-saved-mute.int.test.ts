@@ -157,7 +157,12 @@ async function scene(options: SceneOptions) {
 }
 
 /** The author sends a Thread Response; the subject's Ping count after the fan-out. */
-function pingAfterResponse({ author, subject, channel, thread }: Awaited<ReturnType<typeof scene>>) {
+function pingAfterResponse({
+  author,
+  subject,
+  channel,
+  thread,
+}: Awaited<ReturnType<typeof scene>>) {
   return asPingApp(author.id, async (query) => {
     const responseId = await sendResponse(query, channel.id, thread.id);
     await fanOut(query, thread.id, responseId);

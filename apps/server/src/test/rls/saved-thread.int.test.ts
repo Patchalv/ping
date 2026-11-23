@@ -50,9 +50,7 @@ async function threadFor(options: {
 /** As threadFor, with the owner's Saved row already in place. */
 async function savedThread(options: Parameters<typeof threadFor>[0]) {
   const fixture = await threadFor(options);
-  await asOwner((query) =>
-    save(query, fixture.owner.id, fixture.channel.id, fixture.thread.id),
-  );
+  await asOwner((query) => save(query, fixture.owner.id, fixture.channel.id, fixture.thread.id));
   return fixture;
 }
 

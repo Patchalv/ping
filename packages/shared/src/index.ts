@@ -44,7 +44,6 @@ export {
   type PingPage,
   type PingSummary,
 } from './ping';
-export { listSavedQuery, type SavedPage } from './saved';
 export {
   type ReactionList,
   type ReactionSummary,
@@ -62,6 +61,7 @@ export {
   type RichTextListItem,
   type RichTextMark,
 } from './rich-text';
+export { listSavedQuery, type SavedPage } from './saved';
 export {
   type CreateSectionBody,
   createSectionBody,

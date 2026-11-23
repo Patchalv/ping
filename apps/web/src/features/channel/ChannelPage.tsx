@@ -1,6 +1,6 @@
 import type { ChannelView } from '@ping/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { ChevronLeftIcon, LockIcon } from 'lucide-react';
+import { BellIcon, BellOffIcon, ChevronLeftIcon, LockIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
@@ -16,7 +16,7 @@ import {
 import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
-import { useChannel, useJoinChannel, useLeaveChannel } from './api';
+import { useChannel, useJoinChannel, useLeaveChannel, useMuteChannel } from './api';
 import { MembersTab } from './MembersTab';
 
 type ChannelTab = 'threads' | 'members';
@@ -123,6 +123,7 @@ function ChannelBar({
         {channel.isMember ? (
           <>
             {channel.isArchived ? null : startThread}
+            <MuteAction channel={channel} />
             <LeaveAction channel={channel} />
           </>
         ) : channel.isArchived ? null : (
@@ -178,6 +179,34 @@ function JoinAction({ channel }: { channel: ChannelView }) {
         {join.isPending ? 'Joining…' : 'Join'}
       </Button>
       {join.isError ? <FormError className="basis-full">{join.error.message}</FormError> : null}
+    </>
+  );
+}
+
+/**
+ * Mute or unmute the whole Channel, for members: new Thread Responses stop Pinging you.
+ * New Threads and Mentions still do.
+ */
+function MuteAction({ channel }: { channel: ChannelView }) {
+  const mute = useMuteChannel(channel.id);
+  return (
+    <>
+      <Button
+        variant="outline"
+        className="shrink-0"
+        aria-pressed={channel.isMuted}
+        title={
+          channel.isMuted
+            ? 'Muted: new Thread Responses here don’t Ping you'
+            : 'Stop new Thread Responses here Pinging you'
+        }
+        disabled={mute.isPending}
+        onClick={() => mute.mutate(!channel.isMuted)}
+      >
+        {channel.isMuted ? <BellOffIcon aria-hidden="true" /> : <BellIcon aria-hidden="true" />}
+        {channel.isMuted ? 'Muted' : 'Mute'}
+      </Button>
+      {mute.isError ? <FormError className="basis-full">{mute.error.message}</FormError> : null}
     </>
   );
 }

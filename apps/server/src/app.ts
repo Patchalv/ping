@@ -11,7 +11,7 @@ import { channelRoutes } from './features/channel/routes';
 import { channelMuteRoutes, threadMuteRoutes } from './features/mute/routes';
 import { markReadRoutes, pingRoutes } from './features/ping/routes';
 import { reactionRoutes } from './features/reaction/routes';
-import { saveRoutes, savedRoutes } from './features/saved/routes';
+import { savedRoutes, saveRoutes } from './features/saved/routes';
 import { placementRoutes, sectionRoutes } from './features/section/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
 import { emailChangeRoutes } from './features/staff/email-change-routes';

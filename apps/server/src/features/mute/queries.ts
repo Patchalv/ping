@@ -62,7 +62,10 @@ export async function addMute(
 ): Promise<void> {
   // No conflict target: the unique constraint treats nulls as equal, which arbiter
   // inference wouldn't pick up.
-  await tx.insert(mute).values({ staffId: actor.staffId, channelId, threadId }).onConflictDoNothing();
+  await tx
+    .insert(mute)
+    .values({ staffId: actor.staffId, channelId, threadId })
+    .onConflictDoNothing();
 }
 
 /** Unmutes the Channel for the actor, or one Thread in it when `threadId` is given. */

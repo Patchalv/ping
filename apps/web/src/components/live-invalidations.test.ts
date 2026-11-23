@@ -77,6 +77,16 @@ describe('liveInvalidations', () => {
     expect(liveInvalidations({ kind: 'section.changed', staffId })).toEqual([['sections', 'mine']]);
   });
 
+  it('refetches Saved, Pings, Thread rows and Channels when their Saved list or mutes change', () => {
+    // Saving Acknowledges a Ping, and mutes show on the Channel, the sidebar and the Thread.
+    expect(liveInvalidations({ kind: 'attention.changed', staffId })).toEqual([
+      ['saved'],
+      ['pings'],
+      ['threads'],
+      ['channels'],
+    ]);
+  });
+
   it('refetches everything that shows Staff members when one changes', () => {
     expect(liveInvalidations({ kind: 'staff.changed', staffId })).toEqual([
       ['staff'],

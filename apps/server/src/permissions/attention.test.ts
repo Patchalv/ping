@@ -1,11 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from './actor';
-import {
-  canListOwnSaved,
-  canMuteChannel,
-  canMuteThread,
-  canSaveThread,
-} from './attention';
+import { canListOwnSaved, canMuteChannel, canMuteThread, canSaveThread } from './attention';
 import { allow, deny } from './decision';
 import type { ThreadChannelAccess } from './thread';
 

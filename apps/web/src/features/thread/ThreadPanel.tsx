@@ -1,6 +1,6 @@
 import type { ThreadView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { CheckIcon, ChevronLeftIcon, XIcon } from 'lucide-react';
+import { BellIcon, BellOffIcon, CheckIcon, ChevronLeftIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
@@ -9,12 +9,13 @@ import { cn } from '#/lib/utils';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
-import { useMarkRead, useThread, useThreadResponses } from './api';
+import { useMarkRead, useMuteThread, useThread, useThreadResponses } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
 import { Reactions } from './Reactions';
+import { SaveButton } from './SaveButton';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
 /**
@@ -24,7 +25,6 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
  */
 export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
   const thread = useThread(channelId, threadId);
-  const markRead = useMarkRead();
   const title = thread.data?.title ?? 'Thread';
   return (
     <SidePanel label={title}>
@@ -39,19 +39,7 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           Back to Channel
         </Link>
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
-        {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
-        {thread.data?.ping ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            disabled={markRead.isPending}
-            onClick={() => markRead.mutate({ channelId, threadId })}
-          >
-            <CheckIcon aria-hidden="true" />
-            Mark read
-          </Button>
-        ) : null}
+        {thread.data ? <ThreadActions thread={thread.data} /> : null}
         <Link
           to="/channels/$channelId"
           params={{ channelId }}
@@ -59,7 +47,7 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
             'max-md:hidden',
-            thread.data?.ping ? undefined : 'ml-auto',
+            thread.data ? undefined : 'ml-auto',
           )}
         >
           <XIcon aria-hidden="true" />
@@ -82,6 +70,48 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
         <ThreadBody thread={thread.data} />
       )}
     </SidePanel>
+  );
+}
+
+/**
+ * The Thread's own controls in the panel's header: Save, Mute and, while it has a Ping,
+ * Mark read. Opening the Thread never clears its Ping, so Mark read does.
+ */
+function ThreadActions({ thread }: { thread: ThreadView }) {
+  const markRead = useMarkRead();
+  const mute = useMuteThread(thread.channelId, thread.id);
+  return (
+    // On a phone, Save and Mute show only their icons, so the header fits.
+    <div className="ml-auto flex items-center gap-1">
+      <SaveButton thread={thread} className="max-md:[&>span]:sr-only" />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="max-md:[&>span]:sr-only"
+        aria-pressed={thread.isMuted}
+        title={
+          thread.isMuted
+            ? 'Muted: new Thread Responses here don’t Ping you'
+            : 'Stop new Thread Responses here Pinging you'
+        }
+        disabled={mute.isPending}
+        onClick={() => mute.mutate(!thread.isMuted)}
+      >
+        {thread.isMuted ? <BellOffIcon aria-hidden="true" /> : <BellIcon aria-hidden="true" />}
+        <span>{thread.isMuted ? 'Muted' : 'Mute'}</span>
+      </Button>
+      {thread.ping ? (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={markRead.isPending}
+          onClick={() => markRead.mutate({ channelId: thread.channelId, threadId: thread.id })}
+        >
+          <CheckIcon aria-hidden="true" />
+          Mark read
+        </Button>
+      ) : null}
+    </div>
   );
 }
 

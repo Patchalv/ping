@@ -1,13 +1,7 @@
 // The Saved and Mute routes, and how Saved Threads and mutes change who gets a Ping,
 // through the real app: what they answer, beyond the permission matrix's allow and deny
 // statuses. (Mute has no tests file of its own: what it does shows up here, in the Pings.)
-import type {
-  ChannelView,
-  SavedPage,
-  SidebarChannel,
-  ThreadPage,
-  ThreadView,
-} from '@ping/shared';
+import type { ChannelView, SavedPage, SidebarChannel, ThreadPage, ThreadView } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   asOwner,
@@ -94,7 +88,15 @@ describe('Saved and Mute', () => {
       });
       expect(sent.status).toBe(201);
     };
-    return { author, member, channel, base, threadId, thread: `${base}/threads/${threadId}`, respond };
+    return {
+      author,
+      member,
+      channel,
+      base,
+      threadId,
+      thread: `${base}/threads/${threadId}`,
+      respond,
+    };
   }
 
   describe('Saving', () => {
