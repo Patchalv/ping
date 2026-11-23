@@ -225,7 +225,11 @@ export function SidebarContent({ className, ...props }: ComponentProps<'div'>) {
   return (
     <div
       data-slot="sidebar-content"
-      className={cn('flex min-h-0 flex-1 flex-col gap-1 overflow-auto py-2', className)}
+      // Scrolls down only: a focused control near the edge must never shift it sideways.
+      className={cn(
+        'flex min-h-0 flex-1 flex-col gap-1 overflow-x-hidden overflow-y-auto py-2',
+        className,
+      )}
       {...props}
     />
   );

@@ -20,17 +20,19 @@ export function useLiveUpdates(queryClient: QueryClient, checkSession: () => voi
   useEffect(() => {
     let source: EventSource | undefined;
     let retry: ReturnType<typeof setTimeout> | undefined;
+    let streams = 0;
 
     function open() {
       const current = new EventSource(LIVE_PATH);
       source = current;
-      // Whatever changed before this stream opened (since the screens first fetched, or
-      // while a refused stream waited to retry) can't be replayed, so refetch it once. Later
-      // reconnects of the same stream resume with Last-Event-ID, which the browser sends.
-      let opened = false;
+      // A stream opened after a refused one can't resume it, so whatever changed while it
+      // waited is refetched once it opens. Reconnects within one stream resume with
+      // Last-Event-ID, which the browser sends. (The first stream opens alongside the
+      // screens' first fetches, so it skips this rather than fetch everything twice.)
+      const replacesAnother = streams > 0;
+      streams += 1;
       current.addEventListener('open', () => {
-        if (!opened) void queryClient.invalidateQueries();
-        opened = true;
+        if (replacesAnother) void queryClient.invalidateQueries();
       });
       current.addEventListener(LIVE_CHANGE, (message) => {
         const parsed = liveEvent.safeParse(JSON.parse((message as MessageEvent<string>).data));

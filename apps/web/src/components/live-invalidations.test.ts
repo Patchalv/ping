@@ -73,6 +73,10 @@ describe('liveInvalidations', () => {
     ]);
   });
 
+  it('refetches the sidebar’s Sections when the Staff member’s own change', () => {
+    expect(liveInvalidations({ kind: 'section.changed', staffId })).toEqual([['sections', 'mine']]);
+  });
+
   it('refetches everything that shows Staff members when one changes', () => {
     expect(liveInvalidations({ kind: 'staff.changed', staffId })).toEqual([
       ['staff'],

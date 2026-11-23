@@ -4,6 +4,7 @@
 import type { LiveEvent } from '@ping/shared';
 import type { QueryKey } from '@tanstack/react-query';
 import { channelKeys } from '../features/channel/api';
+import { sectionKeys } from '../features/section/api';
 import { staffKeys } from '../features/staff/api';
 import { pingKeys, threadKeys } from '../features/thread/api';
 
@@ -40,6 +41,8 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
         threadKeys.list(event.channelId),
         ...(event.threadId ? [threadKeys.detail(event.channelId, event.threadId)] : []),
       ];
+    case 'section.changed':
+      return [sectionKeys.mine()];
     case 'staff.changed':
       // Names and roles show in the Staff members list, member lists and bylines.
       return [staffKeys.all, channelKeys.all, threadKeys.all];

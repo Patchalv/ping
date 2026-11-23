@@ -26,8 +26,9 @@ export function canReceiveLiveEvent(
 ): Decision {
   // Every signed-in Staff member can read the Staff members list.
   if (event.kind === 'staff.changed') return allow();
-  // Only the Staff member whose memberships changed. It names no Channel.
-  if (event.kind === 'membership.changed') {
+  // Only the Staff member it's about: their memberships (naming no Channel) or their own
+  // Sidebar Sections.
+  if (event.kind === 'membership.changed' || event.kind === 'section.changed') {
     return event.staffId === actor.staffId ? allow() : deny({ kind: 'hidden' });
   }
   if (!channel) return deny({ kind: 'hidden' });

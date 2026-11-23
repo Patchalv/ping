@@ -10,6 +10,7 @@ import type { Database } from './db';
 import { channelRoutes } from './features/channel/routes';
 import { markReadRoutes, pingRoutes } from './features/ping/routes';
 import { reactionRoutes } from './features/reaction/routes';
+import { placementRoutes, sectionRoutes } from './features/section/routes';
 import { acceptInviteRoutes } from './features/staff/accept-routes';
 import { emailChangeRoutes } from './features/staff/email-change-routes';
 import { staffRoutes } from './features/staff/routes';
@@ -113,6 +114,8 @@ export function createApp(options: AppOptions) {
     .route('/api/channels/:channelId/threads/:threadId', reactionRoutes(options))
     .route('/api/channels/:channelId/threads/:threadId/ping', markReadRoutes(options))
     .route('/api/pings', pingRoutes(options))
+    .route('/api/sections', sectionRoutes(options))
+    .route('/api/channels/:channelId/section', placementRoutes(options))
     .route('/api/live', liveRoutes(options))
     .route(
       '/api/staff',

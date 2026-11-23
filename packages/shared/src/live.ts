@@ -39,6 +39,9 @@ export const liveEvent = z.discriminatedUnion('kind', [
   // Someone was invited, re-invited, had their invite cancelled, changed their name, email
   // or role, or was Deactivated or reactivated.
   z.object({ kind: z.literal('staff.changed'), staffId: id }),
+  // A Staff member changed their own Sidebar Sections or moved a Channel between them.
+  // Only they see Sections, so only their own sessions hear it.
+  z.object({ kind: z.literal('section.changed'), staffId: id }),
 ]);
 
 export type LiveEvent = z.infer<typeof liveEvent>;
