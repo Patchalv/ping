@@ -869,6 +869,18 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
+  // Open the live-update stream: every active Staff member. What reaches it is decided
+  // per event, in lib/sse/routes.int.test.ts.
+  ...rowsFor(
+    {
+      route: 'GET /api/live',
+      action: 'open the live-update stream',
+      channel: null,
+      request: () => ({ path: '/api/live' }),
+    },
+    allowed(200),
+  ),
+
   // Sidebar Sections. From "Sidebar Sections" (#44). Everyone manages their own; another
   // Staff member's Section is hidden by row-level security, so it answers 404.
   ...rowsFor(

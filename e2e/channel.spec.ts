@@ -94,6 +94,9 @@ test('the next person to sign in on the same browser never sees the last one’s
 });
 
 test('a Staff member whose session has gone is sent back to sign-in', async ({ page }) => {
+  // The live-update stream never opens (its request is left pending): other tests' events
+  // would make the page refetch, and so return to sign-in, before the click this test makes.
+  await page.route('**/api/live', () => undefined);
   await signIn(page, 'laura.gomez@example.com');
   await page.context().clearCookies();
   await page

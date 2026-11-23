@@ -19,7 +19,7 @@ import {
 } from '../../lib/errors';
 import { hashInviteToken } from '../../lib/invite';
 import { rateLimit } from '../../lib/rate-limit';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
 import type { SystemActions } from '../../system-actions';
 import { acceptInvite, findInvite, type InviteLookup } from '../../system-actions/accept-invite';

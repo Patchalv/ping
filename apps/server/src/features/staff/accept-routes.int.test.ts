@@ -6,6 +6,7 @@ import type { StaffMemberView } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asOwner, createStaffMember } from '../../db/test-support';
 import { hashInviteToken } from '../../lib/invite';
+import { liveHub } from '../../lib/sse/publish';
 import {
   BREACHED_PASSWORD,
   createTestApp,
@@ -100,8 +101,13 @@ describe('POST /api/invites/lookup', () => {
 describe('POST /api/invites/accept', () => {
   it('sets the password, verifies the email, sets joined_at, deletes the invite and signs in', async () => {
     const person = await invited();
+    const published: unknown[] = [];
+    const stopWatching = liveHub.watch((event) => published.push(event));
     const res = await accept(person.token);
+    stopWatching();
     expect(res.status).toBe(200);
+    // Open screens hear it (the publish-coverage check counts on this test).
+    expect(published).toContainEqual({ kind: 'staff.changed', staffId: person.id });
 
     const cookie = res.headers
       .getSetCookie()

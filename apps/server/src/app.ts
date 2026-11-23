@@ -18,6 +18,8 @@ import { threadRoutes } from './features/thread/routes';
 import { threadResponseRoutes } from './features/thread-response/routes';
 import type { Mailer } from './lib/email';
 import { errorResponse } from './lib/errors';
+import { setLiveErrorReporter } from './lib/sse/publish';
+import { liveRoutes } from './lib/sse/routes';
 import { noStoreOnApi, securityHeaders } from './security-headers';
 import type { SystemActions } from './system-actions';
 
@@ -84,6 +86,11 @@ function withRuntimeHead(
 }
 
 export function createApp(options: AppOptions) {
+  // A live-update check or write that failed goes to Sentry like any unhandled error.
+  setLiveErrorReporter((error) =>
+    options.captureError?.(error, { method: 'GET', path: '/api/live' }),
+  );
+
   // Routes are chained so Hono RPC can infer AppType.
   // /healthz never touches the database, so uptime checks let Neon sleep.
   //
@@ -109,6 +116,7 @@ export function createApp(options: AppOptions) {
     .route('/api/pings', pingRoutes(options))
     .route('/api/sections', sectionRoutes(options))
     .route('/api/channels/:channelId/section', placementRoutes(options))
+    .route('/api/live', liveRoutes(options))
     .route(
       '/api/staff',
       staffRoutes({

@@ -1,6 +1,7 @@
 import { QueryClientProvider, useQuery } from '@tanstack/react-query';
 import { RouterProvider } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useLiveUpdates } from './components/use-live-updates';
 import {
   FORGOT_PASSWORD_PATH,
   ForgotPasswordPage,
@@ -86,11 +87,14 @@ export function App() {
 }
 
 /**
- * The signed-in app, with its own QueryClient (ADR 0006). A 401 from any call refetches
- * the session, which then finds none, so App falls back to sign-in.
+ * The signed-in app, with its own QueryClient (ADR 0006) and live-update stream. A 401
+ * from any call refetches the session, which then finds none, so App falls back to sign-in.
  */
 function SignedIn({ onUnauthenticated }: { onUnauthenticated(): void }) {
+  // Both keep the first callback, so a re-render never reopens the stream.
   const [queryClient] = useState(() => createQueryClient(onUnauthenticated));
+  const [onStreamRefused] = useState(() => onUnauthenticated);
+  useLiveUpdates(queryClient, onStreamRefused);
   return (
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />

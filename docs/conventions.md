@@ -56,7 +56,7 @@ apps/server/src/
   system-actions/  the only owner of the ping_system pool and the only caller of system functions (ADR 0004)
   features/<channel|thread|thread-response|ping|saved|search|attachment|staff|section>/
                    routes.ts, queries.ts, colocated tests
-  lib/             errors, validation, sse, and later storage and email
+  lib/             errors, validation, sse/ (live updates: the hub, publish() and GET /api/live), and later storage and email
   test/            permission-matrix/, rls/, the catalog guard, route coverage
 apps/web/src/
   router.tsx       the routes (TanStack Router)
@@ -88,13 +88,13 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | Register middleware on each route, never with `app.use` | the route-coverage guard (it fails on any unlisted `ALL` route) |
 | Validate params, query and body with `validate(target, schema)` from `lib/validate.ts`, using a schema from `packages/shared` | review only |
 | Read input only through `c.req.valid(...)`; never `c.req.json()`, `c.req.param()` or `c.req.query()` | ESLint (`no-restricted-syntax`) |
-| Do all the route's database work in one `withActorTx(c, (ctx) => …)`. It sets `app.staff_id`, reads the actor's role in the same transaction (401 when Deactivated), and passes queries one `{ tx, actor }`, so the two never disagree | review only; ESLint (`no-floating-promises`) for the awaits |
+| Do all the route's database work in one `withActorTx(c, (ctx) => …)`. It sets `app.staff_id`, reads the actor's role in the same transaction (401 when Deactivated), and passes queries one `{ tx, actor }`, so the two never disagree The live-update stream (`GET /api/live`) is the one exception: it opens with one `withActorTx`, then checks each event in a short transaction of its own, so none stays open on the stream. | review only; ESLint (`no-floating-promises`) for the awaits |
 | Call a `require…` helper from `permissions/` inside `withActorTx`, before returning or changing anything, even when every actor is allowed. A route that needs the row to decide (reading a Channel needs its visibility) loads it first. Keep permission logic out of routes | review only; the permission matrix catches wrong answers |
 | Throw errors, never return them: `NotFoundError`, `ForbiddenError`, `ConflictError`, `ValidationError`, `UnauthenticatedError`. Routes never set an error status | ESLint (`no-restricted-syntax` on `c.json` with a 4xx or 5xx); `app.test.ts` covers the mapping |
 | Every error answers in one envelope, `{ error: { code, message, issues? } }`. A `ValidationError` lists every failing field as `issues: [{ path, message }]`. Hono's own errors (a malformed body, the Origin check) and unknown `/api` paths use the same envelope. Better Auth's routes keep their own | `app.test.ts` |
 | An unknown error is a bare 500 and goes to Sentry. Typed errors are never reported | `app.test.ts` |
 | 404 when the actor can't see the Channel (a Private channel they aren't in, Admins included); 403 when they can see it but can't act | the permission matrix |
-| Every change calls `publish()` from `lib/sse.ts` after its transaction commits, with a kind and IDs, never content | review only |
+| Every change calls `publish()` from `lib/sse/publish.ts` after its transaction commits, with a kind and IDs, never content | the publish-coverage check (`test/publish-coverage.int.test.ts`) for the call; review for after-commit and no content |
 | Chain routes, and mount each feature with `.route()` in the chain in `createApp`, so Hono RPC infers `AppType` | `tsc` (the web app stops compiling when inference breaks) |
 | Every route has permission-matrix rows: at least one allow, plus a deny for every standard actor who shouldn't pass | the route-coverage guard |
 | Every `/api` response sends `Cache-Control: no-store`, and `csrf()` refuses form-style requests from untrusted origins. Both are set once, in `createApp` | `app.test.ts` |
@@ -128,7 +128,7 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | zod schemas live in `packages/shared`, and the SPA reuses them for its forms and route params | review only |
 | Every rule a Staff member can trip has a plain-English message saying what to do ("Keep the name to 80 characters or fewer."), never zod's default text | the schema's unit tests |
 | The ProseMirror allowlist validator runs inside the body schema (from the Threads slice) | review only |
-| The SPA calls the server only through the `hc` client in `apps/web/src/lib/api.ts`, inside a feature's `api.ts`. Better Auth's own client is the one exception | review only |
+| The SPA calls the server only through the `hc` client in `apps/web/src/lib/api.ts`, inside a feature's `api.ts`. Two exceptions: Better Auth's own client, and the live-update stream (`components/use-live-updates.ts`), which the browser's `EventSource` opens so it can resume with `Last-Event-ID` | review only |
 | No OpenAPI in the MVP | review only |
 
 ## The web app
