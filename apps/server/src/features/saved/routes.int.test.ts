@@ -1,7 +1,7 @@
-// The Saved and Mute routes, and how Saved Threads and mutes change who gets a Ping,
-// through the real app: what they answer, beyond the permission matrix's allow and deny
-// statuses. (Mute has no tests file of its own: what it does shows up here, in the Pings.)
-import type { ChannelView, SavedPage, SidebarChannel, ThreadPage, ThreadView } from '@ping/shared';
+// The Saved routes, and how Saved Threads change who gets a Ping and what losing access
+// keeps, through the real app: what they answer, beyond the permission matrix's allow and
+// deny statuses. The Mute routes' own tests are in features/mute.
+import type { SavedPage, ThreadPage, ThreadView } from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   asOwner,
@@ -46,7 +46,7 @@ const attentionOf = async (staffId: string, channelId: string) => {
   return { saved: saved.rows[0]?.n, mutes: mutes.rows[0]?.n };
 };
 
-describe('Saved and Mute', () => {
+describe('Saved', () => {
   let testApp: TestApp;
   beforeAll(() => {
     testApp = createTestApp();
@@ -176,59 +176,6 @@ describe('Saved and Mute', () => {
       expect((await member(`${r.base}/leave`, { method: 'POST' })).status).toBe(204);
       await r.respond();
       expect(await pingsOf(r.threadId)).toEqual({ [r.member.id]: 1 });
-    });
-
-    it('skips a member who muted the Channel or the Thread, until they unmute', async () => {
-      for (const target of ['channel', 'thread'] as const) {
-        const r = await room();
-        const member = await as(r.member);
-        const path = target === 'channel' ? `${r.base}/mute` : `${r.thread}/mute`;
-        await member(`${r.thread}/ping`, { method: 'DELETE' });
-        expect((await member(path, { method: 'PUT' })).status).toBe(204);
-        // Muting twice changes nothing.
-        expect((await member(path, { method: 'PUT' })).status).toBe(204);
-        await r.respond();
-        expect(await pingsOf(r.threadId)).toEqual({});
-        expect((await member(path, { method: 'DELETE' })).status).toBe(204);
-        await r.respond();
-        expect(await pingsOf(r.threadId)).toEqual({ [r.member.id]: 1 });
-      }
-    });
-
-    it('still Pings a muted member about a new Thread', async () => {
-      const r = await room();
-      const member = await as(r.member);
-      await member(`${r.base}/mute`, { method: 'PUT' });
-      const author = await as(r.author);
-      const res = await author(`${r.base}/threads`, {
-        method: 'POST',
-        body: { title: 'Holidays', body: doc('Dates please') },
-      });
-      const threadId = ((await res.json()) as ThreadView).id;
-      expect(await pingsOf(threadId)).toEqual({ [r.member.id]: 1 });
-    });
-  });
-
-  describe('showing mutes', () => {
-    it('shows a muted Channel in the Channel view and the sidebar', async () => {
-      const r = await room();
-      const member = await as(r.member);
-      await member(`${r.base}/mute`, { method: 'PUT' });
-      const view = (await (await member(r.base)).json()) as ChannelView;
-      expect(view.isMuted).toBe(true);
-      const sidebar = (await (await member('/api/channels')).json()) as SidebarChannel[];
-      expect(sidebar.find((c) => c.id === r.channel.id)?.isMuted).toBe(true);
-      const author = await as(r.author);
-      expect(((await (await author(r.base)).json()) as ChannelView).isMuted).toBe(false);
-    });
-
-    it('shows a muted Thread in the Thread view, apart from the Channel mute', async () => {
-      const r = await room();
-      const member = await as(r.member);
-      await member(`${r.base}/mute`, { method: 'PUT' });
-      expect(((await (await member(r.thread)).json()) as ThreadView).isMuted).toBe(false);
-      await member(`${r.thread}/mute`, { method: 'PUT' });
-      expect(((await (await member(r.thread)).json()) as ThreadView).isMuted).toBe(true);
     });
   });
 

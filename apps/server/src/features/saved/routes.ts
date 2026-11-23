@@ -13,7 +13,11 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
-import { requireCanListOwnSaved, requireCanSaveThread } from '../../permissions/attention';
+import {
+  requireCanListOwnSaved,
+  requireCanRemoveSavedThread,
+  requireCanSaveThread,
+} from '../../permissions/attention';
 import { findSavedChannel, listSaved, removeSavedThread, saveThread } from './queries';
 
 type Options = { auth: Auth; database: Database };
@@ -59,7 +63,7 @@ export function saveRoutes({ auth, database }: Options) {
         const staffId = await withActorTx(c, async (ctx) => {
           const access = await findSavedChannel(ctx, channelId, threadId);
           if (!access) throw new NotFoundError();
-          requireCanSaveThread(ctx.actor, access);
+          requireCanRemoveSavedThread(ctx.actor, access);
           await removeSavedThread(ctx, threadId);
           return ctx.actor.staffId;
         });

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Actor } from './actor';
-import { canListOwnSaved, canMuteChannel, canMuteThread, canSaveThread } from './attention';
+import {
+  canListOwnSaved,
+  canMuteChannel,
+  canMuteThread,
+  canRemoveSavedThread,
+  canSaveThread,
+} from './attention';
 import { allow, deny } from './decision';
 import type { ThreadChannelAccess } from './thread';
 
@@ -21,6 +27,7 @@ describe('canListOwnSaved', () => {
 
 describe.each([
   ['canSaveThread', canSaveThread],
+  ['canRemoveSavedThread', canRemoveSavedThread],
   ['canMuteThread', canMuteThread],
 ])('%s: anyone who can read the Thread', (_name, decide) => {
   it.each([
