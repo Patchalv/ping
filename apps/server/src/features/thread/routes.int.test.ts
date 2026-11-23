@@ -79,9 +79,11 @@ describe('Thread routes', () => {
         reactions: [],
         canReact: true,
         pingCount: 0,
+        isSaved: false,
         edited: null,
         canRespond: true,
         ping: null,
+        isMuted: false,
         canEdit: true,
         canDelete: true,
       });
@@ -191,6 +193,7 @@ describe('Thread routes', () => {
         reactions: [],
         canReact: true,
         pingCount: 0,
+        isSaved: false,
       });
     });
 

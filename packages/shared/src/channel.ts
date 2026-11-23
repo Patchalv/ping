@@ -80,10 +80,12 @@ export type ChannelView = {
   isMember: boolean;
   isChannelAdmin: boolean;
   isArchived: boolean;
+  /** Whether the viewer muted the whole Channel. Only members can. */
+  isMuted: boolean;
 };
 
 /** A row in the sidebar's Channels section: a Channel the Staff member is a member of. */
-export type SidebarChannel = Pick<ChannelView, 'id' | 'name' | 'visibility'>;
+export type SidebarChannel = Pick<ChannelView, 'id' | 'name' | 'visibility' | 'isMuted'>;
 
 /** A row in Browse channels: a Public channel, and whether the Staff member is in it. */
 export type BrowseChannel = Pick<

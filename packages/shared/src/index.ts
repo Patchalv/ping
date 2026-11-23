@@ -44,6 +44,7 @@ export {
   type PingPage,
   type PingSummary,
 } from './ping';
+export { listSavedQuery, type SavedPage } from './saved';
 export {
   type ReactionList,
   type ReactionSummary,

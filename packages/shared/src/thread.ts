@@ -63,6 +63,8 @@ export type ThreadRow = {
   canReact: boolean;
   /** What's new for the viewer in the Thread: its open Ping's count, 0 with none. */
   pingCount: number;
+  /** Whether the Thread is on the viewer's Saved list. */
+  isSaved: boolean;
 };
 
 /** A page of a Channel's Thread list, by Latest activity, newest first. */
@@ -83,4 +85,6 @@ export type ThreadView = Omit<ThreadRow, 'preview'> & {
   canRespond: boolean;
   /** The viewer's open Ping on the Thread, or null. */
   ping: ThreadPing | null;
+  /** Whether the viewer muted this Thread (not the whole Channel). */
+  isMuted: boolean;
 } & ContentActions;

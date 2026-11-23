@@ -869,6 +869,62 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
+  // The Saved view: everyone lists their own.
+  ...rowsFor(
+    {
+      route: 'GET /api/saved',
+      action: 'list their own Saved Threads',
+      channel: null,
+      request: () => ({ path: '/api/saved' }),
+    },
+    allowed(200),
+  ),
+
+  // Save a Thread, remove it from Saved, and mute or unmute a Thread: anyone who can read
+  // it, non-members of a Public channel included. A Private channel they aren't in is
+  // hidden (404).
+  ...(
+    [
+      ['PUT', 'saved', 'Save a Thread'],
+      ['DELETE', 'saved', 'remove a Thread from Saved'],
+      ['PUT', 'mute', 'mute a Thread'],
+      ['DELETE', 'mute', 'unmute a Thread'],
+    ] as const
+  ).flatMap(([method, segment, action]) =>
+    CHANNEL_KINDS.flatMap((channel) =>
+      rowsFor(
+        {
+          route: `${method} /api/channels/:channelId/threads/:threadId/${segment}`,
+          action: `${action} in a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          thread: true,
+          request: (ctx) => ({ path: `${threadPath(ctx)}/${segment}`, method }),
+        },
+        (actor) => {
+          const read = readsChannel(channel)(actor);
+          return read.allow ? { allow: true, status: 204 } : read;
+        },
+      ),
+    ),
+  ),
+
+  // Mute or unmute a whole Channel: its members, Archived channels included. A Public
+  // channel's non-members are refused (403), company Admins included; a Private channel
+  // they aren't in is hidden (404).
+  ...(['PUT', 'DELETE'] as const).flatMap((method) =>
+    CHANNEL_KINDS.flatMap((channel) =>
+      rowsFor(
+        {
+          route: `${method} /api/channels/:channelId/mute`,
+          action: `${method === 'PUT' ? 'mute' : 'unmute'} a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/mute`, method }),
+        },
+        placesChannel(channel),
+      ),
+    ),
+  ),
+
   // Open the live-update stream: every active Staff member. What reaches it is decided
   // per event, in lib/sse/routes.int.test.ts.
   ...rowsFor(

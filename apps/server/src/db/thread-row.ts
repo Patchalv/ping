@@ -1,11 +1,11 @@
 // The columns of a Thread row, as the Channel feed and the Pings view both show it
 // (screens.md › Pings and Saved views: "the same Thread rows"). Features don't share code,
 // but both may use db/, like reaction-summary.ts. Row-level security applies to every
-// subquery, so the viewer's own Ping is the only one it can count.
+// subquery, so the viewer's own Ping and Saved row are the only ones it can see.
 import type { ReactionSummary, ThreadAuthor } from '@ping/shared';
 import { sql } from 'drizzle-orm';
 import { reactionSummarySql } from './reaction-summary';
-import { ping, reaction, staffMember, thread, threadResponse, user } from './schema';
+import { ping, reaction, savedThread, staffMember, thread, threadResponse, user } from './schema';
 
 export const threadRowColumns = (actorId: string) => ({
   id: thread.id,
@@ -25,6 +25,10 @@ export const threadRowColumns = (actorId: string) => ({
   pingCount: sql<number>`coalesce((
     select ${ping.count} from ${ping}
      where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actorId}::uuid), 0)::int`,
+  // Whether the Thread is on the viewer's Saved list.
+  isSaved: sql<boolean>`exists (
+    select 1 from ${savedThread}
+     where ${savedThread.threadId} = ${thread.id} and ${savedThread.staffId} = ${actorId}::uuid)`,
 });
 
 /** How much of the description a Thread row previews. */
@@ -46,6 +50,7 @@ export type ThreadRowColumns = {
   responseCount: number;
   reactions: ReactionSummary[];
   pingCount: number;
+  isSaved: boolean;
 };
 
 /** The row as the API answers it: the author folded into one object, times as ISO strings. */
