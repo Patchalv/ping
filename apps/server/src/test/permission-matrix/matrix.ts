@@ -8,6 +8,7 @@
 // Never change an existing expectation unless the issue says so; list any such change
 // under **Permission changes** in the PR.
 import { randomUUID } from 'node:crypto';
+import type { ResolvePolicy } from '@ping/shared';
 import { type Actor, type ActorKind, CHANNEL_ROLE, STANDARD_ACTORS } from './actors';
 
 export type ChannelKind = 'public' | 'private' | 'archived';
@@ -46,7 +47,7 @@ export type MatrixRow = {
    */
   thread?: true | 'resolved';
   /** The row's Channel's "Who can resolve threads?" setting; `any_member` when unset. */
-  resolvePolicy?: 'any_member' | 'author_and_channel_admins';
+  resolvePolicy?: ResolvePolicy;
   /**
    * A Thread Response in the row's Thread (which needs `thread`), sent by the author actor
    * (or, for any other actor, by a member).

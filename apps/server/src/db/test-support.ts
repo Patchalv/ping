@@ -5,6 +5,7 @@
 // (CREATE DATABASE … TEMPLATE) and every test seeds its own fixtures with fresh UUIDs.
 import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
+import type { ResolvePolicy } from '@ping/shared';
 import { hashPassword } from 'better-auth/crypto';
 import pg from 'pg';
 import { LOCAL_ROLE_PASSWORDS } from '../config';
@@ -250,7 +251,7 @@ export async function insertChannel(
     visibility?: 'public' | 'private';
     name?: string;
     archived?: boolean;
-    resolvePolicy?: 'any_member' | 'author_and_channel_admins';
+    resolvePolicy?: ResolvePolicy;
     members?: { staffId: string; channelAdmin?: boolean }[];
   } = {},
 ): Promise<ChannelFixture> {

@@ -51,45 +51,34 @@ export function ThreadListControls({
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 py-2">
       <ChoiceMenu label="Status" summary={STATUS_LABEL[view.status]}>
-        <DropdownMenuRadioGroup
+        <RadioChoices
+          labels={STATUS_LABEL}
           value={view.status}
-          onValueChange={(status: ThreadListView['status']) => onChange({ status })}
-        >
-          {(['open', 'resolved', 'all'] as const).map((status) => (
-            <DropdownMenuRadioItem key={status} value={status}>
-              {STATUS_LABEL[status]}
-            </DropdownMenuRadioItem>
-          ))}
-        </DropdownMenuRadioGroup>
+          onChange={(status) => onChange({ status })}
+        />
       </ChoiceMenu>
       <ChoiceMenu label="Pings" summary={PINGS_LABEL[view.pings]}>
-        <DropdownMenuRadioGroup
+        <RadioChoices
+          labels={PINGS_LABEL}
           value={view.pings}
-          onValueChange={(pings: ThreadListView['pings']) => onChange({ pings })}
-        >
-          <DropdownMenuRadioItem value="all">All</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="with">With Pings</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+          onChange={(pings) => onChange({ pings })}
+        />
       </ChoiceMenu>
       <ChoiceMenu
         label="Sort"
         summary={`${SORT_LABEL[view.sort]}, ${DIRECTION_LABEL[view.direction].toLowerCase()}`}
       >
-        <DropdownMenuRadioGroup
+        <RadioChoices
+          labels={SORT_LABEL}
           value={view.sort}
-          onValueChange={(sort: ThreadListView['sort']) => onChange({ sort })}
-        >
-          <DropdownMenuRadioItem value="latest_activity">Latest activity</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="date_started">Date started</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+          onChange={(sort) => onChange({ sort })}
+        />
         <DropdownMenuSeparator />
-        <DropdownMenuRadioGroup
+        <RadioChoices
+          labels={DIRECTION_LABEL}
           value={view.direction}
-          onValueChange={(direction: ThreadListView['direction']) => onChange({ direction })}
-        >
-          <DropdownMenuRadioItem value="desc">Newest first</DropdownMenuRadioItem>
-          <DropdownMenuRadioItem value="asc">Oldest first</DropdownMenuRadioItem>
-        </DropdownMenuRadioGroup>
+          onChange={(direction) => onChange({ direction })}
+        />
       </ChoiceMenu>
       {view.status === 'open' && hidden > 0 ? (
         <p className="text-small text-muted-foreground">{hidden} Resolved hidden</p>
@@ -122,5 +111,26 @@ function ChoiceMenu({
         {children}
       </DropdownMenuContent>
     </DropdownMenu>
+  );
+}
+
+/** One choice's options, from its labels, with the current one checked. */
+function RadioChoices<T extends string>({
+  labels,
+  value,
+  onChange,
+}: {
+  labels: Record<T, string>;
+  value: T;
+  onChange(next: T): void;
+}) {
+  return (
+    <DropdownMenuRadioGroup value={value} onValueChange={(next: T) => onChange(next)}>
+      {(Object.keys(labels) as T[]).map((option) => (
+        <DropdownMenuRadioItem key={option} value={option}>
+          {labels[option]}
+        </DropdownMenuRadioItem>
+      ))}
+    </DropdownMenuRadioGroup>
   );
 }

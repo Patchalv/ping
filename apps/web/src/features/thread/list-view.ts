@@ -28,10 +28,12 @@ export function saveThreadListView(channelId: string, view: ThreadListView) {
  */
 export function useThreadListView(channelId: string) {
   const [view, setView] = useState(() => readThreadListView(channelId));
-  const change = (next: Partial<ThreadListView>) => {
-    const merged = { ...view, ...next };
-    saveThreadListView(channelId, merged);
-    setView(merged);
-  };
+  const change = (next: Partial<ThreadListView>) =>
+    setView((last) => {
+      const merged = { ...last, ...next };
+      // Saving the same value twice (React may call an updater twice) does no harm.
+      saveThreadListView(channelId, merged);
+      return merged;
+    });
   return [view, change] as const;
 }

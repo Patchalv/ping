@@ -38,11 +38,18 @@ export const threadParams = channelParams.extend({
  * means Threads where the viewer has a Ping now), sort and direction. Each choice falls
  * back to its default, so a view stored by an older version still reads.
  */
+const status = z.enum(['open', 'resolved', 'all'], { error: 'Choose Open, Resolved or All.' });
+const pings = z.enum(['all', 'with'], { error: 'Choose All or With Pings.' });
+const sort = z.enum(['latest_activity', 'date_started'], {
+  error: 'Choose Latest activity or Date started.',
+});
+const direction = z.enum(['desc', 'asc'], { error: 'Choose newest or oldest first.' });
+
 export const threadListView = z.object({
-  status: z.enum(['open', 'resolved', 'all']).catch('open'),
-  pings: z.enum(['all', 'with']).catch('all'),
-  sort: z.enum(['latest_activity', 'date_started']).catch('latest_activity'),
-  direction: z.enum(['desc', 'asc']).catch('desc'),
+  status: status.catch('open'),
+  pings: pings.catch('all'),
+  sort: sort.catch('latest_activity'),
+  direction: direction.catch('desc'),
 });
 export type ThreadListView = z.infer<typeof threadListView>;
 
@@ -54,14 +61,10 @@ export const DEFAULT_THREAD_LIST_VIEW: ThreadListView = threadListView.parse({})
  * page before, for Load more.
  */
 export const listThreadsQuery = z.object({
-  status: z
-    .enum(['open', 'resolved', 'all'], { error: 'Choose Open, Resolved or All.' })
-    .default('open'),
-  pings: z.enum(['all', 'with'], { error: 'Choose All or With Pings.' }).default('all'),
-  sort: z
-    .enum(['latest_activity', 'date_started'], { error: 'Choose Latest activity or Date started.' })
-    .default('latest_activity'),
-  direction: z.enum(['desc', 'asc'], { error: 'Choose newest or oldest first.' }).default('desc'),
+  status: status.default('open'),
+  pings: pings.default('all'),
+  sort: sort.default('latest_activity'),
+  direction: direction.default('desc'),
   after: z.uuid({ error: 'That isn’t a Thread.' }).optional(),
 });
 
