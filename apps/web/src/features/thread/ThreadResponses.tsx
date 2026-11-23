@@ -33,9 +33,11 @@ export function ThreadResponseList({
   newSince?: { count: number; firstAt: string };
 }) {
   if (responses.length === 0) return null;
-  const firstNewId = newSince
-    ? responses.find((r) => Date.parse(r.createdAt) >= Date.parse(newSince.firstAt))?.id
-    : undefined;
+  const firstNewIndex = newSince
+    ? responses.findIndex((r) => Date.parse(r.createdAt) >= Date.parse(newSince.firstAt))
+    : -1;
+  const firstNewId = responses[firstNewIndex]?.id;
+  const newResponseCount = firstNewIndex < 0 ? 0 : responses.length - firstNewIndex;
   return (
     <section aria-label="Thread Responses" className="mt-5 border-t pt-4">
       <h3 className="text-small font-semibold text-muted-foreground">
@@ -47,7 +49,7 @@ export function ThreadResponseList({
             {newSince && response.id === firstNewId ? (
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-ping">
                 <span aria-hidden="true" className="h-px flex-1 bg-ping/40" />
-                {newSince.count} new
+                {newResponseCount} new
                 <span aria-hidden="true" className="h-px flex-1 bg-ping/40" />
               </p>
             ) : null}

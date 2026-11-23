@@ -148,6 +148,7 @@ export function useDeleteThread(
       onDeleted();
       queryClient.removeQueries({ queryKey: threadKeys.detail(channelId, threadId) });
       queryClient.removeQueries({ queryKey: threadKeys.responses(channelId, threadId) });
+      void queryClient.invalidateQueries({ queryKey: pingKeys.all });
       return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
     },
   });

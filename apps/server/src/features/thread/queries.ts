@@ -189,8 +189,8 @@ export async function editThread(
 
 /**
  * Deletes a Thread for real. Its Thread Responses (other people's included) go with it by
- * cascade, and so do all their reactions (and the Thread's own); Mentions, Attachments,
- * Pings and Saved entries will too, as their slices add them.
+ * cascade, and so do all their reactions (and the Thread's own); Pings go too (the
+ * foreign key cascades); Mentions, Attachments and Saved entries will, as their slices add them.
  */
 export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<void> {
   await tx.delete(thread).where(eq(thread.id, threadId));

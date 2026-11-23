@@ -145,6 +145,8 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
           });
         });
         publish({ kind: 'thread.deleted', channelId, threadId });
+        // Its Pings went with it.
+        publish({ kind: 'ping.changed', channelId, threadId });
         return c.body(null, 204);
       })
   );
