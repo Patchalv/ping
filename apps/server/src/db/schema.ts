@@ -376,6 +376,59 @@ export const ping = pgTable(
   ],
 );
 
+/**
+ * A Section (data-model.md › Sidebar Sections): a named group of Channels in one Staff
+ * member's sidebar. Visible only to its owner. Unique on (id, staff_id) so section_channel
+ * can tie a placement to a Section of the same owner.
+ */
+export const section = pgTable(
+  'section',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    name: text('name').notNull(),
+    position: integer('position').notNull(),
+    collapsed: boolean('collapsed').notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    unique('section_id_staff_id_unique').on(t.id, t.staffId),
+    index('section_staff_id_position_idx').on(t.staffId, t.position),
+  ],
+);
+
+/**
+ * Where a Staff member placed a Channel in their sidebar. A Channel with no row sits in the
+ * default Channels section. The composite foreign key keeps a placement in a Section of its
+ * own owner (foreign key checks bypass row-level security), and deleting a Section cascades
+ * here, which moves its Channels back to the default section. Leaving a Channel, or losing
+ * access to it, deletes the row (clean_up_lost_access).
+ */
+export const sectionChannel = pgTable(
+  'section_channel',
+  {
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    channelId: uuid('channel_id')
+      .notNull()
+      .references(() => channel.id),
+    sectionId: uuid('section_id').notNull(),
+    position: integer('position').notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.staffId, t.channelId] }),
+    index('section_channel_section_id_idx').on(t.sectionId),
+    foreignKey({
+      name: 'section_channel_section_fk',
+      columns: [t.sectionId, t.staffId],
+      foreignColumns: [section.id, section.staffId],
+    }).onDelete('cascade'),
+  ],
+);
+
 /** Every kind of audit_event. Later slices add the rest. */
 export type AuditEventKind =
   | 'sign_in_succeeded'

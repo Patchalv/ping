@@ -25,6 +25,8 @@ export type RowContext = {
   thread: { id: string } | undefined;
   /** The row's Thread Response, in the row's Thread, when `response` asks for one. */
   response: { id: string } | undefined;
+  /** The row's Sidebar Section, when `section` asks for one. */
+  section: { id: string } | undefined;
 };
 
 export type MatrixRow = {
@@ -47,6 +49,8 @@ export type MatrixRow = {
    * (or, for any other actor, by a member).
    */
   response?: true;
+  /** A Sidebar Section: the actor's own, or another Staff member's. */
+  section?: 'own' | 'other';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
@@ -131,6 +135,20 @@ const contentChange =
     return actor === 'author' || ADMINS.has(actor)
       ? { allow: true, status }
       : { allow: false, status: 403 };
+  };
+
+/** Another Staff member's Section: row-level security hides it from everyone (404). */
+const hiddenSection = (): MatrixRow['expect'] => ({ allow: false, status: 404 });
+
+/**
+ * Placing a Channel in a Section: its members, Archived channels included. A Private
+ * channel the actor isn't in is hidden (404); a Public one they haven't joined, refused.
+ */
+const placesChannel =
+  (channel: ChannelKind) =>
+  (actor: ActorKind): MatrixRow['expect'] => {
+    if (CHANNEL_ROLE[actor]) return { allow: true, status: 204 };
+    return { allow: false, status: channel === 'private' ? 404 : 403 };
   };
 
 const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdmin';
@@ -849,6 +867,129 @@ export const MATRIX: MatrixRow[] = [
         return read.allow ? { allow: true, status: 204 } : read;
       },
     ),
+  ),
+
+  // Sidebar Sections. From "Sidebar Sections" (#44). Everyone manages their own; another
+  // Staff member's Section is hidden by row-level security, so it answers 404.
+  ...rowsFor(
+    {
+      route: 'GET /api/sections',
+      action: 'list their own Sections',
+      channel: null,
+      request: () => ({ path: '/api/sections' }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/sections',
+      action: 'create a Section',
+      channel: null,
+      request: () => ({ path: '/api/sections', method: 'POST', body: { name: 'Teaching' } }),
+    },
+    allowed(201),
+  ),
+  ...rowsFor(
+    {
+      route: 'PUT /api/sections/order',
+      action: 'reorder their own Sections',
+      channel: null,
+      section: 'own',
+      request: (ctx) => ({
+        path: '/api/sections/order',
+        method: 'PUT',
+        body: { sectionIds: [ctx.section?.id] },
+      }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'PUT /api/sections/order',
+      action: 'reorder with another Staff member’s Section',
+      channel: null,
+      section: 'other',
+      request: (ctx) => ({
+        path: '/api/sections/order',
+        method: 'PUT',
+        body: { sectionIds: [ctx.section?.id] },
+      }),
+    },
+    hiddenSection,
+  ),
+  ...(['own', 'other'] as const).flatMap((section) => [
+    ...rowsFor(
+      {
+        route: 'PATCH /api/sections/:sectionId',
+        action: `rename ${section === 'own' ? 'their own' : 'another Staff member’s'} Section`,
+        channel: null,
+        section,
+        request: (ctx) => ({
+          path: `/api/sections/${ctx.section?.id}`,
+          method: 'PATCH',
+          body: { name: 'Renamed', collapsed: true },
+        }),
+      },
+      section === 'own' ? allowed(200) : hiddenSection,
+    ),
+    ...rowsFor(
+      {
+        route: 'DELETE /api/sections/:sectionId',
+        action: `delete ${section === 'own' ? 'their own' : 'another Staff member’s'} Section`,
+        channel: null,
+        section,
+        request: (ctx) => ({ path: `/api/sections/${ctx.section?.id}`, method: 'DELETE' }),
+      },
+      section === 'own' ? allowed(204) : hiddenSection,
+    ),
+  ]),
+
+  // Move a Channel into a Section: its members, in any Channel they're in, Archived
+  // included. A Private channel they aren't in is hidden (404); a Public one they haven't
+  // joined is refused (403).
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PUT /api/channels/:channelId/section',
+        action: `put a ${CHANNEL_KIND_NAME[channel]} channel in their own Section`,
+        channel,
+        section: 'own',
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/section`,
+          method: 'PUT',
+          body: { sectionId: ctx.section?.id },
+        }),
+      },
+      placesChannel(channel),
+    ),
+  ),
+  ...rowsFor(
+    {
+      route: 'PUT /api/channels/:channelId/section',
+      action: 'move a Public channel back to the default Channels section',
+      channel: 'public',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}/section`,
+        method: 'PUT',
+        body: { sectionId: null },
+      }),
+    },
+    placesChannel('public'),
+  ),
+  ...rowsFor(
+    {
+      route: 'PUT /api/channels/:channelId/section',
+      action: 'put a Public channel in another Staff member’s Section',
+      channel: 'public',
+      section: 'other',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}/section`,
+        method: 'PUT',
+        body: { sectionId: ctx.section?.id },
+      }),
+    },
+    (actor) =>
+      CHANNEL_ROLE[actor] ? { allow: false, status: 404 } : { allow: false, status: 403 },
   ),
 ];
 
