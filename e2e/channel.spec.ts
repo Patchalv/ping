@@ -95,6 +95,9 @@ test('the next person to sign in on the same browser never sees the last one’s
 
 test('a Staff member whose session has gone is sent back to sign-in', async ({ page }) => {
   await signIn(page, 'laura.gomez@example.com');
+  // Let the sidebar's own loads (Channels, Sections, Pings) finish first, so the click is
+  // what meets the lost session, not a late background request.
+  await page.waitForLoadState('networkidle');
   await page.context().clearCookies();
   await page
     .getByRole('navigation', { name: 'Channels' })
