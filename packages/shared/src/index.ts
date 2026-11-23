@@ -35,9 +35,7 @@ export { type EditedMark, toEditedMark } from './edited';
 export {
   listPingsQuery,
   type PingPage,
-  type PingRow,
   type PingSummary,
-  type ThreadPing,
 } from './ping';
 export {
   type ReactionList,

@@ -4,6 +4,7 @@
 import type { SidebarChannel } from '@ping/shared';
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import {
+  BellIcon,
   CompassIcon,
   HashIcon,
   LockIcon,
@@ -34,6 +35,7 @@ import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
 import { useCurrentStaffMember } from '../features/staff/api';
 import { ProfileDialog } from '../features/staff/ProfileDialog';
+import { usePingSummary } from '../features/thread/api';
 import { authClient } from '../lib/auth-client';
 import { AvatarMenu } from './AvatarMenu';
 import { EnvironmentBadge } from './EnvironmentBadge';
@@ -149,9 +151,31 @@ export function HomeNote() {
 
 function ChannelNav({ onCreate }: { onCreate(): void }) {
   const channels = useMyChannels();
+  const summary = usePingSummary();
+  const countIn = (channelId: string) =>
+    summary.data?.channels.find((c) => c.channelId === channelId)?.count ?? 0;
   return (
     <nav aria-label="Channels" className="flex min-h-0 flex-1 flex-col">
       <SidebarContent>
+        <SidebarGroup>
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link to="/pings" activeProps={{ 'aria-current': 'page' }} />}
+              >
+                <BellIcon aria-hidden="true" />
+                <span>Pings</span>
+                {summary.data && summary.data.threadCount > 0 ? (
+                  <span className="ml-auto rounded-full bg-ping px-1.5 text-xs font-semibold text-white">
+                    {summary.data.threadCount}
+                    <span className="sr-only"> Threads with Pings</span>
+                  </span>
+                ) : null}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        </SidebarGroup>
+        <SidebarSeparator />
         <SidebarGroup>
           <SidebarGroupLabel render={(props: ComponentProps<'h2'>) => <h2 {...props} />}>
             Channels
@@ -168,7 +192,7 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
             <SidebarMenu>
               {channels.data.map((channel) => (
                 <SidebarMenuItem key={channel.id}>
-                  <ChannelLink channel={channel} />
+                  <ChannelLink channel={channel} pingCount={countIn(channel.id)} />
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
@@ -199,7 +223,7 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
   );
 }
 
-function ChannelLink({ channel }: { channel: SidebarChannel }) {
+function ChannelLink({ channel, pingCount }: { channel: SidebarChannel; pingCount: number }) {
   const isPrivate = channel.visibility === 'private';
   return (
     <SidebarMenuButton
@@ -214,7 +238,13 @@ function ChannelLink({ channel }: { channel: SidebarChannel }) {
       }
     >
       {isPrivate ? <LockIcon aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
-      <span>{channel.name}</span>
+      <span className={pingCount > 0 ? 'font-bold' : undefined}>{channel.name}</span>
+      {pingCount > 0 ? (
+        <span className="ml-auto text-xs font-semibold">
+          {pingCount}
+          <span className="sr-only"> Threads with Pings</span>
+        </span>
+      ) : null}
     </SidebarMenuButton>
   );
 }

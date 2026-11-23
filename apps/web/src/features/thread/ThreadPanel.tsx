@@ -20,7 +20,7 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 /**
  * The Thread view: a side panel on the right of the Channel view on a laptop, full
  * screen on a phone (screens.md › Thread view). The Thread, its Thread Responses, and the
- * composer at the bottom for members. The Acknowledge buttons arrive with Pings (#46).
+ * composer at the bottom for members. Its "N new" divider marks what's new since the viewer's Ping began.
  */
 export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
   const thread = useThread(channelId, threadId);
@@ -114,7 +114,11 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
             {responses.error.message}
           </p>
         ) : (
-          <ThreadResponseList channelId={thread.channelId} responses={list} />
+          <ThreadResponseList
+            channelId={thread.channelId}
+            responses={list}
+            newSince={thread.ping ?? undefined}
+          />
         )}
       </div>
       {thread.canRespond && staffMemberId ? (

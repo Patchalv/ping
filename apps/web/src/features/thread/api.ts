@@ -2,6 +2,8 @@
 // hooks and never call hc or read a response themselves.
 import type {
   EditThreadBody,
+  PingPage,
+  PingSummary,
   ReactionList,
   StartThreadBody,
   ThreadPage,
@@ -15,6 +17,7 @@ import { api } from '../../lib/api';
 import { call, callNoContent } from '../../lib/api-client';
 
 const threads = api.api.channels[':channelId'].threads;
+const pings = api.api.pings;
 const responses = threads[':threadId'].responses;
 
 /**
@@ -29,6 +32,50 @@ export const threadKeys = {
   responses: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'responses', channelId, threadId] as const,
 };
+
+/**
+ * The query keys for Pings. Everything that Acknowledges or Pings invalidates `all`, so the
+ * Pings view, its badge and the sidebar counts refetch together.
+ */
+const pingKeys = {
+  all: ['pings'] as const,
+  list: () => [...pingKeys.all, 'list'] as const,
+  summary: () => [...pingKeys.all, 'summary'] as const,
+};
+
+/** The Pings view: Threads with a Ping, by latest activity, 50 at a time. */
+export function usePings() {
+  return useInfiniteQuery({
+    queryKey: pingKeys.list(),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }): Promise<PingPage> =>
+      call(() => pings.$get({ query: pageParam ? { after: pageParam } : {} })),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/** How many Threads have a Ping: the badge, and each Channel's count. */
+export function usePingSummary() {
+  return useQuery({
+    queryKey: pingKeys.summary(),
+    queryFn: (): Promise<PingSummary> => call(() => pings.summary.$get()),
+  });
+}
+
+/** Marks a Thread read, which Acknowledges its Ping. */
+export function useMarkRead() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ channelId, threadId }: { channelId: string; threadId: string }): Promise<void> =>
+      callNoContent(() => threads[':threadId'].ping.$delete({ param: { channelId, threadId } })),
+    onSuccess: (_data, { channelId, threadId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: pingKeys.all }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
+      ]),
+  });
+}
 
 /** A Channel's Thread list, by Latest activity, 50 at a time with Load more. */
 export function useThreads(channelId: string) {
@@ -116,6 +163,8 @@ function useRefreshResponses(channelId: string, threadId: string) {
     Promise.all([
       queryClient.invalidateQueries({ queryKey: threadKeys.responses(channelId, threadId) }),
       queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+      queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
+      queryClient.invalidateQueries({ queryKey: pingKeys.all }),
     ]);
 }
 
@@ -193,6 +242,7 @@ export function useReact(channelId: string, threadId: string, target: ReactionTa
         queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
         queryClient.invalidateQueries({ queryKey: threadKeys.responses(channelId, threadId) }),
         queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+        queryClient.invalidateQueries({ queryKey: pingKeys.all }),
       ]),
   });
 }

@@ -25,11 +25,17 @@ import { Reactions } from './Reactions';
 export function ThreadResponseList({
   channelId,
   responses,
+  newSince,
 }: {
   channelId: string;
   responses: ThreadResponseView[];
+  /** The viewer's open Ping: Thread Responses from `firstAt` on are new. */
+  newSince?: { count: number; firstAt: string };
 }) {
   if (responses.length === 0) return null;
+  const firstNewId = newSince
+    ? responses.find((r) => Date.parse(r.createdAt) >= Date.parse(newSince.firstAt))?.id
+    : undefined;
   return (
     <section aria-label="Thread Responses" className="mt-5 border-t pt-4">
       <h3 className="text-small font-semibold text-muted-foreground">
@@ -38,6 +44,13 @@ export function ThreadResponseList({
       <ol className="mt-3 grid gap-4">
         {responses.map((response) => (
           <li key={response.id}>
+            {newSince && response.id === firstNewId ? (
+              <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-ping">
+                <span aria-hidden="true" className="h-px flex-1 bg-ping/40" />
+                {newSince.count} new
+                <span aria-hidden="true" className="h-px flex-1 bg-ping/40" />
+              </p>
+            ) : null}
             <ThreadResponseItem channelId={channelId} response={response} />
           </li>
         ))}

@@ -9,7 +9,7 @@ export const listPingsQuery = z.object({
 });
 
 /** A Thread row in the Pings view: the same row as a Channel's feed, with the Channel's name. */
-export type PingRow = ThreadRow & { channelName: string };
+type PingRow = ThreadRow & { channelName: string };
 
 /** A page of the Staff member's Threads with a Ping, by latest Ping activity, newest first. */
 export type PingPage = {
