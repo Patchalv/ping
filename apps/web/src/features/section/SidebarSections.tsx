@@ -129,7 +129,7 @@ export function SidebarSections({ channels, pingCountIn }: Props) {
           'rounded-md',
           dropTarget?.group === group &&
             dropTarget.beforeChannelId === channel.id &&
-            'shadow-[inset_0_2px_0_var(--sidebar-ring)]',
+            "before:absolute before:inset-x-1 before:-top-px before:h-0.5 before:rounded-full before:bg-sidebar-ring before:content-['']",
         )}
         {...channelDrop(sectionId, group, channel)}
       >

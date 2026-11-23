@@ -20,7 +20,7 @@ export function requireCanManageOwnSections(actor: Actor): void {
 }
 
 /** What placing needs to know about the Channel and the actor's place in it. */
-type PlacementAccess = { visibility: ChannelVisibility; isMember: boolean };
+export type PlacementAccess = { visibility: ChannelVisibility; isMember: boolean };
 
 /** A member of the Channel, Public or Private, Archived or not. */
 export function canPlaceChannel(actor: Actor, channel: PlacementAccess): Decision {

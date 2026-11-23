@@ -53,7 +53,7 @@ export type MatrixRow = {
   section?: 'own' | 'other';
   /** Builds the request. The harness adds the actor's cookie and the app's origin. */
   request(ctx: RowContext): { path: string; method?: string; body?: unknown };
-  expect: { allow: true; status: number } | { allow: false; status: 401 | 403 | 404 | 409 };
+  expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
 };
 
 /** Every active standard actor: everyone but the Deactivated one. */
@@ -915,7 +915,7 @@ export const MATRIX: MatrixRow[] = [
         body: { sectionIds: [ctx.section?.id] },
       }),
     },
-    () => ({ allow: false, status: 409 }),
+    hiddenSection,
   ),
   ...(['own', 'other'] as const).flatMap((section) => [
     ...rowsFor(

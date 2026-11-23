@@ -24,8 +24,8 @@ export function NewSectionDialog({ onClose }: { onClose(): void }) {
     <SectionNameDialog
       formId="new-section"
       title="New section"
-      submit="Create section"
-      pending="Creating…"
+      submitLabel="Create section"
+      pendingLabel="Creating…"
       initialName=""
       onSave={async (name) => {
         await create.mutateAsync({ name });
@@ -48,8 +48,8 @@ export function RenameSectionDialog({
     <SectionNameDialog
       formId="rename-section"
       title={`Rename ${section.name}`}
-      submit="Rename"
-      pending="Renaming…"
+      submitLabel="Rename"
+      pendingLabel="Renaming…"
       initialName={section.name}
       onSave={async (name) => {
         await rename.mutateAsync(name);
@@ -64,16 +64,16 @@ export function RenameSectionDialog({
 function SectionNameDialog({
   formId,
   title,
-  submit,
-  pending,
+  submitLabel,
+  pendingLabel,
   initialName,
   onSave,
   onClose,
 }: {
   formId: string;
   title: string;
-  submit: string;
-  pending: string;
+  submitLabel: string;
+  pendingLabel: string;
   initialName: string;
   onSave(name: string): Promise<void>;
   onClose(): void;
@@ -118,7 +118,7 @@ function SectionNameDialog({
             {formError ? <FormError>{formError}</FormError> : null}
             <DialogFooter>
               <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-              <form.SubmitButton pending={pending}>{submit}</form.SubmitButton>
+              <form.SubmitButton pending={pendingLabel}>{submitLabel}</form.SubmitButton>
             </DialogFooter>
           </form.Form>
         </form.AppForm>

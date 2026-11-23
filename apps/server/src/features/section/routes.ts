@@ -27,6 +27,7 @@ import {
   deleteSection,
   findPlacementChannel,
   findSection,
+  isOwnSection,
   listSectionIds,
   listSections,
   placeChannel,
@@ -70,14 +71,16 @@ export function sectionRoutes({ auth, database }: Options) {
       })
 
       // Reorder: every one of the actor's Sections, in the new order. Registered before
-      // /:sectionId. A list that isn't exactly their Sections means another window changed
-      // them, so it answers 409 and changes nothing.
+      // /:sectionId. A Section that isn't theirs (someone else's, or one already deleted)
+      // answers 404, like every other route here; leaving one of theirs out means another
+      // window added it, so that answers 409. Either way nothing changes.
       .put('/order', signedIn(auth), validate('json', reorderSectionsBody), async (c) => {
         const { sectionIds } = c.req.valid('json');
         const { staffId, sections } = await withActorTx(c, async (ctx) => {
           requireCanManageOwnSections(ctx.actor);
           const current = new Set(await listSectionIds(ctx));
-          if (current.size !== sectionIds.length || !sectionIds.every((id) => current.has(id))) {
+          if (!sectionIds.every((id) => current.has(id))) throw new NotFoundError();
+          if (current.size !== sectionIds.length) {
             throw new ConflictError(SECTIONS_CHANGED_MESSAGE);
           }
           await setSectionOrder(ctx, sectionIds);
@@ -141,7 +144,7 @@ export function placementRoutes({ auth, database }: Options) {
           await unplaceChannel(ctx, channelId);
         } else {
           // Someone else's Section reads as missing.
-          if (!(await findSection(ctx, sectionId))) throw new NotFoundError();
+          if (!(await isOwnSection(ctx, sectionId))) throw new NotFoundError();
           await placeChannel(ctx, channelId, sectionId, position);
         }
         return ctx.actor.staffId;

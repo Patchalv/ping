@@ -112,19 +112,21 @@ describe('Section routes', () => {
     expect((await me.list()).map((s) => s.name)).toEqual(['C', 'A', 'B']);
   });
 
-  it('refuses an order that leaves out a Section or names someone else’s', async () => {
+  it('refuses an order that names someone else’s Section (404) or leaves one out (409)', async () => {
     const me = await staffMember();
     const someoneElse = await staffMember();
     const a = await me.create('A');
     const b = await me.create('B');
     const theirs = await someoneElse.create('Theirs');
-    for (const sectionIds of [[a.id], [a.id, b.id, theirs.id], [b.id, theirs.id]]) {
-      const response = await me.request('/api/sections/order', {
-        method: 'PUT',
-        body: { sectionIds },
-      });
-      expect(response.status).toBe(409);
+    const reorder = (sectionIds: string[]) =>
+      me.request('/api/sections/order', { method: 'PUT', body: { sectionIds } });
+    for (const sectionIds of [
+      [a.id, b.id, theirs.id],
+      [b.id, theirs.id],
+    ]) {
+      expect((await reorder(sectionIds)).status).toBe(404);
     }
+    expect((await reorder([a.id])).status).toBe(409);
     expect((await me.list()).map((s) => s.name)).toEqual(['A', 'B']);
   });
 

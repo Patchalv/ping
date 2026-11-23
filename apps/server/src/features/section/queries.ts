@@ -5,6 +5,7 @@ import type { SectionView } from '@ping/shared';
 import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import type { PlacementAccess } from '../../permissions/section';
 
 const { channel, channelMember, section, sectionChannel } = schema;
 
@@ -44,6 +45,12 @@ export async function findSection(
   sectionId: string,
 ): Promise<SectionView | undefined> {
   return (await listSections(ctx)).find((s) => s.id === sectionId);
+}
+
+/** Whether the Section is the actor's own: someone else's reads as missing. */
+export async function isOwnSection({ tx }: ActorTx, sectionId: string): Promise<boolean> {
+  const rows = await tx.select({ id: section.id }).from(section).where(eq(section.id, sectionId));
+  return rows.length > 0;
 }
 
 /** + New section: below the actor's other Sections. Returns its ID. */
@@ -113,7 +120,7 @@ export async function setSectionOrder({ tx }: ActorTx, sectionIds: string[]): Pr
 export async function findPlacementChannel(
   { tx, actor }: ActorTx,
   channelId: string,
-): Promise<{ visibility: 'public' | 'private'; isMember: boolean } | undefined> {
+): Promise<PlacementAccess | undefined> {
   const [row] = await tx
     .select({
       visibility: channel.visibility,

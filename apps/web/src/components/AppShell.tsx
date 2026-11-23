@@ -1,3 +1,6 @@
+// The signed-in app, as the router's root: dark top bar, dark sidebar, and the current
+// route in an inset panel (screens.md › Laptop). On a phone the sidebar is the home
+// screen, and any other route replaces it.
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
 import { BellIcon, CompassIcon, PlusIcon, SearchIcon, UserPenIcon, UsersIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
