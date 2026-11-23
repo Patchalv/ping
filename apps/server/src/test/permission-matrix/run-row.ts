@@ -135,6 +135,8 @@ export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   });
 
   expect(res.status, `${row.route} as ${row.actor}: ${row.action}`).toBe(row.expect.status);
+  // A stream (GET /api/live) stays open until the client goes: close it.
+  await res.body?.cancel();
   if (before) {
     expect(await databaseSnapshot(), `${row.route} as ${row.actor} changed the database`).toEqual(
       before,

@@ -27,7 +27,7 @@ import {
 } from '../../lib/errors';
 import { inviteEmail, inviteExpiry, newInviteToken } from '../../lib/invite';
 import { rateLimit } from '../../lib/rate-limit';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { isUniqueViolation } from '../../lib/unique-violation';
 import { validate } from '../../lib/validate';
 import {

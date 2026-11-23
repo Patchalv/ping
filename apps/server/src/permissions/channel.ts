@@ -5,7 +5,7 @@ import type { Actor } from './actor';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
 /** What the decisions need to know about a Channel and the actor's place in it. */
-type ChannelAccess = { visibility: ChannelVisibility; isMember: boolean };
+export type ChannelAccess = { visibility: ChannelVisibility; isMember: boolean };
 
 /** Joining also needs to know whether the Channel is Archived. */
 type JoinAccess = ChannelAccess & { isArchived: boolean };

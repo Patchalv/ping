@@ -5,6 +5,7 @@
 import { randomUUID } from 'node:crypto';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { asOwner, createStaffMember, type StaffFixture } from '../../db/test-support';
+import { liveHub } from '../../lib/sse/publish';
 import {
   createTestApp,
   emailChangeTokenFor,
@@ -82,9 +83,14 @@ describe('changing your email', () => {
     expect(testApp.mailbox.sent.filter((mail) => mail.to === staff.email)).toEqual([]);
 
     const token = emailChangeTokenFor(testApp.mailbox, newEmail);
+    const published: unknown[] = [];
+    const stopWatching = liveHub.watch((event) => published.push(event));
     const confirmed = await confirm(token);
+    stopWatching();
     expect(confirmed.status).toBe(200);
     expect(await confirmed.json()).toEqual({ email: newEmail });
+    // Open screens hear it (the publish-coverage check counts on this test).
+    expect(published).toContainEqual({ kind: 'staff.changed', staffId: staff.id });
 
     expect(await userRow(staff.id)).toEqual({ name: staff.name, email: newEmail });
     expect(await signInStatus(newEmail, staff.password)).toBe(200);

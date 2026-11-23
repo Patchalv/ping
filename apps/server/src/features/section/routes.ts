@@ -19,7 +19,7 @@ import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
 import { ConflictError, NotFoundError } from '../../lib/errors';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
 import { requireCanManageOwnSections, requireCanPlaceChannel } from '../../permissions/section';
 import {

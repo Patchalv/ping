@@ -1,6 +1,6 @@
 // The Channel feature's API: a query-key factory and hooks only. Components use these
 // hooks and never call hc or read a response themselves. A mutation invalidates by key,
-// so every screen showing that data refetches; live updates (#47) will do the same.
+// so every screen showing that data refetches; live updates do the same.
 import type {
   BrowseChannel,
   ChannelMembers,
@@ -16,8 +16,7 @@ const channels = api.api.channels;
 
 /**
  * The query keys. Exported so other code can refetch "Channel X everywhere": live updates
- * (#47) invalidate by these keys.
- * @public
+ * invalidate by these keys.
  */
 export const channelKeys = {
   all: ['channels'] as const,

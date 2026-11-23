@@ -11,7 +11,7 @@ import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
-import { publish } from '../../lib/sse';
+import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
 import { requireCanListOwnPings } from '../../permissions/ping';
 import { requireCanReadThreads } from '../../permissions/thread';
