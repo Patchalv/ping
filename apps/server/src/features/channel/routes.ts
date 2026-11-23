@@ -133,8 +133,9 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           await cleanUpLostAccess(ctx.tx, channelId);
           await recordMembershipChange(ctx, 'channel_left', channelId, ctx.actor.staffId);
         });
-        // The leaver's other tabs hear it too, though they can no longer read a Private one.
-        publish({ kind: 'channel.changed', channelId, staffId: c.var.session.staffId });
+        publish({ kind: 'channel.changed', channelId });
+        // The leaver's other tabs, which may no longer read a Private channel.
+        publish({ kind: 'membership.changed', staffId: c.var.session.staffId });
         publish({ kind: 'ping.changed', channelId });
         return c.body(null, 204);
       })
@@ -218,8 +219,9 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
             await cleanUpLostAccess(ctx.tx, channelId);
             await recordMembershipChange(ctx, 'channel_member_removed', channelId, staffId);
           });
-          // The removed member hears it too, though they can no longer read a Private one.
-          publish({ kind: 'channel.changed', channelId, staffId });
+          publish({ kind: 'channel.changed', channelId });
+          // The removed member, who may no longer read a Private channel.
+          publish({ kind: 'membership.changed', staffId });
           publish({ kind: 'ping.changed', channelId });
           return c.body(null, 204);
         },

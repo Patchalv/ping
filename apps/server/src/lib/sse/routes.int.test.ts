@@ -255,10 +255,18 @@ describe('GET /api/live', () => {
     const mark = await sentinel();
     publish(threadEvent(channel.id));
     mark.publish();
-    // Only the news that they were removed, so their sidebar drops the Channel.
-    expect(await receivedAbout(stream, channel.id, mark)).toEqual([
-      { kind: 'channel.changed', channelId: channel.id, staffId: removed.id },
-    ]);
+    const frames = await stream.readUntil(mark.is);
+    // Nothing about the Channel: only that their own memberships changed, so their sidebar
+    // drops it.
+    expect(
+      frames
+        .map(changeOf)
+        .filter((event) => event && 'channelId' in event && event.channelId === channel.id),
+    ).toEqual([]);
+    expect(frames.map(changeOf)).toContainEqual({
+      kind: 'membership.changed',
+      staffId: removed.id,
+    });
   });
 
   it('stops a Private channel’s events at once for someone who leaves it', async () => {
@@ -276,9 +284,13 @@ describe('GET /api/live', () => {
     const mark = await sentinel();
     publish(threadEvent(channel.id));
     mark.publish();
-    expect(await receivedAbout(stream, channel.id, mark)).toEqual([
-      { kind: 'channel.changed', channelId: channel.id, staffId: leaver.id },
-    ]);
+    const frames = await stream.readUntil(mark.is);
+    expect(
+      frames
+        .map(changeOf)
+        .filter((event) => event && 'channelId' in event && event.channelId === channel.id),
+    ).toEqual([]);
+    expect(frames.map(changeOf)).toContainEqual({ kind: 'membership.changed', staffId: leaver.id });
   });
 
   it('stops a Channel’s events at once for non-members when it turns Private', async () => {

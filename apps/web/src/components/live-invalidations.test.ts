@@ -15,7 +15,7 @@ describe('liveInvalidations', () => {
   });
 
   it('refetches the Channel everywhere, and Ping counts, when its membership changes', () => {
-    expect(liveInvalidations({ kind: 'channel.changed', channelId, staffId })).toEqual([
+    expect(liveInvalidations({ kind: 'channel.changed', channelId })).toEqual([
       ['channels', 'detail', channelId],
       ['channels', 'mine'],
       ['channels', 'browse'],
@@ -62,6 +62,14 @@ describe('liveInvalidations', () => {
     expect(liveInvalidations({ kind: 'ping.changed', channelId })).toEqual([
       ['pings'],
       ['threads', 'list', channelId],
+    ]);
+  });
+
+  it('refetches every Channel, Thread and Ping when the Staff member’s own memberships change', () => {
+    expect(liveInvalidations({ kind: 'membership.changed', staffId })).toEqual([
+      ['channels'],
+      ['threads'],
+      ['pings'],
     ]);
   });
 

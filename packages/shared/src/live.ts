@@ -10,9 +10,11 @@ const id = z.uuid();
 export const liveEvent = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('channel.created'), channelId: id }),
   // Someone joined, left, was added or removed, or became or stopped being Channel admin;
-  // or a Deactivation changed the Channel. `staffId` is someone whose membership changed:
-  // they hear it even when they can no longer read the Channel, so their sidebar updates.
-  z.object({ kind: z.literal('channel.changed'), channelId: id, staffId: id.optional() }),
+  // or a Deactivation changed the Channel.
+  z.object({ kind: z.literal('channel.changed'), channelId: id }),
+  // The Staff member left a Channel or was removed from one. Only they hear it, and it
+  // names no Channel, since they may no longer read it: their sidebar and screens refetch.
+  z.object({ kind: z.literal('membership.changed'), staffId: id }),
   z.object({ kind: z.literal('thread.created'), channelId: id, threadId: id }),
   // A Thread was edited, or someone reacted to it or took a reaction back.
   z.object({ kind: z.literal('thread.changed'), channelId: id, threadId: id }),

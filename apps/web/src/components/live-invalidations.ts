@@ -19,6 +19,9 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
         channelKeys.browse(),
         pingKeys.all,
       ];
+    case 'membership.changed':
+      // Left or removed: the Channel may now be hidden, wherever it shows.
+      return [channelKeys.all, threadKeys.all, pingKeys.all];
     case 'thread.created':
       return [threadKeys.list(event.channelId)];
     case 'thread.changed':

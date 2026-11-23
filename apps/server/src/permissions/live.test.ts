@@ -43,14 +43,19 @@ describe('canReceiveLiveEvent', () => {
     expect(canReceiveLiveEvent(admin, threadCreated, undefined)).toEqual(deny({ kind: 'hidden' }));
   });
 
-  it('tells someone removed from a Private channel that their membership changed', () => {
-    const removed: LiveEvent = { kind: 'channel.changed', channelId, staffId: member.staffId };
-    expect(canReceiveLiveEvent(member, removed, undefined)).toEqual(allow());
+  it('keeps a Private channel’s membership change from someone just removed from it', () => {
+    const changed: LiveEvent = { kind: 'channel.changed', channelId };
+    expect(canReceiveLiveEvent(member, changed, undefined)).toEqual(deny({ kind: 'hidden' }));
   });
 
-  it('keeps a membership change in a Private channel from everyone else outside it', () => {
-    const removed: LiveEvent = { kind: 'channel.changed', channelId, staffId: member.staffId };
-    expect(canReceiveLiveEvent(admin, removed, undefined)).toEqual(deny({ kind: 'hidden' }));
+  it('tells a Staff member their own memberships changed', () => {
+    const mine: LiveEvent = { kind: 'membership.changed', staffId: member.staffId };
+    expect(canReceiveLiveEvent(member, mine, undefined)).toEqual(allow());
+  });
+
+  it('keeps someone’s membership change from everyone else, company Admins included', () => {
+    const theirs: LiveEvent = { kind: 'membership.changed', staffId: member.staffId };
+    expect(canReceiveLiveEvent(admin, theirs, undefined)).toEqual(deny({ kind: 'hidden' }));
   });
 
   it('sends changes to Staff members to everyone, since everyone can read them', () => {
