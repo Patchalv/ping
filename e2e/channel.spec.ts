@@ -98,14 +98,14 @@ test('a Staff member whose session has gone is sent back to sign-in', async ({ p
   // would make the page refetch, and so return to sign-in, before the click this test makes.
   await page.route('**/api/live', () => undefined);
   await signIn(page, 'laura.gomez@example.com');
-  // Let the sidebar's own loads (Channels, Sections, Pings) finish first, so the click is
-  // what meets the lost session, not a late background request.
-  await page.waitForLoadState('networkidle');
+  // The sidebar showing means its requests went out with the session cookie, so the
+  // first request without one is the click's.
+  const teaching = page.getByRole('navigation', { name: 'Channels' }).getByRole('link', {
+    name: /Teaching/,
+  });
+  await expect(teaching).toBeVisible();
   await page.context().clearCookies();
-  await page
-    .getByRole('navigation', { name: 'Channels' })
-    .getByRole('link', { name: /Teaching/ })
-    .click();
+  await teaching.click();
   await expect(page.getByRole('heading', { name: 'Sign in to Ping' })).toBeVisible();
 });
 
