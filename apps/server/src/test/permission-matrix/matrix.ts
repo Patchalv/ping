@@ -40,8 +40,13 @@ export type MatrixRow = {
    * Channel as a plain member or as a second Channel admin; or the actor themself.
    */
   target?: 'invited' | 'active' | 'deactivated' | 'member' | 'channelAdmin' | 'self';
-  /** A Thread in the row's Channel, started by the author actor (or, for any other actor, by a member). */
-  thread?: true;
+  /**
+   * A Thread in the row's Channel, started by the author actor (or, for any other actor, by
+   * a member): open, or Resolved by its author.
+   */
+  thread?: true | 'resolved';
+  /** The row's Channel's "Who can resolve threads?" setting; `any_member` when unset. */
+  resolvePolicy?: 'any_member' | 'author_and_channel_admins';
   /**
    * A Thread Response in the row's Thread (which needs `thread`), sent by the author actor
    * (or, for any other actor, by a member).
@@ -131,6 +136,24 @@ const contentChange =
     return actor === 'author' || ADMINS.has(actor)
       ? { allow: true, status }
       : { allow: false, status: 403 };
+  };
+
+/**
+ * Resolving or reopening, by the Channel's "Who can resolve threads?" setting: any member,
+ * or only the Thread's author and Channel admins. Company Admins get no exception; a
+ * non-member must join first (403), and a Private channel they aren't in is hidden (404).
+ * Nobody does it in an Archived channel.
+ */
+const resolveChange =
+  (channel: ChannelKind, policy: NonNullable<MatrixRow['resolvePolicy']>) =>
+  (actor: ActorKind): MatrixRow['expect'] => {
+    const role = CHANNEL_ROLE[actor];
+    if (channel === 'private' && !role) return { allow: false, status: 404 };
+    if (channel === 'archived' || !role) return { allow: false, status: 403 };
+    if (policy === 'any_member' || actor === 'author' || role === 'channelAdmin') {
+      return { allow: true, status: 200 };
+    }
+    return { allow: false, status: 403 };
   };
 
 const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdmin';
@@ -849,6 +872,38 @@ export const MATRIX: MatrixRow[] = [
         return read.allow ? { allow: true, status: 204 } : read;
       },
     ),
+  ),
+
+  // Resolve an open Thread, and reopen a Resolved one, under both "Who can resolve
+  // threads?" settings. From "Resolve, reopen and Thread list controls" (#41).
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    (['any_member', 'author_and_channel_admins'] as const).flatMap((resolvePolicy) => {
+      const setting = resolvePolicy === 'any_member' ? 'any member' : 'author and Channel admins';
+      return [
+        ...rowsFor(
+          {
+            route: 'PUT /api/channels/:channelId/threads/:threadId/resolved',
+            action: `resolve a Thread in a ${CHANNEL_KIND_NAME[channel]} channel where ${setting} may`,
+            channel,
+            resolvePolicy,
+            thread: true,
+            request: (ctx) => ({ path: `${threadPath(ctx)}/resolved`, method: 'PUT' }),
+          },
+          resolveChange(channel, resolvePolicy),
+        ),
+        ...rowsFor(
+          {
+            route: 'DELETE /api/channels/:channelId/threads/:threadId/resolved',
+            action: `reopen a Thread in a ${CHANNEL_KIND_NAME[channel]} channel where ${setting} may`,
+            channel,
+            resolvePolicy,
+            thread: 'resolved',
+            request: (ctx) => ({ path: `${threadPath(ctx)}/resolved`, method: 'DELETE' }),
+          },
+          resolveChange(channel, resolvePolicy),
+        ),
+      ];
+    }),
   ),
 ];
 

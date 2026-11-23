@@ -78,6 +78,13 @@
       "when": 1795384189978,
       "tag": "0010_ping",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795453841462,
+      "tag": "0011_thread_resolve",
+      "breakpoints": true
     }
   ]
 }

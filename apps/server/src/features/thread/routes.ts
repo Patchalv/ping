@@ -6,6 +6,7 @@ import {
   editThreadBody,
   listThreadsQuery,
   startThreadBody,
+  type ThreadView,
   threadParams,
 } from '@ping/shared';
 import { Hono } from 'hono';
@@ -19,6 +20,7 @@ import {
   requireCanDeleteThread,
   requireCanEditThread,
   requireCanReadThreads,
+  requireCanResolveThread,
   requireCanStartThread,
 } from '../../permissions/thread';
 import { fanOutPings } from '../../system-actions';
@@ -30,15 +32,42 @@ import {
   findThreadAuthorship,
   findThreadChannel,
   listThreads,
+  setThreadResolved,
   startThread,
 } from './queries';
 
 export function threadRoutes({ auth, database }: { auth: Auth; database: Database }) {
   const withActorTx = createWithActorTx(database);
 
+  /**
+   * Resolve or reopen, for both routes: the work in withActorTx with the require… helper
+   * inside it, then publish() once it commits. No Pings: a Mention is how to call
+   * attention to a reopen.
+   */
+  async function setResolved(
+    c: Parameters<typeof withActorTx>[0],
+    { channelId, threadId }: { channelId: string; threadId: string },
+    resolved: boolean,
+  ): Promise<ThreadView> {
+    const view = await withActorTx(c, async (ctx) => {
+      const channel = await findThreadChannel(ctx, channelId);
+      if (!channel) throw new NotFoundError();
+      requireCanReadThreads(ctx.actor, channel);
+      const authorship = await findThreadAuthorship(ctx, channelId, threadId);
+      if (!authorship) throw new NotFoundError();
+      requireCanResolveThread(ctx.actor, channel, authorship);
+      await setThreadResolved(ctx, channelId, threadId, resolved);
+      return findThread(ctx, channel, channelId, threadId);
+    });
+    if (!view) throw new Error('A resolved or reopened Thread did not read back');
+    publish({ kind: 'thread.changed', channelId, threadId });
+    return view;
+  }
+
   return (
     new Hono()
-      // The Channel's Thread list, by Latest activity, a page at a time.
+      // The Channel's Thread list, a page at a time, as the Thread list controls choose:
+      // Status, Pings, sort and direction.
       .get(
         '/',
         signedIn(auth),
@@ -46,12 +75,12 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
         validate('query', listThreadsQuery),
         async (c) => {
           const { channelId } = c.req.valid('param');
-          const { after } = c.req.valid('query');
+          const view = c.req.valid('query');
           const page = await withActorTx(c, async (ctx) => {
             const found = await findThreadChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             requireCanReadThreads(ctx.actor, found);
-            return listThreads(ctx, found, channelId, after);
+            return listThreads(ctx, found, channelId, view);
           });
           return c.json(page);
         },
@@ -125,6 +154,15 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
           publish({ kind: 'thread.changed', channelId, threadId });
           return c.json(edited);
         },
+      )
+
+      // Resolve a Thread (PUT) or reopen it (DELETE), as the Channel's "Who can resolve
+      // threads?" setting allows. Neither Pings anyone or moves Latest activity.
+      .put('/:threadId/resolved', signedIn(auth), validate('param', threadParams), async (c) =>
+        c.json(await setResolved(c, c.req.valid('param'), true)),
+      )
+      .delete('/:threadId/resolved', signedIn(auth), validate('param', threadParams), async (c) =>
+        c.json(await setResolved(c, c.req.valid('param'), false)),
       )
 
       // Delete a Thread, for real, with its Thread Responses: its author, or a company

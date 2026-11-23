@@ -19,13 +19,14 @@ import type { ChannelKind, MatrixRow, RowContext } from './matrix';
 type ChannelFixtures = (
   kind: ChannelKind,
   ctx: Pick<RowContext, 'actor'>,
+  resolvePolicy: MatrixRow['resolvePolicy'],
 ) => Promise<{ id: string }>;
 
 /**
  * The standard Channel fixtures. Every Channel has a Channel admin: the actor, when they
  * are the Channel admin, or else a fresh Staff member. An Archived channel is Public.
  */
-const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
+const channelFixtures: ChannelFixtures = async (kind, { actor }, resolvePolicy) => {
   const role = CHANNEL_ROLE[actor.kind];
   const members =
     role === 'channelAdmin'
@@ -37,6 +38,7 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }) => {
   return insertChannel({
     visibility: kind === 'private' ? 'private' : 'public',
     archived: kind === 'archived',
+    ...(resolvePolicy ? { resolvePolicy } : {}),
     members,
   });
 };
@@ -72,14 +74,17 @@ async function joinedTarget(channel: { id: string } | undefined, channelAdmin: b
 }
 
 /**
- * The row's Thread, in its Channel. The author actor started it; for every other actor, a
- * fresh member of the Channel did.
+ * The row's Thread, in its Channel, open or Resolved. The author actor started it; for
+ * every other actor, a fresh member of the Channel did.
  */
-async function threadFixture({ actor, channel }: Pick<RowContext, 'actor' | 'channel'>) {
+async function threadFixture(
+  { actor, channel }: Pick<RowContext, 'actor' | 'channel'>,
+  kind: NonNullable<MatrixRow['thread']>,
+) {
   if (!channel) throw new Error('A Thread needs a row with a Channel');
   const authorId =
     actor.kind === 'author' ? actor.staff.id : (await joinedTarget(channel, false)).id;
-  return insertThread({ channelId: channel.id, authorId });
+  return insertThread({ channelId: channel.id, authorId, resolved: kind === 'resolved' });
 }
 
 /**
@@ -103,9 +108,12 @@ async function responseFixture({
  */
 export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const actor = await createActor(testApp, row.actor);
-  const channel = row.channel === null ? undefined : await channelFixtures(row.channel, { actor });
+  const channel =
+    row.channel === null
+      ? undefined
+      : await channelFixtures(row.channel, { actor }, row.resolvePolicy);
   const target = row.target ? await targetFixtures[row.target]({ actor, channel }) : undefined;
-  const thread = row.thread ? await threadFixture({ actor, channel }) : undefined;
+  const thread = row.thread ? await threadFixture({ actor, channel }, row.thread) : undefined;
   const response = row.response ? await responseFixture({ actor, channel, thread }) : undefined;
   const request = row.request({ actor, channel, target, thread, response });
 

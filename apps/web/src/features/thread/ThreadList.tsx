@@ -1,6 +1,11 @@
-import { type ThreadRow as ThreadRowData, threadResponseCount } from '@ping/shared';
+import {
+  type ThreadListView,
+  type ThreadRow as ThreadRowData,
+  threadResponseCount,
+} from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { CheckIcon, HashIcon } from 'lucide-react';
+import { CheckIcon, CircleCheckIcon, HashIcon } from 'lucide-react';
+import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
 import { useMarkRead, useThreads } from './api';
@@ -8,17 +13,20 @@ import { Byline } from './Byline';
 import { Reactions } from './Reactions';
 
 /**
- * The Channel's feed: Thread rows by Latest activity, 50 at a time (screens.md › Channel
- * view). `openThreadId` marks the row whose Thread is open in the panel.
+ * The Channel's feed: Thread rows as the Thread list controls choose, 50 at a time
+ * (screens.md › Channel view). `openThreadId` marks the row whose Thread is open in the
+ * panel.
  */
 export function ThreadList({
   channelId,
+  view,
   openThreadId,
 }: {
   channelId: string;
+  view: ThreadListView;
   openThreadId?: string;
 }) {
-  const threads = useThreads(channelId);
+  const threads = useThreads(channelId, view);
   if (threads.isPending) {
     return <p className="px-6 py-10 text-center text-muted-foreground">Loading…</p>;
   }
@@ -31,10 +39,11 @@ export function ThreadList({
   }
   const rows = threads.data.pages.flatMap((page) => page.threads);
   if (rows.length === 0) {
+    const empty = emptyList(view, threads.data.pages[0]?.resolvedHidden ?? 0);
     return (
       <div className="mx-auto my-12 max-w-md text-center">
-        <p className="font-semibold">No Threads yet</p>
-        <p className="text-muted-foreground">Threads started in this Channel show up here.</p>
+        <p className="font-semibold">{empty.title}</p>
+        <p className="text-muted-foreground">{empty.note}</p>
       </div>
     );
   }
@@ -60,6 +69,30 @@ export function ThreadList({
       ) : null}
     </>
   );
+}
+
+/** What an empty view says, so a filter that hides everything doesn't read as "no Threads". */
+function emptyList(view: ThreadListView, resolvedHidden: number) {
+  const withPings = view.pings === 'with';
+  if (view.status === 'resolved') {
+    return {
+      title: withPings ? 'No Resolved threads with Pings' : 'No Resolved threads',
+      note: 'Threads show up here once they’re resolved.',
+    };
+  }
+  if (withPings) {
+    return {
+      title: 'No Threads with Pings',
+      note: 'Threads where you have a Ping show up here.',
+    };
+  }
+  if (view.status === 'open' && resolvedHidden > 0) {
+    return {
+      title: 'No Open threads',
+      note: `${resolvedHidden} Resolved hidden. Choose Status: All to see them.`,
+    };
+  }
+  return { title: 'No Threads yet', note: 'Threads started in this Channel show up here.' };
 }
 
 /**
@@ -91,7 +124,10 @@ export function ThreadRow({
           {channelName}
         </p>
       ) : null}
-      <Byline author={thread.author} at={thread.createdAt} />
+      <div className="flex items-center gap-2">
+        <Byline author={thread.author} at={thread.createdAt} />
+        {thread.resolvedAt ? <ResolvedBadge /> : null}
+      </div>
       <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">
         <Link
           to="/channels/$channelId/threads/$threadId"
@@ -140,5 +176,15 @@ export function ThreadRow({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** Marks a Resolved thread, on its row and in its Thread view. */
+export function ResolvedBadge() {
+  return (
+    <Badge variant="tag">
+      <CircleCheckIcon aria-hidden="true" />
+      Resolved
+    </Badge>
   );
 }
