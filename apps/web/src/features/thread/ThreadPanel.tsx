@@ -1,20 +1,22 @@
 import type { ThreadView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { CheckIcon, ChevronLeftIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronLeftIcon, CircleCheckIcon, RotateCcwIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
 import { Button, buttonVariants } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
+import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
-import { useMarkRead, useThread, useThreadResponses } from './api';
+import { useMarkRead, useSetResolved, useThread, useThreadResponses } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
 import { Reactions } from './Reactions';
+import { ResolvedBadge } from './ThreadList';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
 /**
@@ -25,6 +27,7 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
   const thread = useThread(channelId, threadId);
   const markRead = useMarkRead();
+  const setResolved = useSetResolved(channelId, threadId);
   const title = thread.data?.title ?? 'Thread';
   return (
     <SidePanel label={title}>
@@ -39,32 +42,48 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           Back to Channel
         </Link>
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
-        {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
-        {thread.data?.ping ? (
-          <Button
-            variant="outline"
-            size="sm"
-            className="ml-auto"
-            disabled={markRead.isPending}
-            onClick={() => markRead.mutate({ channelId, threadId })}
+        {thread.data?.resolvedAt ? <ResolvedBadge /> : null}
+        <div className="ml-auto flex items-center gap-2">
+          {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
+          {thread.data?.ping ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={markRead.isPending}
+              onClick={() => markRead.mutate({ channelId, threadId })}
+            >
+              <CheckIcon aria-hidden="true" />
+              Mark read
+            </Button>
+          ) : null}
+          {thread.data?.canResolve ? (
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={setResolved.isPending}
+              onClick={() => setResolved.mutate(!thread.data.resolvedAt)}
+            >
+              {thread.data.resolvedAt ? (
+                <RotateCcwIcon aria-hidden="true" />
+              ) : (
+                <CircleCheckIcon aria-hidden="true" />
+              )}
+              {thread.data.resolvedAt ? 'Reopen' : 'Resolve'}
+            </Button>
+          ) : null}
+          <Link
+            to="/channels/$channelId"
+            params={{ channelId }}
+            aria-label="Close Thread"
+            className={cn(buttonVariants({ variant: 'ghost', size: 'icon-sm' }), 'max-md:hidden')}
           >
-            <CheckIcon aria-hidden="true" />
-            Mark read
-          </Button>
-        ) : null}
-        <Link
-          to="/channels/$channelId"
-          params={{ channelId }}
-          aria-label="Close Thread"
-          className={cn(
-            buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-            'max-md:hidden',
-            thread.data?.ping ? undefined : 'ml-auto',
-          )}
-        >
-          <XIcon aria-hidden="true" />
-        </Link>
+            <XIcon aria-hidden="true" />
+          </Link>
+        </div>
       </header>
+      {setResolved.isError ? (
+        <FormError className="mx-4 mt-2 md:mx-5">{setResolved.error.message}</FormError>
+      ) : null}
       {thread.isPending ? (
         <p className="py-10 text-center text-muted-foreground">Loading…</p>
       ) : thread.isError ? (

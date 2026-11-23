@@ -9,6 +9,12 @@ export const CHANNEL_DESCRIPTION_MAX = 500;
 const channelVisibility = z.enum(['public', 'private'], { error: 'Choose Public or Private.' });
 export type ChannelVisibility = z.infer<typeof channelVisibility>;
 
+/**
+ * "Who can resolve threads?": any Channel member (the default), or only the Thread's
+ * author and Channel admins. The same rule decides who can reopen.
+ */
+export type ResolvePolicy = 'any_member' | 'author_and_channel_admins';
+
 /** POST /api/channels. */
 export const createChannelBody = z.object({
   name: z

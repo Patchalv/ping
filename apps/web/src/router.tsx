@@ -18,9 +18,11 @@ import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { SectionPicker } from './features/section/SectionPicker';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
+import { useThreadListView } from './features/thread/list-view';
 import { PingsPage } from './features/thread/PingsPage';
 import { StartThreadButton } from './features/thread/StartThreadDialog';
 import { ThreadList } from './features/thread/ThreadList';
+import { ThreadListControls } from './features/thread/ThreadListControls';
 import { ThreadPanel } from './features/thread/ThreadPanel';
 
 const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: PageNotFound });
@@ -52,17 +54,23 @@ const channelRoute = createRoute({
 
 function ChannelRoute() {
   const { channelId } = channelRoute.useParams();
+  // Keyed so each Channel reads its own kept Thread list view.
+  return <ChannelThreads key={channelId} channelId={channelId} />;
+}
+
+function ChannelThreads({ channelId }: { channelId: string }) {
   const { threadId } = useParams({ strict: false });
+  const [view, setView] = useThreadListView(channelId);
   return (
     <ChannelPage
-      key={channelId}
       channelId={channelId}
       tab="threads"
       startThread={<StartThreadButton channelId={channelId} />}
       sectionPicker={<SectionPicker channelId={channelId} />}
+      listControls={<ThreadListControls channelId={channelId} view={view} onChange={setView} />}
       panel={<Outlet />}
     >
-      <ThreadList channelId={channelId} openThreadId={threadId} />
+      <ThreadList channelId={channelId} view={view} openThreadId={threadId} />
     </ChannelPage>
   );
 }
