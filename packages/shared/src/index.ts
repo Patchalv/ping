@@ -56,6 +56,17 @@ export {
   type RichTextMark,
 } from './rich-text';
 export {
+  type CreateSectionBody,
+  createSectionBody,
+  type PlaceChannelBody,
+  placeChannelBody,
+  reorderSectionsBody,
+  SECTION_NAME_MAX,
+  type SectionView,
+  sectionParams,
+  updateSectionBody,
+} from './section';
+export {
   redactSensitiveText,
   SENTRY_DATA_COLLECTION,
   scrubSentryBreadcrumb,

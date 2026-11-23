@@ -23,15 +23,17 @@ type ChannelTab = 'threads' | 'members';
 
 /**
  * The Channel view: its Channel bar above the Thread feed or the Members tab, with an
- * open Thread's panel beside them. The Thread pieces come from the router, because one
- * feature never imports another: `startThread` is the + New Thread control,
- * `listControls` the Thread list controls in the bar, `children` the feed, and `panel`
+ * open Thread's panel beside them. The Thread and Section pieces come from the router,
+ * because one feature never imports another: `startThread` is the + New Thread control,
+ * `sectionPicker` the Section picker (shown to members), `listControls` the Thread list
+ * controls in the bar, `children` the feed, and `panel`
  * the open Thread.
  */
 export function ChannelPage({
   channelId,
   tab,
   startThread,
+  sectionPicker,
   listControls,
   children,
   panel,
@@ -39,6 +41,7 @@ export function ChannelPage({
   channelId: string;
   tab: ChannelTab;
   startThread?: ReactNode;
+  sectionPicker?: ReactNode;
   listControls?: ReactNode;
   children?: ReactNode;
   panel?: ReactNode;
@@ -63,6 +66,7 @@ export function ChannelPage({
           channel={channel.data}
           tab={tab}
           startThread={startThread}
+          sectionPicker={sectionPicker}
           listControls={listControls}
         />
         {tab === 'members' ? (
@@ -85,11 +89,13 @@ function ChannelBar({
   channel,
   tab,
   startThread,
+  sectionPicker,
   listControls,
 }: {
   channel: ChannelView;
   tab: ChannelTab;
   startThread: ReactNode;
+  sectionPicker: ReactNode;
   listControls: ReactNode;
 }) {
   const isPrivate = channel.visibility === 'private';
@@ -137,24 +143,30 @@ function ChannelBar({
       {/* The router marks the current tab with aria-current="page". Threads matches its
           open Threads' paths too, but only exactly on the Members tab, whose path it
           would also match. */}
-      <nav className="mt-2 flex gap-4" aria-label="Channel tabs">
-        <Link
-          to="/channels/$channelId"
-          params={{ channelId: channel.id }}
-          activeOptions={{ exact: tab === 'members' }}
-          className={TAB_CLASS}
-        >
-          Threads
-        </Link>
-        <Link
-          to="/channels/$channelId/members"
-          params={{ channelId: channel.id }}
-          activeOptions={{ exact: true }}
-          className={TAB_CLASS}
-        >
-          Members
-        </Link>
-      </nav>
+      <div className="mt-2 flex items-end gap-4">
+        <nav className="flex gap-4" aria-label="Channel tabs">
+          <Link
+            to="/channels/$channelId"
+            params={{ channelId: channel.id }}
+            activeOptions={{ exact: tab === 'members' }}
+            className={TAB_CLASS}
+          >
+            Threads
+          </Link>
+          <Link
+            to="/channels/$channelId/members"
+            params={{ channelId: channel.id }}
+            activeOptions={{ exact: true }}
+            className={TAB_CLASS}
+          >
+            Members
+          </Link>
+        </nav>
+        {/* Sections hold only the Channels you're in. */}
+        {channel.isMember && sectionPicker ? (
+          <div className="-mt-1 mb-0.5 ml-auto min-w-0">{sectionPicker}</div>
+        ) : null}
+      </div>
       {tab === 'threads' ? listControls : null}
     </section>
   );

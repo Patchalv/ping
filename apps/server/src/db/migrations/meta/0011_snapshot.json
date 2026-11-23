@@ -1,5 +1,5 @@
 {
-  "id": "b0b5d927-25ae-467a-8054-d3b40d2b4296",
+  "id": "2891d135-023b-418b-ad17-29a2aa792089",
   "prevId": "55297d04-2773-4e2a-a84a-9d3d03b2a4be",
   "version": "7",
   "dialect": "postgresql",
@@ -102,20 +102,20 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "account_user_id_user_id_fk": {
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
-          "columnsFrom": ["user_id"],
           "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -185,20 +185,20 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "audit_event_actor_id_staff_member_id_fk": {
           "name": "audit_event_actor_id_staff_member_id_fk",
           "tableFrom": "audit_event",
-          "columnsFrom": ["actor_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["actor_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -277,8 +277,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "type": "stored",
-            "as": "to_tsvector('english', name || ' ' || description)"
+            "as": "to_tsvector('english', name || ' ' || description)",
+            "type": "stored"
           }
         }
       },
@@ -294,29 +294,29 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "gin",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "channel_created_by_staff_member_id_fk": {
           "name": "channel_created_by_staff_member_id_fk",
           "tableFrom": "channel",
-          "columnsFrom": ["created_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "channel_archived_by_staff_member_id_fk": {
           "name": "channel_archived_by_staff_member_id_fk",
           "tableFrom": "channel",
-          "columnsFrom": ["archived_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["archived_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -373,29 +373,29 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "channel_member_channel_id_channel_id_fk": {
           "name": "channel_member_channel_id_channel_id_fk",
           "tableFrom": "channel_member",
-          "columnsFrom": ["channel_id"],
           "tableTo": "channel",
+          "columnsFrom": ["channel_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "channel_member_staff_id_staff_member_id_fk": {
           "name": "channel_member_staff_id_staff_member_id_fk",
           "tableFrom": "channel_member",
-          "columnsFrom": ["staff_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -471,29 +471,29 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "ping_staff_id_staff_member_id_fk": {
           "name": "ping_staff_id_staff_member_id_fk",
           "tableFrom": "ping",
-          "columnsFrom": ["staff_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "ping_thread_fk": {
           "name": "ping_thread_fk",
           "tableFrom": "ping",
-          "columnsFrom": ["thread_id", "channel_id"],
           "tableTo": "thread",
+          "columnsFrom": ["thread_id", "channel_id"],
           "columnsTo": ["id", "channel_id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {
@@ -585,10 +585,10 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"reaction\".\"thread_id\" is not null",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "reaction_thread_response_staff_emoji_unique": {
           "name": "reaction_thread_response_staff_emoji_unique",
@@ -613,39 +613,39 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"reaction\".\"thread_response_id\" is not null",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "reaction_staff_id_staff_member_id_fk": {
           "name": "reaction_staff_id_staff_member_id_fk",
           "tableFrom": "reaction",
-          "columnsFrom": ["staff_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "reaction_thread_fk": {
           "name": "reaction_thread_fk",
           "tableFrom": "reaction",
-          "columnsFrom": ["thread_id", "channel_id"],
           "tableTo": "thread",
+          "columnsFrom": ["thread_id", "channel_id"],
           "columnsTo": ["id", "channel_id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "reaction_thread_response_fk": {
           "name": "reaction_thread_response_fk",
           "tableFrom": "reaction",
-          "columnsFrom": ["thread_response_id", "channel_id"],
           "tableTo": "thread_response",
+          "columnsFrom": ["thread_response_id", "channel_id"],
           "columnsTo": ["id", "channel_id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -657,6 +657,182 @@
           "value": "(\"reaction\".\"thread_id\" is not null) <> (\"reaction\".\"thread_response_id\" is not null)"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.section": {
+      "name": "section",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "collapsed": {
+          "name": "collapsed",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "section_staff_id_position_idx": {
+          "name": "section_staff_id_position_idx",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "position",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "section_staff_id_staff_member_id_fk": {
+          "name": "section_staff_id_staff_member_id_fk",
+          "tableFrom": "section",
+          "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "section_id_staff_id_unique": {
+          "name": "section_id_staff_id_unique",
+          "nullsNotDistinct": false,
+          "columns": ["id", "staff_id"]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.section_channel": {
+      "name": "section_channel",
+      "schema": "",
+      "columns": {
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "section_id": {
+          "name": "section_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "position": {
+          "name": "position",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "section_channel_section_id_idx": {
+          "name": "section_channel_section_id_idx",
+          "columns": [
+            {
+              "expression": "section_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "section_channel_staff_id_staff_member_id_fk": {
+          "name": "section_channel_staff_id_staff_member_id_fk",
+          "tableFrom": "section_channel",
+          "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "section_channel_channel_id_channel_id_fk": {
+          "name": "section_channel_channel_id_channel_id_fk",
+          "tableFrom": "section_channel",
+          "tableTo": "channel",
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "section_channel_section_fk": {
+          "name": "section_channel_section_fk",
+          "tableFrom": "section_channel",
+          "tableTo": "section",
+          "columnsFrom": ["section_id", "staff_id"],
+          "columnsTo": ["id", "staff_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "section_channel_staff_id_channel_id_pk": {
+          "name": "section_channel_staff_id_channel_id_pk",
+          "columns": ["staff_id", "channel_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.session": {
@@ -727,28 +903,28 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "session_user_id_user_id_fk": {
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
-          "columnsFrom": ["user_id"],
           "tableTo": "user",
+          "columnsFrom": ["user_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "session_token_unique": {
           "name": "session_token_unique",
-          "columns": ["token"],
-          "nullsNotDistinct": false
+          "nullsNotDistinct": false,
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -802,28 +978,28 @@
         "staff_invite_staff_id_staff_member_id_fk": {
           "name": "staff_invite_staff_id_staff_member_id_fk",
           "tableFrom": "staff_invite",
-          "columnsFrom": ["staff_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "staff_invite_created_by_staff_member_id_fk": {
           "name": "staff_invite_created_by_staff_member_id_fk",
           "tableFrom": "staff_invite",
-          "columnsFrom": ["created_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["created_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "staff_invite_token_hash_unique": {
           "name": "staff_invite_token_hash_unique",
-          "columns": ["token_hash"],
-          "nullsNotDistinct": false
+          "nullsNotDistinct": false,
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -885,29 +1061,29 @@
         "staff_member_id_user_id_fk": {
           "name": "staff_member_id_user_id_fk",
           "tableFrom": "staff_member",
-          "columnsFrom": ["id"],
           "tableTo": "user",
+          "columnsFrom": ["id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "staff_member_invited_by_staff_member_id_fk": {
           "name": "staff_member_invited_by_staff_member_id_fk",
           "tableFrom": "staff_member",
-          "columnsFrom": ["invited_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["invited_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "staff_member_deactivated_by_staff_member_id_fk": {
           "name": "staff_member_deactivated_by_staff_member_id_fk",
           "tableFrom": "staff_member",
-          "columnsFrom": ["deactivated_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["deactivated_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1026,8 +1202,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "type": "stored",
-            "as": "to_tsvector('english', title || ' ' || body_text)"
+            "as": "to_tsvector('english', title || ' ' || body_text)",
+            "type": "stored"
           }
         }
       },
@@ -1049,9 +1225,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "thread_channel_id_created_at_idx": {
           "name": "thread_channel_id_created_at_idx",
@@ -1070,9 +1246,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "thread_search_idx": {
           "name": "thread_search_idx",
@@ -1085,55 +1261,55 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "gin",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "thread_channel_id_channel_id_fk": {
           "name": "thread_channel_id_channel_id_fk",
           "tableFrom": "thread",
-          "columnsFrom": ["channel_id"],
           "tableTo": "channel",
+          "columnsFrom": ["channel_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_author_id_staff_member_id_fk": {
           "name": "thread_author_id_staff_member_id_fk",
           "tableFrom": "thread",
-          "columnsFrom": ["author_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["author_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_edited_by_staff_member_id_fk": {
           "name": "thread_edited_by_staff_member_id_fk",
           "tableFrom": "thread",
-          "columnsFrom": ["edited_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["edited_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_resolved_by_staff_member_id_fk": {
           "name": "thread_resolved_by_staff_member_id_fk",
           "tableFrom": "thread",
-          "columnsFrom": ["resolved_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["resolved_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "thread_id_channel_id_unique": {
           "name": "thread_id_channel_id_unique",
-          "columns": ["id", "channel_id"],
-          "nullsNotDistinct": false
+          "nullsNotDistinct": false,
+          "columns": ["id", "channel_id"]
         }
       },
       "policies": {},
@@ -1231,8 +1407,8 @@
           "primaryKey": false,
           "notNull": false,
           "generated": {
-            "type": "stored",
-            "as": "to_tsvector('english', coalesce(body_text, ''))"
+            "as": "to_tsvector('english', coalesce(body_text, ''))",
+            "type": "stored"
           }
         }
       },
@@ -1254,9 +1430,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "thread_response_search_idx": {
           "name": "thread_response_search_idx",
@@ -1269,55 +1445,55 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "gin",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "thread_response_author_id_staff_member_id_fk": {
           "name": "thread_response_author_id_staff_member_id_fk",
           "tableFrom": "thread_response",
-          "columnsFrom": ["author_id"],
           "tableTo": "staff_member",
+          "columnsFrom": ["author_id"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_response_edited_by_staff_member_id_fk": {
           "name": "thread_response_edited_by_staff_member_id_fk",
           "tableFrom": "thread_response",
-          "columnsFrom": ["edited_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["edited_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_response_deleted_by_staff_member_id_fk": {
           "name": "thread_response_deleted_by_staff_member_id_fk",
           "tableFrom": "thread_response",
-          "columnsFrom": ["deleted_by"],
           "tableTo": "staff_member",
+          "columnsFrom": ["deleted_by"],
           "columnsTo": ["id"],
-          "onUpdate": "no action",
-          "onDelete": "no action"
+          "onDelete": "no action",
+          "onUpdate": "no action"
         },
         "thread_response_thread_fk": {
           "name": "thread_response_thread_fk",
           "tableFrom": "thread_response",
-          "columnsFrom": ["thread_id", "channel_id"],
           "tableTo": "thread",
+          "columnsFrom": ["thread_id", "channel_id"],
           "columnsTo": ["id", "channel_id"],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "thread_response_id_channel_id_unique": {
           "name": "thread_response_id_channel_id_unique",
-          "columns": ["id", "channel_id"],
-          "nullsNotDistinct": false
+          "nullsNotDistinct": false,
+          "columns": ["id", "channel_id"]
         }
       },
       "policies": {},
@@ -1394,8 +1570,8 @@
       "uniqueConstraints": {
         "user_email_unique": {
           "name": "user_email_unique",
-          "columns": ["email"],
-          "nullsNotDistinct": false
+          "nullsNotDistinct": false,
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -1458,9 +1634,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {},
@@ -1494,10 +1670,10 @@
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

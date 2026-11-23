@@ -102,6 +102,23 @@ async function responseFixture({
   return insertThreadResponse({ threadId: thread.id, channelId: channel.id, authorId });
 }
 
+/** The row's Sidebar Section: the actor's own, or a fresh Staff member's. */
+async function sectionFixture(
+  kind: NonNullable<MatrixRow['section']>,
+  { actor }: Pick<RowContext, 'actor'>,
+) {
+  const staffId = kind === 'own' ? actor.staff.id : (await createStaffMember()).id;
+  return asOwner(async (query) => {
+    const result = await query<{ id: string }>(
+      `insert into section (staff_id, name, position) values ($1, 'Teaching', 0) returning id`,
+      [staffId],
+    );
+    const row = result.rows[0];
+    if (!row) throw new Error('no section');
+    return row;
+  });
+}
+
 /**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
@@ -115,7 +132,8 @@ export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const target = row.target ? await targetFixtures[row.target]({ actor, channel }) : undefined;
   const thread = row.thread ? await threadFixture({ actor, channel }, row.thread) : undefined;
   const response = row.response ? await responseFixture({ actor, channel, thread }) : undefined;
-  const request = row.request({ actor, channel, target, thread, response });
+  const section = row.section ? await sectionFixture(row.section, { actor }) : undefined;
+  const request = row.request({ actor, channel, target, thread, response, section });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();
   const res = await testApp.app.request(request.path, {
