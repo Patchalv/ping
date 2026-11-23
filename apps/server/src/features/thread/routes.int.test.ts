@@ -78,8 +78,10 @@ describe('Thread routes', () => {
         responseCount: 0,
         reactions: [],
         canReact: true,
+        pingCount: 0,
         edited: null,
         canRespond: true,
+        ping: null,
         canEdit: true,
         canDelete: true,
       });
@@ -188,6 +190,7 @@ describe('Thread routes', () => {
         responseCount: 0,
         reactions: [],
         canReact: true,
+        pingCount: 0,
       });
     });
 

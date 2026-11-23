@@ -1,15 +1,15 @@
 import type { ThreadView } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
-import { ChevronLeftIcon, XIcon } from 'lucide-react';
+import { CheckIcon, ChevronLeftIcon, XIcon } from 'lucide-react';
 import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
-import { buttonVariants } from '#/components/ui/button';
+import { Button, buttonVariants } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
-import { useThread, useThreadResponses } from './api';
+import { useMarkRead, useThread, useThreadResponses } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
@@ -20,10 +20,11 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 /**
  * The Thread view: a side panel on the right of the Channel view on a laptop, full
  * screen on a phone (screens.md › Thread view). The Thread, its Thread Responses, and the
- * composer at the bottom for members. The Acknowledge buttons arrive with Pings (#46).
+ * composer at the bottom for members. Its "N new" divider marks what's new since the viewer's Ping began.
  */
 export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
   const thread = useThread(channelId, threadId);
+  const markRead = useMarkRead();
   const title = thread.data?.title ?? 'Thread';
   return (
     <SidePanel label={title}>
@@ -38,13 +39,27 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           Back to Channel
         </Link>
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
+        {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
+        {thread.data?.ping ? (
+          <Button
+            variant="outline"
+            size="sm"
+            className="ml-auto"
+            disabled={markRead.isPending}
+            onClick={() => markRead.mutate({ channelId, threadId })}
+          >
+            <CheckIcon aria-hidden="true" />
+            Mark read
+          </Button>
+        ) : null}
         <Link
           to="/channels/$channelId"
           params={{ channelId }}
           aria-label="Close Thread"
           className={cn(
             buttonVariants({ variant: 'ghost', size: 'icon-sm' }),
-            'ml-auto max-md:hidden',
+            'max-md:hidden',
+            thread.data?.ping ? undefined : 'ml-auto',
           )}
         >
           <XIcon aria-hidden="true" />
@@ -114,7 +129,11 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
             {responses.error.message}
           </p>
         ) : (
-          <ThreadResponseList channelId={thread.channelId} responses={list} />
+          <ThreadResponseList
+            channelId={thread.channelId}
+            responses={list}
+            newSince={thread.ping ?? undefined}
+          />
         )}
       </div>
       {thread.canRespond && staffMemberId ? (

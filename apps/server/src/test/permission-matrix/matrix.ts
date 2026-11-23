@@ -810,6 +810,46 @@ export const MATRIX: MatrixRow[] = [
     },
     refused,
   ),
+
+  // Pings. From "Pings and Acknowledge" (#46).
+
+  // The Pings view and its counts: anyone lists their own.
+  ...rowsFor(
+    {
+      route: 'GET /api/pings',
+      action: 'list their own Pings',
+      channel: null,
+      request: () => ({ path: '/api/pings' }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'GET /api/pings/summary',
+      action: 'count their own Pings',
+      channel: null,
+      request: () => ({ path: '/api/pings/summary' }),
+    },
+    allowed(200),
+  ),
+
+  // Mark a Thread read: anyone who can read it, non-members of a Public channel included.
+  // A Private channel they aren't in is hidden (404).
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'DELETE /api/channels/:channelId/threads/:threadId/ping',
+        action: `mark a Thread read in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        request: (ctx) => ({ path: `${threadPath(ctx)}/ping`, method: 'DELETE' }),
+      },
+      (actor) => {
+        const read = readsChannel(channel)(actor);
+        return read.allow ? { allow: true, status: 204 } : read;
+      },
+    ),
+  ),
 ];
 
 /** Every route the matrix covers, for the route-coverage guard. */

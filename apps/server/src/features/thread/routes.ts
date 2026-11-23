@@ -21,6 +21,7 @@ import {
   requireCanReadThreads,
   requireCanStartThread,
 } from '../../permissions/thread';
+import { fanOutPings } from '../../system-actions';
 import {
   auditAdminChange,
   deleteThread,
@@ -71,11 +72,13 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             if (!found) throw new NotFoundError();
             requireCanStartThread(ctx.actor, found);
             const id = await startThread(ctx, channelId, input);
+            await fanOutPings(ctx.tx, { threadId: id });
             return findThread(ctx, found, channelId, id);
           });
           // Just started, in the same transaction, by a member: it can't be hidden.
           if (!started) throw new Error('A started Thread did not read back');
           publish({ kind: 'thread.created', channelId, threadId: started.id });
+          publish({ kind: 'ping.changed', channelId, threadId: started.id });
           return c.json(started, 201);
         },
       )
@@ -142,6 +145,8 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
           });
         });
         publish({ kind: 'thread.deleted', channelId, threadId });
+        // Its Pings went with it.
+        publish({ kind: 'ping.changed', channelId, threadId });
         return c.body(null, 204);
       })
   );

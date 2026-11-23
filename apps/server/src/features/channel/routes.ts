@@ -30,7 +30,7 @@ import {
   requireCanRemoveChannelMember,
   requireCanSetChannelAdmin,
 } from '../../permissions/channel';
-import { adminSetChannelAdmin, createChannel } from '../../system-actions';
+import { adminSetChannelAdmin, cleanUpLostAccess, createChannel } from '../../system-actions';
 import {
   addChannelMember,
   countOthersInChannel,
@@ -130,9 +130,11 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           const others = await countOthersInChannel(ctx, channelId);
           requireCanLeaveChannel(ctx.actor, { ...found, ...others });
           await leaveChannel(ctx, channelId);
+          await cleanUpLostAccess(ctx.tx, channelId);
           await recordMembershipChange(ctx, 'channel_left', channelId, ctx.actor.staffId);
         });
         publish({ kind: 'channel.changed', channelId });
+        publish({ kind: 'ping.changed', channelId });
         return c.body(null, 204);
       })
 
@@ -212,9 +214,11 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
             const target = await findMemberTarget(ctx, channelId, staffId);
             requireCanRemoveChannelMember(ctx.actor, found, target);
             await removeChannelMember(ctx, channelId, staffId);
+            await cleanUpLostAccess(ctx.tx, channelId);
             await recordMembershipChange(ctx, 'channel_member_removed', channelId, staffId);
           });
           publish({ kind: 'channel.changed', channelId });
+          publish({ kind: 'ping.changed', channelId });
           return c.body(null, 204);
         },
       )

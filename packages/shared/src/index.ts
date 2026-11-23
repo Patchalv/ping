@@ -33,6 +33,11 @@ export {
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
+  listPingsQuery,
+  type PingPage,
+  type PingSummary,
+} from './ping';
+export {
   type ReactionList,
   type ReactionSummary,
   threadReactionParams,

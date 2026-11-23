@@ -8,7 +8,7 @@ import { schema } from '../../db';
 import { reactionSummarySql } from '../../db/reaction-summary';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 
-const { channel, channelMember, reaction, thread, threadResponse } = schema;
+const { channel, channelMember, ping, reaction, thread, threadResponse } = schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, when the Thread is in that
@@ -59,6 +59,14 @@ export async function liveResponseExists(
 export type ReactionTarget =
   | { kind: 'thread'; channelId: string; threadId: string }
   | { kind: 'thread_response'; channelId: string; threadResponseId: string };
+
+/**
+ * Acknowledges the actor's Ping on the Thread by deleting it, if they have one. Row-level
+ * security limits the delete to their own.
+ */
+export async function acknowledgePing({ tx, actor }: ActorTx, threadId: string): Promise<void> {
+  await tx.delete(ping).where(and(eq(ping.threadId, threadId), eq(ping.staffId, actor.staffId)));
+}
 
 /** Adds the actor's reaction. Reacting again with the same emoji changes nothing. */
 export async function addReaction(

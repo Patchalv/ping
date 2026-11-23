@@ -29,6 +29,10 @@ const SECURITY_DEFINER_FUNCTIONS = [
   // System function: a company Admin appoints or removes a Channel admin of a Public
   // channel (#37).
   'admin_set_channel_admin',
+  // System function: the Ping fan-out for a new Thread or Thread Response (#46).
+  'fan_out_pings',
+  // System function: the losing-access clean-up, called when someone leaves or is removed (#46).
+  'clean_up_lost_access',
 ];
 
 const APP_ROLES = ['ping_app', 'ping_system'];

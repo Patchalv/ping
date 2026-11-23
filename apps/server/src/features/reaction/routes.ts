@@ -18,6 +18,7 @@ import { publish } from '../../lib/sse';
 import { validate } from '../../lib/validate';
 import { requireCanReact } from '../../permissions/reaction';
 import {
+  acknowledgePing,
   addReaction,
   findReactionChannel,
   liveResponseExists,
@@ -44,9 +45,12 @@ export function reactionRoutes({ auth, database }: { auth: Auth; database: Datab
             requireCanReact(ctx.actor, access);
             const target: ReactionTarget = { kind: 'thread', channelId, threadId };
             await addReaction(ctx, target, emoji);
+            // Reacting Acknowledges the Ping, whether to the Thread or one of its Thread Responses.
+            await acknowledgePing(ctx, threadId);
             return { reactions: await reactionsOf(ctx, target) };
           });
           publish({ kind: 'thread.changed', channelId, threadId });
+          publish({ kind: 'ping.changed', channelId, threadId });
           return c.json(list);
         },
       )
@@ -87,9 +91,12 @@ export function reactionRoutes({ auth, database }: { auth: Auth; database: Datab
             }
             const target: ReactionTarget = { kind: 'thread_response', channelId, threadResponseId };
             await addReaction(ctx, target, emoji);
+            // Reacting Acknowledges the Ping, whether to the Thread or one of its Thread Responses.
+            await acknowledgePing(ctx, threadId);
             return { reactions: await reactionsOf(ctx, target) };
           });
           publish({ kind: 'thread_response.changed', channelId, threadId, threadResponseId });
+          publish({ kind: 'ping.changed', channelId, threadId });
           return c.json(list);
         },
       )

@@ -17,6 +17,7 @@ import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
+import { PingsPage } from './features/thread/PingsPage';
 import { StartThreadButton } from './features/thread/StartThreadDialog';
 import { ThreadList } from './features/thread/ThreadList';
 import { ThreadPanel } from './features/thread/ThreadPanel';
@@ -105,6 +106,13 @@ const browseRoute = createRoute({
   component: BrowseChannelsPage,
 });
 
+// The Pings view: Threads with a Ping for the Staff member, from the sidebar.
+const pingsRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/pings',
+  component: PingsPage,
+});
+
 // The Admins' Staff members screen, from the avatar menu. A Member who opens it gets the
 // server's refusal.
 const staffRoute = createRoute({
@@ -116,6 +124,7 @@ const staffRoute = createRoute({
 const routeTree = rootRoute.addChildren([
   homeRoute,
   browseRoute,
+  pingsRoute,
   channelRoute.addChildren([threadRoute]),
   channelMembersRoute,
   staffRoute,
