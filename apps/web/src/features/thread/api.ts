@@ -2,6 +2,7 @@
 // hooks and never call hc or read a response themselves.
 import type {
   EditThreadBody,
+  MentionCandidateList,
   PingPage,
   PingSummary,
   ReactionList,
@@ -20,6 +21,7 @@ import { call, callNoContent } from '../../lib/api-client';
 const threads = api.api.channels[':channelId'].threads;
 const pings = api.api.pings;
 const responses = threads[':threadId'].responses;
+const mentionCandidates = api.api.channels[':channelId']['mention-candidates'];
 
 /**
  * The query keys. Exported so live updates can refetch a Channel's Threads.
@@ -34,7 +36,24 @@ export const threadKeys = {
     [...threadKeys.all, 'detail', channelId, threadId] as const,
   responses: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'responses', channelId, threadId] as const,
+  /** Who the @ picker offers in a Channel. */
+  mentionCandidates: (channelId: string) =>
+    [...threadKeys.all, 'mention-candidates', channelId] as const,
 };
+
+/**
+ * Who can be Mentioned in a Channel's Threads: the @ picker's list. It changes only as
+ * people join, leave or are Deactivated, so a minute's staleness is fine.
+ */
+export function useMentionCandidates(channelId: string) {
+  return useQuery({
+    queryKey: threadKeys.mentionCandidates(channelId),
+    queryFn: (): Promise<MentionCandidateList> =>
+      call(() => mentionCandidates.$get({ param: { channelId } })),
+    staleTime: 60_000,
+    select: (list) => list.candidates,
+  });
+}
 
 /**
  * The query keys for Pings. Everything that Acknowledges or Pings invalidates `all`, so the

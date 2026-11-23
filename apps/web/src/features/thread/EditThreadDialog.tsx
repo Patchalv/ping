@@ -18,11 +18,12 @@ import {
 } from '#/components/ui/dialog';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
-import { useEditThread } from './api';
+import { useEditThread, useMentionCandidates } from './api';
 
 /** Edit a Thread's title and description. Only the latest text is kept. */
 export function EditThreadDialog({ thread, onClose }: { thread: ThreadView; onClose(): void }) {
   const edit = useEditThread(thread.channelId, thread.id);
+  const mentionCandidates = useMentionCandidates(thread.channelId).data ?? [];
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
   const defaultValues: EditThreadBody = { title: thread.title, body: thread.body };
@@ -62,7 +63,9 @@ export function EditThreadDialog({ thread, onClose }: { thread: ThreadView; onCl
               )}
             </form.AppField>
             <form.AppField name="body">
-              {(field) => <field.RichTextField label="Description" />}
+              {(field) => (
+                <field.RichTextField label="Description" mentionCandidates={mentionCandidates} />
+              )}
             </form.AppField>
             {formError ? <FormError>{formError}</FormError> : null}
             <DialogFooter>

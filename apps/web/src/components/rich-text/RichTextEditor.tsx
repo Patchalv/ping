@@ -1,8 +1,13 @@
-// The TipTap editor for Thread descriptions and, later, Thread Responses (screens.md ›
-// Composer). It offers only the allowlist (ADR 0003): StarterKit without horizontal
-// rules, headings 1–3, and links limited to http, https and mailto. The server checks
-// again, whatever arrives.
-import { isAllowedLinkHref, RICH_TEXT_MESSAGES, type RichTextDoc } from '@ping/shared';
+// The TipTap editor for Thread descriptions and Thread Responses (screens.md › Composer).
+// It offers only the allowlist (ADR 0003): StarterKit without horizontal rules, headings
+// 1–3, links limited to http, https and mailto, and Mentions picked with @. The server
+// checks again, whatever arrives.
+import {
+  isAllowedLinkHref,
+  type MentionCandidate,
+  RICH_TEXT_MESSAGES,
+  type RichTextDoc,
+} from '@ping/shared';
 import { type Editor, EditorContent, useEditor, useEditorState } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import {
@@ -21,13 +26,20 @@ import {
   TextQuoteIcon,
   UnderlineIcon,
 } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useId, useRef, useState } from 'react';
 import { Button } from '#/components/ui/button';
 import { Input } from '#/components/ui/input';
 import { cn } from '#/lib/utils';
+import {
+  MentionPicker,
+  mentionExtension,
+  optionId,
+  type PickerSource,
+  type Picking,
+} from './MentionPicker';
 import { PROSE } from './prose';
 
-const EXTENSIONS = [
+const FORMATTING = [
   StarterKit.configure({
     heading: { levels: [1, 2, 3] },
     horizontalRule: false,
@@ -48,11 +60,30 @@ type Props = {
   onBlur(): void;
   /** Put on the editable element, the one that takes focus: id, aria and data-field. */
   attributes: Record<string, string>;
+  /** Who the @ picker offers: the Staff members who can read the Thread. */
+  mentionCandidates: readonly MentionCandidate[];
 };
 
-export function RichTextEditor({ defaultValue, onChange, onBlur, attributes }: Props) {
+export function RichTextEditor({
+  defaultValue,
+  onChange,
+  onBlur,
+  attributes,
+  mentionCandidates,
+}: Props) {
+  const [picking, setPicking] = useState<Picking | null>(null);
+  const listboxId = useId();
+  const source = useRef<PickerSource>({ candidates: mentionCandidates, picking, setPicking });
+  // eslint-disable-next-line no-restricted-syntax -- syncs with TipTap's Mention extension, which runs outside React and reads the latest candidates and pick from this ref.
+  useEffect(() => {
+    source.current.candidates = mentionCandidates;
+    source.current.picking = picking;
+  }, [mentionCandidates, picking]);
+  // Made once: new extensions would rebuild the editor and lose what's been typed.
+  const [extensions] = useState(() => [...FORMATTING, mentionExtension(source)]);
+
   const editor = useEditor({
-    extensions: EXTENSIONS,
+    extensions,
     content: defaultValue,
     editorProps: {
       attributes: {
@@ -71,13 +102,25 @@ export function RichTextEditor({ defaultValue, onChange, onBlur, attributes }: P
     onBlur: () => onBlur(),
   });
 
+  const activeOption = picking ? optionId(listboxId, picking) : undefined;
+  // eslint-disable-next-line no-restricted-syntax -- syncs the picker's ARIA state onto ProseMirror's editable element, which React doesn't render.
+  useEffect(() => {
+    const element = editor.view.dom;
+    const set = (name: string, value: string | undefined) =>
+      value === undefined ? element.removeAttribute(name) : element.setAttribute(name, value);
+    set('aria-controls', picking ? listboxId : undefined);
+    set('aria-expanded', picking ? 'true' : undefined);
+    set('aria-activedescendant', activeOption);
+  }, [editor, picking, listboxId, activeOption]);
+
   return (
     <div
       data-slot="rich-text-editor"
-      className="rounded-lg border border-input bg-background text-foreground shadow-xs transition-[color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 has-aria-invalid:border-destructive has-aria-invalid:ring-3 has-aria-invalid:ring-destructive/20"
+      className="relative rounded-lg border border-input bg-background text-foreground shadow-xs transition-[color,box-shadow] duration-200 focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/30 has-aria-invalid:border-destructive has-aria-invalid:ring-3 has-aria-invalid:ring-destructive/20"
     >
       <Toolbar editor={editor} />
       <EditorContent editor={editor} />
+      {picking ? <MentionPicker id={listboxId} picking={picking} /> : null}
     </div>
   );
 }

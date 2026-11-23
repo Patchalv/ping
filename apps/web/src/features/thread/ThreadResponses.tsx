@@ -15,7 +15,7 @@ import { Button } from '#/components/ui/button';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
-import { useEditThreadResponse, useSendThreadResponse } from './api';
+import { useEditThreadResponse, useMentionCandidates, useSendThreadResponse } from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadResponseDialog } from './DeleteDialogs';
@@ -100,7 +100,7 @@ function ThreadResponseItem({
         />
       ) : (
         <>
-          <RichTextView doc={response.body} className="mt-1" />
+          <RichTextView doc={response.body} mentionNames={response.mentionNames} className="mt-1" />
           <Reactions
             channelId={channelId}
             threadId={response.threadId}
@@ -135,6 +135,7 @@ function EditThreadResponseForm({
   onDone(): void;
 }) {
   const edit = useEditThreadResponse(channelId, response.threadId, response.id);
+  const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   const [formError, setFormError] = useState<string | null>(null);
   const defaultValues: ThreadResponseBody = { body };
   const form = useAppForm({
@@ -157,7 +158,12 @@ function EditThreadResponseForm({
     <form.AppForm>
       <form.Form className="mt-2 grid gap-3">
         <form.AppField name="body">
-          {(field) => <field.RichTextField label="Edit Thread Response" />}
+          {(field) => (
+            <field.RichTextField
+              label="Edit Thread Response"
+              mentionCandidates={mentionCandidates}
+            />
+          )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}
         <div className="flex justify-end gap-2">
@@ -217,6 +223,7 @@ function ComposerForm({
   onSent(): void;
 }) {
   const send = useSendThreadResponse(channelId, threadId);
+  const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   const [formError, setFormError] = useState<string | null>(null);
   // Restored once, when the composer opens.
   const [defaultValues] = useState<ThreadResponseBody>(() => ({ body: restoreDraft(draft) }));
@@ -253,7 +260,9 @@ function ComposerForm({
     <form.AppForm>
       <form.Form className="grid gap-2">
         <form.AppField name="body">
-          {(field) => <field.RichTextField label="Thread Response" />}
+          {(field) => (
+            <field.RichTextField label="Thread Response" mentionCandidates={mentionCandidates} />
+          )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}
         <div className="flex justify-end">

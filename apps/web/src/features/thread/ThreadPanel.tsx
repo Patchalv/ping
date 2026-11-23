@@ -135,7 +135,7 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
             ) : null}
           </div>
           <h2 className="mt-2 text-lg font-bold [overflow-wrap:anywhere]">{thread.title}</h2>
-          <RichTextView doc={thread.body} className="mt-2" />
+          <RichTextView doc={thread.body} mentionNames={thread.mentionNames} className="mt-2" />
           <Reactions
             channelId={thread.channelId}
             threadId={thread.id}

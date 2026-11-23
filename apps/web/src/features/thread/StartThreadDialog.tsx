@@ -25,7 +25,7 @@ import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
-import { useStartThread } from './api';
+import { useMentionCandidates, useStartThread } from './api';
 
 /**
  * + New Thread in the Channel bar. Only shown to Channel members, outside Archived
@@ -90,6 +90,7 @@ function StartThreadDialog({
   onStarted(thread: ThreadView): void;
 }) {
   const start = useStartThread(channelId);
+  const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
   const staffMemberId = authClient.useSession().data?.user.id;
@@ -145,7 +146,9 @@ function StartThreadDialog({
               )}
             </form.AppField>
             <form.AppField name="body">
-              {(field) => <field.RichTextField label="Description" />}
+              {(field) => (
+                <field.RichTextField label="Description" mentionCandidates={mentionCandidates} />
+              )}
             </form.AppField>
             {formError ? <FormError>{formError}</FormError> : null}
             <DialogFooter>
