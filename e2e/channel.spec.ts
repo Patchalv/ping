@@ -95,11 +95,14 @@ test('the next person to sign in on the same browser never sees the last one’s
 
 test('a Staff member whose session has gone is sent back to sign-in', async ({ page }) => {
   await signIn(page, 'laura.gomez@example.com');
+  // The sidebar showing means its requests went out with the session cookie, so the
+  // first request without one is the click's.
+  const teaching = page.getByRole('navigation', { name: 'Channels' }).getByRole('link', {
+    name: /Teaching/,
+  });
+  await expect(teaching).toBeVisible();
   await page.context().clearCookies();
-  await page
-    .getByRole('navigation', { name: 'Channels' })
-    .getByRole('link', { name: /Teaching/ })
-    .click();
+  await teaching.click();
   await expect(page.getByRole('heading', { name: 'Sign in to Ping' })).toBeVisible();
 });
 

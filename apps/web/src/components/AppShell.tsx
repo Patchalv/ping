@@ -22,6 +22,7 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
+import { useSections } from '../features/section/api';
 import { NewSectionButton, SidebarSections } from '../features/section/SidebarSections';
 import { useCurrentStaffMember } from '../features/staff/api';
 import { ProfileDialog } from '../features/staff/ProfileDialog';
@@ -141,6 +142,11 @@ export function HomeNote() {
 
 function ChannelNav({ onCreate }: { onCreate(): void }) {
   const channels = useMyChannels();
+  // Asked for here, beside Channels, not by SidebarSections once Channels arrive: every
+  // request the sidebar needs goes out together, and the list waits for the first answer
+  // to both, so no Channel jumps into its Section after it shows. isFetched, not
+  // isPending: a later retry of a failed load must not empty the list again.
+  const sections = useSections();
   const summary = usePingSummary();
   const countIn = (channelId: string) =>
     summary.data?.channels.find((c) => c.channelId === channelId)?.count ?? 0;
@@ -171,8 +177,13 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
           <p className="px-4 py-1 text-sm text-sidebar-muted-foreground" role="alert">
             {channels.error.message}
           </p>
-        ) : channels.data ? (
-          <SidebarSections channels={channels.data} pingCountIn={countIn} />
+        ) : channels.data && sections.isFetched ? (
+          <SidebarSections
+            channels={channels.data}
+            sections={sections.data}
+            sectionsError={sections.error}
+            pingCountIn={countIn}
+          />
         ) : null}
         <SidebarSeparator />
         <SidebarGroup>
