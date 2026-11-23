@@ -4,6 +4,7 @@
 // subquery, so the viewer's own Ping is the only one it can count.
 import type { ReactionSummary, ThreadAuthor } from '@ping/shared';
 import { sql } from 'drizzle-orm';
+import { mentionsYouSql } from './mention';
 import { reactionSummarySql } from './reaction-summary';
 import { ping, reaction, staffMember, thread, threadResponse, user } from './schema';
 
@@ -26,6 +27,7 @@ export const threadRowColumns = (actorId: string) => ({
   pingCount: sql<number>`coalesce((
     select ${ping.count} from ${ping}
      where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actorId}::uuid), 0)::int`,
+  mentionsYou: mentionsYouSql(thread.id, actorId),
 });
 
 /** How much of the description a Thread row previews. */
@@ -48,6 +50,7 @@ export type ThreadRowColumns = {
   responseCount: number;
   reactions: ReactionSummary[];
   pingCount: number;
+  mentionsYou: boolean;
 };
 
 /** The row as the API answers it: the author folded into one object, times as ISO strings. */

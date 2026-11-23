@@ -402,6 +402,33 @@ export async function insertReaction(options: {
 }
 
 /**
+ * Inserts a Mention as the owner, behind row-level security, in a Thread or a Thread
+ * Response (exactly one of `threadId` and `threadResponseId`). Returns its ID.
+ */
+export async function insertMention(options: {
+  channelId: string;
+  staffId: string;
+  threadId?: string;
+  threadResponseId?: string;
+}): Promise<string> {
+  const id = randomUUID();
+  await asOwner((query) =>
+    query(
+      `insert into mention (id, channel_id, thread_id, thread_response_id, staff_id)
+       values ($1, $2, $3, $4, $5)`,
+      [
+        id,
+        options.channelId,
+        options.threadId ?? null,
+        options.threadResponseId ?? null,
+        options.staffId,
+      ],
+    ),
+  );
+  return id;
+}
+
+/**
  * A checksum of every row of every table in the public schema, read as the owner. Two
  * equal snapshots mean nothing was inserted, updated or deleted in between.
  */

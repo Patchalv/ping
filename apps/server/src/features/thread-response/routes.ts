@@ -3,6 +3,8 @@
 // (features/channel/routes.ts): signedIn, validate(), all the work in withActorTx with a
 // require… helper inside it, then publish() after a change commits.
 import {
+  mentionChanges,
+  mentionedStaffIds,
   type ThreadResponseList,
   threadParams,
   threadResponseBody,
@@ -12,9 +14,11 @@ import { Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
+import { findMentionedStaffIds, findMentionTargets, saveMentions } from '../../db/mention';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
+import { requireCanMentionEach } from '../../permissions/mention';
 import { requireCanReadThreads } from '../../permissions/thread';
 import {
   requireCanDeleteThreadResponse,
@@ -64,7 +68,12 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             const access = await findResponseChannel(ctx, channelId, threadId);
             if (!access) throw new NotFoundError();
             requireCanSendThreadResponse(ctx.actor, access);
+            const mentions = mentionChanges([], mentionedStaffIds(body));
+            const targets = await findMentionTargets(ctx.tx, channelId, mentions.added);
+            requireCanMentionEach(ctx.actor, access, mentions.added, targets);
             const id = await sendThreadResponse(ctx, { channelId, threadId }, body);
+            await saveMentions(ctx.tx, { threadResponseId: id }, channelId, mentions);
+            // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId, threadResponseId: id });
             // Sending a Thread Response Acknowledges the sender's own Ping.
             await acknowledgePing(ctx, threadId);
@@ -101,17 +110,28 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             const response = await findLiveResponseAuthor(ctx, threadId, threadResponseId);
             if (!response) throw new NotFoundError();
             requireCanEditThreadResponse(ctx.actor, access, response);
+            const post = { threadResponseId };
+            const mentions = mentionChanges(
+              await findMentionedStaffIds(ctx.tx, post),
+              mentionedStaffIds(body),
+            );
+            const targets = await findMentionTargets(ctx.tx, channelId, mentions.added);
+            requireCanMentionEach(ctx.actor, access, mentions.added, targets);
             await editThreadResponse(ctx, threadResponseId, body);
+            await saveMentions(ctx.tx, post, channelId, mentions);
+            // An edit Pings only the newly Mentioned.
+            const pinged = await fanOutPings(ctx.tx, { threadId, threadResponseId });
             await auditAdminChange(ctx, 'admin_edited_thread_response', {
               channelId,
               authorId: response.authorId,
             });
             const [view] = await listThreadResponses(ctx, access, threadId, threadResponseId);
-            return view;
+            return view && { view, pinged };
           });
           if (!edited) throw new Error('An edited Thread Response did not read back');
           publish({ kind: 'thread_response.changed', channelId, threadId, threadResponseId });
-          return c.json(edited);
+          if (edited.pinged > 0) publish({ kind: 'ping.changed', channelId, threadId });
+          return c.json(edited.view);
         },
       )
 

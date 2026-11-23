@@ -80,6 +80,8 @@ describe('Thread routes', () => {
         canReact: true,
         pingCount: 0,
         resolvedAt: null,
+        mentionsYou: false,
+        mentionNames: {},
         edited: null,
         canRespond: true,
         ping: null,
@@ -194,6 +196,7 @@ describe('Thread routes', () => {
         canReact: true,
         pingCount: 0,
         resolvedAt: null,
+        mentionsYou: false,
       });
     });
 
