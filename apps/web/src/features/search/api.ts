@@ -11,6 +11,7 @@ import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-qu
 import { api } from '../../lib/api';
 import { call } from '../../lib/api-client';
 import { delay } from '../../lib/delay';
+import { QUICK_THREADS } from './quick-search';
 
 const search = api.api.search;
 
@@ -21,24 +22,33 @@ const search = api.api.search;
  */
 const TYPING_PAUSE_MS = 250;
 
+/** The search dialog's shorter wait: its few results are quick to show. */
+const QUICK_PAUSE_MS = 150;
+
 /** What the Threads tab searches for: the text and the chips. */
-type ThreadSearch = Omit<SearchThreadsQuery, 'after'>;
+type ThreadSearch = Omit<SearchThreadsQuery, 'after' | 'limit'>;
 
 const searchKeys = {
   all: ['search'] as const,
   channels: (q: string) => [...searchKeys.all, 'channels', q] as const,
   threads: (search: ThreadSearch) => [...searchKeys.all, 'threads', search] as const,
+  /** The dialog's few Threads: kept apart from the screen's pages of 50. */
+  quickThreads: (q: string, channelId: string | undefined) =>
+    [...searchKeys.all, 'quick-threads', { q, channelId }] as const,
   people: () => [...searchKeys.all, 'people'] as const,
   /** The name a chip shows for a Channel. */
   channel: (channelId: string) => [...searchKeys.all, 'channel', channelId] as const,
 };
 
-/** Channels whose name or description match. Waits until something is typed. */
-export function useChannelSearch(q: string) {
+/**
+ * Channels whose name or description match. Waits until something is typed, then for
+ * typing to pause: the search dialog waits less.
+ */
+export function useChannelSearch(q: string, pauseMs = TYPING_PAUSE_MS) {
   return useQuery({
     queryKey: searchKeys.channels(q),
     queryFn: async ({ signal }): Promise<ChannelSearchResults> => {
-      await delay(TYPING_PAUSE_MS, signal);
+      await delay(pauseMs, signal);
       return call(() => search.channels.$get({ query: { q } }));
     },
     enabled: q.trim() !== '',
@@ -71,6 +81,31 @@ export function useThreadSearch(threadSearch: ThreadSearch) {
     enabled: threadSearch.q.trim() !== '',
     placeholderData: keepPreviousData,
   });
+}
+
+/**
+ * The search dialog's first few Threads, from every Channel or only `channelId`'s. Waits
+ * until something is typed, then for typing to pause.
+ */
+export function useQuickThreadSearch(q: string, channelId: string | undefined) {
+  return useQuery({
+    queryKey: searchKeys.quickThreads(q, channelId),
+    queryFn: async ({ signal }): Promise<ThreadSearchPage> => {
+      await delay(QUICK_PAUSE_MS, signal);
+      return call(() =>
+        search.threads.$get({
+          query: { q, limit: String(QUICK_THREADS), ...(channelId ? { in: channelId } : {}) },
+        }),
+      );
+    },
+    enabled: q.trim() !== '',
+    placeholderData: keepPreviousData,
+  });
+}
+
+/** The search dialog's first few Channels. */
+export function useQuickChannelSearch(q: string) {
+  return useChannelSearch(q, QUICK_PAUSE_MS);
 }
 
 /** Everyone the From chip offers, Deactivated included. */

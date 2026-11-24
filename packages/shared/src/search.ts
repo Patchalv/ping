@@ -2,7 +2,7 @@
 // server answers with (product.md › Search, screens.md › Search).
 import { z } from 'zod';
 import type { ChannelVisibility } from './channel';
-import type { ThreadAuthor } from './thread';
+import { THREAD_PAGE_SIZE, type ThreadAuthor } from './thread';
 
 export const SEARCH_TEXT_MAX = 200;
 
@@ -24,9 +24,20 @@ const staffId = z.uuid({ error: 'That isn’t a Staff member.' });
 /** GET /api/search/channels: Channels whose name or description match. */
 export const searchChannelsQuery = z.object({ q: searchText });
 
+const pageSizeMessage = `Ask for 1 to ${THREAD_PAGE_SIZE} Threads.`;
+
+/** How many Threads a page holds: the search dialog asks for a few, the search screen for 50. */
+const searchPageSize = z.coerce
+  .number({ error: pageSizeMessage })
+  .int(pageSizeMessage)
+  .min(1, pageSizeMessage)
+  .max(THREAD_PAGE_SIZE, pageSizeMessage)
+  .default(THREAD_PAGE_SIZE);
+
 /**
  * GET /api/search/threads: Threads whose title, description or a Thread Response match,
- * narrowed by the chips. `after` is the last Thread of the page before, for Load more.
+ * narrowed by the chips. `after` is the last Thread of the page before, for Load more;
+ * `limit` is the page's size.
  */
 export const searchThreadsQuery = z.object({
   q: searchText,
@@ -34,6 +45,7 @@ export const searchThreadsQuery = z.object({
   from: staffId.optional(),
   status: searchStatus.default('all'),
   after: z.uuid({ error: 'That isn’t a Thread.' }).optional(),
+  limit: searchPageSize,
 });
 
 export type SearchThreadsQuery = z.infer<typeof searchThreadsQuery>;

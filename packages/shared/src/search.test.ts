@@ -8,8 +8,18 @@ const messageOf = (result: { success: boolean; error?: { issues: { message: stri
   result.error?.issues[0]?.message;
 
 describe('searchThreadsQuery', () => {
-  it('trims the text and defaults Status to All, with no In or From', () => {
-    expect(searchThreadsQuery.parse({ q: '  rota ' })).toEqual({ q: 'rota', status: 'all' });
+  it('trims the text and defaults Status to All and the page to 50, with no In or From', () => {
+    expect(searchThreadsQuery.parse({ q: '  rota ' })).toEqual({
+      q: 'rota',
+      status: 'all',
+      limit: 50,
+    });
+  });
+
+  it('takes a smaller page, as the query string sends it', () => {
+    expect(searchThreadsQuery.parse({ q: 'rota', limit: '5' }).limit).toBe(5);
+    expect(searchThreadsQuery.parse({ q: 'rota', limit: '1' }).limit).toBe(1);
+    expect(searchThreadsQuery.parse({ q: 'rota', limit: '50' }).limit).toBe(50);
   });
 
   it('takes In, From, Status and a page cursor', () => {
@@ -21,7 +31,14 @@ describe('searchThreadsQuery', () => {
         status: 'resolved',
         after: CHANNEL,
       }),
-    ).toEqual({ q: 'rota', in: CHANNEL, from: STAFF, status: 'resolved', after: CHANNEL });
+    ).toEqual({
+      q: 'rota',
+      in: CHANNEL,
+      from: STAFF,
+      status: 'resolved',
+      after: CHANNEL,
+      limit: 50,
+    });
   });
 
   it.each([
@@ -31,6 +48,10 @@ describe('searchThreadsQuery', () => {
     ['an unknown Status', { q: 'rota', status: 'closed' }, 'Choose All, Open or Resolved.'],
     ['a bad Channel', { q: 'rota', in: 'nope' }, 'That isn’t a Channel.'],
     ['a bad person', { q: 'rota', from: 'nope' }, 'That isn’t a Staff member.'],
+    ['a page of none', { q: 'rota', limit: '0' }, 'Ask for 1 to 50 Threads.'],
+    ['a page too big', { q: 'rota', limit: '51' }, 'Ask for 1 to 50 Threads.'],
+    ['a page in parts', { q: 'rota', limit: '2.5' }, 'Ask for 1 to 50 Threads.'],
+    ['a page that isn’t a number', { q: 'rota', limit: 'abc' }, 'Ask for 1 to 50 Threads.'],
   ])('refuses %s with a plain message', (_name, query, message) => {
     expect(messageOf(searchThreadsQuery.safeParse(query))).toBe(message);
   });
