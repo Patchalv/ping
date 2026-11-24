@@ -20,7 +20,7 @@ export type SavedPage = {
 
 /**
  * How many Threads the viewer has Saved, in all: the count on the home screen. A separate
- * answer because the Saved list pages at 50.
+ * answer because the Saved list comes a page at a time (THREAD_PAGE_SIZE).
  */
 export type SavedSummary = {
   count: number;

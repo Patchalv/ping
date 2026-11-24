@@ -43,8 +43,8 @@ export function savedRoutes({ auth, database }: Options) {
         return c.json(page);
       })
 
-      // The Saved count on the home screen. The list pages at 50, so it can't be counted
-      // from that.
+      // The Saved count on the home screen. The list comes a page at a time, so it can't be
+      // counted from that.
       .get('/summary', signedIn(auth), async (c) => {
         const summary = await withActorTx(c, (ctx) => {
           requireCanListOwnSaved(ctx.actor);

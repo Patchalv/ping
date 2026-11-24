@@ -14,13 +14,15 @@ describe('liveInvalidations', () => {
     ]);
   });
 
-  it('refetches the Channel everywhere, its Threads, and Ping counts, when it changes', () => {
-    // Joining, leaving and archiving change what the viewer may do on its Threads.
+  it('refetches the Channel everywhere, its Threads, and Ping and Saved counts, when it changes', () => {
+    // Joining, leaving and archiving change what the viewer may do on its Threads. Losing
+    // access to a Private channel drops its Pings and Saved Threads.
     expect(liveInvalidations({ kind: 'channel.changed', channelId })).toEqual([
       ['channels', 'detail', channelId],
       ['channels', 'mine'],
       ['channels', 'browse'],
       ['pings'],
+      ['saved'],
       ['threads', 'list', channelId],
       ['threads', 'detail', channelId],
       ['threads', 'responses', channelId],

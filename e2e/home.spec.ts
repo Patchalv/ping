@@ -12,8 +12,11 @@ test('the logo returns to Home, which counts Pings and Saved Threads on a laptop
   await expect(page).toHaveURL('/');
 
   // On a phone, Home is the sidebar; the counts are the laptop's main area.
-  if (test.info().project.name === 'phone') return;
   const home = page.getByRole('main');
+  if (test.info().project.name === 'phone') {
+    await expect(home).toBeHidden();
+    return;
+  }
   await expect(home.getByRole('link', { name: /Pings$/ })).toHaveAttribute('href', '/pings');
   const saved = home.getByRole('link', { name: /Saved$/ });
   await expect(saved).toHaveAttribute('href', '/saved');

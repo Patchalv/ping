@@ -13,13 +13,15 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
     case 'channel.created':
       return [channelKeys.mine(), channelKeys.browse()];
     case 'channel.changed':
-      // Includes losing access, which drops the Channel's Pings. Joining, leaving and
-      // archiving change what the viewer may do on its Threads (react, respond, edit).
+      // Includes losing access, which drops the Channel's Pings and Saved Threads. Joining,
+      // leaving and archiving change what the viewer may do on its Threads (react, respond,
+      // edit).
       return [
         channelKeys.detail(event.channelId),
         channelKeys.mine(),
         channelKeys.browse(),
         pingKeys.all,
+        savedKeys.all,
         threadKeys.list(event.channelId),
         threadKeys.detailsIn(event.channelId),
         threadKeys.responsesIn(event.channelId),
