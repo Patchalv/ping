@@ -115,8 +115,10 @@ function readStorage(env: NodeJS.ProcessEnv, isProduction: boolean): StorageSett
     );
   }
   if (endpoint && bucket && accessKeyId && secretAccessKey) {
-    const { protocol } = new URL(endpoint);
-    if (isProduction && protocol !== 'https:') {
+    // Plain http only to this machine: the Playwright suite runs the production server
+    // against the local MinIO.
+    const { protocol, hostname } = new URL(endpoint);
+    if (isProduction && protocol !== 'https:' && hostname !== 'localhost') {
       throw new Error('STORAGE_ENDPOINT must use https when NODE_ENV=production');
     }
     return { endpoint, bucket, accessKeyId, secretAccessKey, region: env.STORAGE_REGION || 'auto' };

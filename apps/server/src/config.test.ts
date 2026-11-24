@@ -169,9 +169,13 @@ describe('readConfig › storage', () => {
     );
   });
 
-  it('refuses a plain-http endpoint in production', () => {
+  it('refuses a plain-http endpoint in production, except on this machine', () => {
     expect(() =>
       readConfig({ ...production, ...r2, STORAGE_ENDPOINT: 'http://minio.internal:9000' }),
     ).toThrow('https');
+    expect(
+      readConfig({ ...production, ...r2, STORAGE_ENDPOINT: 'http://localhost:9000' }).storage
+        ?.endpoint,
+    ).toBe('http://localhost:9000');
   });
 });

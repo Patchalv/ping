@@ -28,6 +28,8 @@ export type RowContext = {
   response: { id: string } | undefined;
   /** The row's Sidebar Section, when `section` asks for one. */
   section: { id: string } | undefined;
+  /** The row's Attachment, when `attachment` asks for one. */
+  attachment: { id: string } | undefined;
 };
 
 export type MatrixRow = {
@@ -57,8 +59,21 @@ export type MatrixRow = {
   response?: true;
   /** A Sidebar Section: the actor's own, or another Staff member's. */
   section?: 'own' | 'other';
-  /** Builds the request. The harness adds the actor's cookie and the app's origin. */
-  request(ctx: RowContext): { path: string; method?: string; body?: unknown };
+  /**
+   * An Attachment: the actor's own pending one, another Staff member's pending one, or one
+   * attached to the row's Thread (which needs `thread`).
+   */
+  attachment?: 'ownPending' | 'otherPending' | 'onThread';
+  /**
+   * Builds the request. The harness adds the actor's cookie and the app's origin. A `form`
+   * goes as multipart form data with one file, in place of a JSON `body`.
+   */
+  request(ctx: RowContext): {
+    path: string;
+    method?: string;
+    body?: unknown;
+    form?: { filename: string; content: string };
+  };
   expect: { allow: true; status: number } | { allow: false; status: 403 | 404 | 401 };
 };
 
@@ -1267,6 +1282,112 @@ export const MATRIX: MatrixRow[] = [
       },
     ),
   ),
+
+  // Add an Attachment while writing: whoever may post or edit there, so Channel members,
+  // and company Admins in a Channel they can read. Nobody in an Archived channel.
+  ...(['public', 'private', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/attachments',
+        action: `add an Attachment while writing in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/attachments`,
+          method: 'POST',
+          form: { filename: 'rota.csv', content: 'name,room\nMarta,2\n' },
+        }),
+      },
+      membershipChange(channel, 201, (actor) => CHANNEL_ROLE[actor] !== null || ADMINS.has(actor)),
+    ),
+  ),
+
+  // Open an Attachment: anyone who can read its Thread, Archived channels included. A
+  // Private channel's answers 404 to non-members, Admins included.
+  ...(['public', 'private', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/attachments/:attachmentId',
+        action: `open an Attachment on a Thread in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        attachment: 'onThread',
+        request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}` }),
+      },
+      (actor) =>
+        channel === 'private' && !CHANNEL_ROLE[actor]
+          ? { allow: false, status: 404 }
+          : { allow: true, status: 302 },
+    ),
+  ),
+  // A pending Attachment: its uploader only. Anyone else's reads as missing.
+  ...rowsFor(
+    {
+      route: 'GET /api/attachments/:attachmentId',
+      action: 'open your own pending Attachment',
+      channel: null,
+      attachment: 'ownPending',
+      request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}` }),
+    },
+    allowed(302),
+  ),
+  ...rowsFor(
+    {
+      route: 'GET /api/attachments/:attachmentId',
+      action: 'open someone else’s pending Attachment',
+      channel: null,
+      attachment: 'otherPending',
+      request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}` }),
+    },
+    () => ({ allow: false, status: 404 }),
+  ),
+
+  // Saving a post attaches the actor's own pending Attachments. Attaching someone else's
+  // is refused, even where the actor may post.
+  ...(['public', 'private'] as const).flatMap((channel) => [
+    ...rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads',
+        action: `start a Thread with your pending Attachment in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        attachment: 'ownPending',
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads`,
+          method: 'POST',
+          body: { title: 'Rota', body: doc('Attached.'), attachmentIds: [ctx.attachment?.id] },
+        }),
+      },
+      membershipChange(channel, 201, (actor) => CHANNEL_ROLE[actor] !== null),
+    ),
+    ...rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads',
+        action: `start a Thread with someone else’s pending Attachment in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        attachment: 'otherPending',
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads`,
+          method: 'POST',
+          body: { title: 'Rota', body: doc('Not mine.'), attachmentIds: [ctx.attachment?.id] },
+        }),
+      },
+      membershipChange(channel, 201, () => false),
+    ),
+    ...rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads/:threadId/responses',
+        action: `send a Thread Response with someone else’s pending Attachment in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        attachment: 'otherPending',
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses`,
+          method: 'POST',
+          body: { body: doc('Not mine.'), attachmentIds: [ctx.attachment?.id] },
+        }),
+      },
+      membershipChange(channel, 201, () => false),
+    ),
+  ]),
 ];
 
 /** Every route the matrix covers, for the route-coverage guard. */

@@ -44,7 +44,7 @@ describe('Attachments', () => {
         headers: jsonHeaders({ cookie }),
         ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
       });
-    const add = (channelId: string, name: string, content: Uint8Array | string) => {
+    const add = (channelId: string, name: string, content: Uint8Array<ArrayBuffer> | string) => {
       const form = new FormData();
       form.set('file', new File([content], name));
       return testApp.app.request(`/api/channels/${channelId}/attachments`, {

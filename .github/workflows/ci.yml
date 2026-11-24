@@ -66,6 +66,14 @@ jobs:
         ports:
           - 6433:6433
     steps:
+      # MinIO stands in for R2, as in compose.yaml. A service container can't be given
+      # MinIO's `server` command, so it starts here, detached, and is ready long before the
+      # integration tests (which create its bucket) need it.
+      - name: Start MinIO
+        run: >-
+          docker run -d --name minio -p 9000:9000
+          -e MINIO_ROOT_USER=ping -e MINIO_ROOT_PASSWORD=ping-minio-local
+          pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
       - uses: actions/setup-node@v7

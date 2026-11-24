@@ -19,6 +19,9 @@ export const PUBLISH_EXEMPT: readonly string[] = [
   // Only emails a link: the email changes, and publishes, when the link is opened
   // (POST /api/email-change/confirm).
   'POST /api/staff/:staffId/email',
+  // Adds a pending Attachment, which only its uploader can see, so no other screen has
+  // anything to hear. Saving the post attaches it, and that route publishes.
+  'POST /api/channels/:channelId/attachments',
 ];
 
 const MUTATING = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
