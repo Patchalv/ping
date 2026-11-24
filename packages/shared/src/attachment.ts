@@ -36,6 +36,9 @@ export const ALLOWED_ATTACHMENT_TYPES: Readonly<Record<string, AllowedType>> = {
   csv: { contentType: 'text/csv', isImage: false },
 };
 
+/** Whether a stored type is one of the images, which open inline and show as previews. */
+export const isImageType = (contentType: string) => contentType.startsWith('image/');
+
 /** The file picker's `accept` list: every allowed extension. */
 export const ATTACHMENT_ACCEPT = Object.keys(ALLOWED_ATTACHMENT_TYPES)
   .map((extension) => `.${extension}`)

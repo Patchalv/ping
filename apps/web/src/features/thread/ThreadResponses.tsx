@@ -10,6 +10,7 @@ import {
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
 import { AttachmentList } from '#/components/attachments/AttachmentList';
+import { STILL_ATTACHING, useAttachingCount } from '#/components/attachments/AttachmentPicker';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { Button } from '#/components/ui/button';
@@ -26,7 +27,6 @@ import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadResponseDialog } from './DeleteDialogs';
 import { Reactions } from './Reactions';
-import { STILL_ATTACHING } from './StartThreadDialog';
 
 /** A Thread's Thread Responses, oldest first, with deleted ones as placeholders. */
 export function ThreadResponseList({
@@ -144,8 +144,11 @@ function EditThreadResponseForm({
 }) {
   const edit = useEditThreadResponse(channelId, response.threadId, response.id);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
+  const addAttachment = useAddAttachment(channelId);
+  const attaching = useAttachingCount();
   const [formError, setFormError] = useState<string | null>(null);
-  const defaultValues: ThreadResponseBody = { body };
+  // An edit adds Attachments to those already there.
+  const defaultValues: ThreadResponseBody = { body, attachmentIds: [] };
   const form = useAppForm({
     formId: `edit-thread-response-${response.id}`,
     defaultValues,
@@ -153,6 +156,10 @@ function EditThreadResponseForm({
     validators: { onDynamic: threadResponseBody },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
+      if (attaching.isAttaching()) {
+        setFormError(STILL_ATTACHING);
+        return;
+      }
       try {
         await edit.mutateAsync(threadResponseBody.parse(value));
         onDone();
@@ -171,6 +178,11 @@ function EditThreadResponseForm({
               label="Edit Thread Response"
               mentionCandidates={mentionCandidates}
             />
+          )}
+        </form.AppField>
+        <form.AppField name="attachmentIds">
+          {(field) => (
+            <field.AttachmentsField add={addAttachment} onAddingChange={attaching.onAddingChange} />
           )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}
@@ -233,8 +245,8 @@ function ComposerForm({
   const send = useSendThreadResponse(channelId, threadId);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   const addAttachment = useAddAttachment(channelId);
-  // Files still being sent; Attachments aren't kept in the draft.
-  const adding = useRef(0);
+  // Attachments aren't kept in the draft.
+  const attaching = useAttachingCount();
   const [formError, setFormError] = useState<string | null>(null);
   // Restored once, when the composer opens.
   const [defaultValues] = useState<ThreadResponseBody>(() => ({ body: restoreDraft(draft) }));
@@ -256,7 +268,7 @@ function ComposerForm({
     },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
-      if (adding.current > 0) {
+      if (attaching.isAttaching()) {
         setFormError(STILL_ATTACHING);
         return;
       }
@@ -281,12 +293,7 @@ function ComposerForm({
         </form.AppField>
         <form.AppField name="attachmentIds">
           {(field) => (
-            <field.AttachmentsField
-              add={addAttachment}
-              onAddingChange={(count) => {
-                adding.current = count;
-              }}
-            />
+            <field.AttachmentsField add={addAttachment} onAddingChange={attaching.onAddingChange} />
           )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}

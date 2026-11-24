@@ -27,9 +27,19 @@ export function canAddAttachment(actor: Actor, channel: ThreadChannelAccess): De
   return allow();
 }
 
-/** Anyone who can read the Thread, including in Archived channels and Resolved threads. */
-export function canDownloadAttachment(actor: Actor, channel: ThreadChannelAccess): Decision {
-  return canReadChannel(actor, channel);
+/**
+ * An Attachment as opening it needs: its Channel once attached, or null while pending, and
+ * who added it.
+ */
+export type DownloadAccess = { channel: ThreadChannelAccess | null; uploaderId: string };
+
+/**
+ * Attached: anyone who can read the Thread, including in Archived channels and Resolved
+ * threads. Pending: only its uploader; to anyone else it doesn't exist.
+ */
+export function canDownloadAttachment(actor: Actor, attachment: DownloadAccess): Decision {
+  if (attachment.channel) return canReadChannel(actor, attachment.channel);
+  return attachment.uploaderId === actor.staffId ? allow() : deny({ kind: 'hidden' });
 }
 
 /**
@@ -53,8 +63,8 @@ export function requireCanAddAttachment(actor: Actor, channel: ThreadChannelAcce
   requireAllowed(canAddAttachment(actor, channel));
 }
 
-export function requireCanDownloadAttachment(actor: Actor, channel: ThreadChannelAccess): void {
-  requireAllowed(canDownloadAttachment(actor, channel));
+export function requireCanDownloadAttachment(actor: Actor, attachment: DownloadAccess): void {
+  requireAllowed(canDownloadAttachment(actor, attachment));
 }
 
 export function requireCanAttach(request: AttachRequest): void {

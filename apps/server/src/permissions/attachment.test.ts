@@ -52,18 +52,38 @@ describe('canAddAttachment', () => {
 });
 
 describe('canDownloadAttachment', () => {
+  const attachedIn = (access: ThreadChannelAccess) => ({
+    channel: access,
+    uploaderId: '00000000-0000-4000-8000-0000000000b1',
+  });
+
   it('allows anyone who can read the Thread, Archived channels included', () => {
-    expect(canDownloadAttachment(member, channel({ isMember: false }))).toEqual(allow());
-    expect(canDownloadAttachment(member, channel({ isArchived: true }))).toEqual(allow());
-    expect(canDownloadAttachment(member, channel({ visibility: 'private' }))).toEqual(allow());
+    expect(canDownloadAttachment(member, attachedIn(channel({ isMember: false })))).toEqual(
+      allow(),
+    );
+    expect(canDownloadAttachment(member, attachedIn(channel({ isArchived: true })))).toEqual(
+      allow(),
+    );
+    expect(canDownloadAttachment(member, attachedIn(channel({ visibility: 'private' })))).toEqual(
+      allow(),
+    );
   });
 
   it('hides a Private channel’s Attachments from non-members, Admins included', () => {
     for (const actor of [member, admin]) {
       expect(
-        canDownloadAttachment(actor, channel({ visibility: 'private', isMember: false })),
+        canDownloadAttachment(
+          actor,
+          attachedIn(channel({ visibility: 'private', isMember: false })),
+        ),
       ).toEqual(deny({ kind: 'hidden' }));
     }
+  });
+
+  it('allows a pending Attachment to its uploader only, hiding it from everyone else', () => {
+    const pending = { channel: null, uploaderId: member.staffId };
+    expect(canDownloadAttachment(member, pending)).toEqual(allow());
+    expect(canDownloadAttachment(admin, pending)).toEqual(deny({ kind: 'hidden' }));
   });
 });
 

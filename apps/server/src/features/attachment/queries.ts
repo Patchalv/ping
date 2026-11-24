@@ -1,10 +1,11 @@
 // The Attachment feature's queries. Each takes the request's ActorTx from withActorTx, so
 // row-level security applies to every one: a pending Attachment is visible only to its
 // uploader, and an attached one only to those who can read its Channel.
-import type { AttachmentView } from '@ping/shared';
+import { type AttachmentView, isImageType } from '@ping/shared';
 import { and, eq, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import type { DownloadAccess } from '../../permissions/attachment';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 
 const { attachment, channel, channelMember, threadResponse } = schema;
@@ -53,17 +54,15 @@ export async function insertPendingAttachment(
     filename: file.filename,
     contentType: file.contentType,
     sizeBytes: file.sizeBytes,
-    isImage: file.contentType.startsWith('image/'),
+    isImage: isImageType(file.contentType),
   };
 }
 
-/** What a download needs: the stored file, and the Channel it's in once attached. */
-export type DownloadTarget = {
+/** What a download needs: the stored file, and who may open it. */
+export type DownloadTarget = DownloadAccess & {
   objectKey: string;
   filename: string;
   contentType: string;
-  /** Null while pending, when only its uploader can see it at all. */
-  channel: ThreadChannelAccess | null;
 };
 
 /**
@@ -80,6 +79,7 @@ export async function findDownloadTarget(
       filename: attachment.originalFilename,
       contentType: attachment.contentType,
       channelId: attachment.channelId,
+      uploaderId: attachment.uploaderId,
       visibility: channel.visibility,
       isMember: sql<boolean>`${channelMember.staffId} is not null`,
       isArchived: sql<boolean>`${channel.archivedAt} is not null`,
@@ -99,6 +99,7 @@ export async function findDownloadTarget(
     objectKey: row.objectKey,
     filename: row.filename,
     contentType: row.contentType,
+    uploaderId: row.uploaderId,
   };
   if (row.channelId === null) return { ...target, channel: null };
   // An attached Attachment's Channel is one the actor can read, or the row was hidden.

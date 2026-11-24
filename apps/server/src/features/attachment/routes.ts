@@ -13,30 +13,27 @@ import {
   addAttachmentForm,
   attachmentParams,
   channelParams,
-  shortenFilename,
+  isImageType,
 } from '@ping/shared';
 import { Hono } from 'hono';
 import { bodyLimit } from 'hono/body-limit';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
-import { NotFoundError, ServiceUnavailableError, ValidationError } from '../../lib/errors';
+import { NotFoundError, ServiceUnavailableError } from '../../lib/errors';
 import type { Storage } from '../../lib/storage/storage';
 import { validate } from '../../lib/validate';
 import {
   requireCanAddAttachment,
   requireCanDownloadAttachment,
 } from '../../permissions/attachment';
-import { detectAttachmentType } from './file-type';
+import { fileIssue, prepareFile } from './prepare-file';
 import { findAttachmentChannel, findDownloadTarget, insertPendingAttachment } from './queries';
-import { DamagedImageError, stripImageMetadata } from './strip-metadata';
 
 type Options = { auth: Auth; database: Database; storage?: Storage };
 
 /** A multipart body's own overhead (boundaries, headers) on top of the file. */
 const MULTIPART_OVERHEAD = 64 * 1024;
-
-const fileIssue = (message: string) => new ValidationError(message, [{ path: 'file', message }]);
 
 /** Storage isn't configured in a deployment until its secrets are set (config.ts). */
 function requireStorage(storage: Storage | undefined): Storage {
@@ -44,25 +41,6 @@ function requireStorage(storage: Storage | undefined): Storage {
     throw new ServiceUnavailableError('Attachments aren’t set up yet. Try again later.');
   }
   return storage;
-}
-
-/**
- * The file as it will be stored: an allowed type, checked by its magic bytes as well as
- * its extension, and with every image's metadata stripped, whatever the browser did.
- */
-function prepareFile(file: { name: string }, content: Uint8Array) {
-  const filename = shortenFilename(file.name);
-  const detected = detectAttachmentType(filename, content);
-  if (!detected.ok) throw fileIssue(detected.message);
-  try {
-    const stripped = stripImageMetadata(content, detected.contentType);
-    return { filename, contentType: detected.contentType, content: stripped };
-  } catch (error) {
-    if (error instanceof DamagedImageError) {
-      throw fileIssue('This image is damaged, so Ping can’t take it. Choose another.');
-    }
-    throw error;
-  }
 }
 
 export function addAttachmentRoutes({ auth, database, storage }: Options) {
@@ -124,12 +102,11 @@ export function attachmentRoutes({ auth, database, storage }: Options) {
         const link = await withActorTx(c, async (ctx) => {
           const target = await findDownloadTarget(ctx, attachmentId);
           if (!target) throw new NotFoundError();
-          // Pending: row-level security already limited it to its uploader.
-          if (target.channel) requireCanDownloadAttachment(ctx.actor, target.channel);
+          requireCanDownloadAttachment(ctx.actor, target);
           return requireStorage(storage).signedDownloadUrl(target.objectKey, {
             filename: target.filename,
             contentType: target.contentType,
-            inline: target.contentType.startsWith('image/'),
+            inline: isImageType(target.contentType),
           });
         });
         c.header('X-Content-Type-Options', 'nosniff');

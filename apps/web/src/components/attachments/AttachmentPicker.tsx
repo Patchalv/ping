@@ -18,6 +18,23 @@ import { ApiError } from '#/lib/api-client';
 import { cn } from '#/lib/utils';
 import { prepareImage } from './resize-image';
 
+/** Shown when the Staff member saves while files are still being sent. */
+export const STILL_ATTACHING = 'Wait for your files to finish attaching, then try again.';
+
+/**
+ * Tracks how many files a composer is still sending, so its onSubmit can wait for them.
+ * Pass `onAddingChange` to the AttachmentsField.
+ */
+export function useAttachingCount() {
+  const adding = useRef(0);
+  return {
+    onAddingChange: (count: number) => {
+      adding.current = count;
+    },
+    isAttaching: () => adding.current > 0,
+  };
+}
+
 /** Adds one file, reporting the fraction sent; the feature's api.ts provides it. */
 export type AddAttachment = (
   file: File,

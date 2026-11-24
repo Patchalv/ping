@@ -71,16 +71,16 @@ test('an Attachment round trip: attach while writing, then open it as another me
   await expect(images.getByRole('img')).toHaveCount(4);
   for (const image of await images.getByRole('img').all()) {
     await expect
-      .poll(() => image.evaluate((element: HTMLImageElement) => element.naturalWidth))
+      .poll(() => image.evaluate((element) => (element as { naturalWidth?: number }).naturalWidth))
       .toBeGreaterThan(0);
   }
 
   // What storage serves carries none of the metadata.
-  const links = await images
-    .getByRole('link')
-    .evaluateAll((anchors) => anchors.map((anchor) => (anchor as HTMLAnchorElement).href));
+  const links = await Promise.all(
+    (await images.getByRole('link').all()).map((link) => link.getAttribute('href')),
+  );
   for (const link of links) {
-    const response = await laura.request.get(link);
+    const response = await laura.request.get(link ?? '');
     expect(response.status()).toBe(200);
     expect(response.headers()['content-disposition']).toMatch(/^inline;/);
     const body = await response.body();

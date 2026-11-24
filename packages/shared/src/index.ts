@@ -16,6 +16,7 @@ export {
   fileExtension,
   formatFileSize,
   IMAGE_MAX_EDGE,
+  isImageType,
   shortenFilename,
 } from './attachment';
 export {

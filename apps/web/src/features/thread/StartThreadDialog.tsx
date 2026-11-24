@@ -11,6 +11,7 @@ import { revalidateLogic } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { STILL_ATTACHING, useAttachingCount } from '#/components/attachments/AttachmentPicker';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { Button } from '#/components/ui/button';
 import {
@@ -61,9 +62,6 @@ type Draft = { title: string; body: RichTextDoc };
 
 const EMPTY: Draft = { title: '', body: EMPTY_RICH_TEXT };
 
-/** Shown when the Staff member saves while files are still being sent. */
-export const STILL_ATTACHING = 'Wait for your files to finish attaching, then try again.';
-
 /**
  * A saved draft, if it still has the composer's shape and its description passes the
  * allowlist. A damaged or out-of-date one is dropped rather than crashing the editor.
@@ -95,9 +93,9 @@ function StartThreadDialog({
   const start = useStartThread(channelId);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   const addAttachment = useAddAttachment(channelId);
-  // Files still being sent. Attachments aren't kept in the draft: they're pending on the
-  // server, and swept if never posted.
-  const adding = useRef(0);
+  // Attachments aren't kept in the draft: they're pending on the server, and swept if
+  // never posted.
+  const attaching = useAttachingCount();
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
   const staffMemberId = authClient.useSession().data?.user.id;
@@ -122,7 +120,7 @@ function StartThreadDialog({
     },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
-      if (adding.current > 0) {
+      if (attaching.isAttaching()) {
         setFormError(STILL_ATTACHING);
         return;
       }
@@ -165,9 +163,7 @@ function StartThreadDialog({
               {(field) => (
                 <field.AttachmentsField
                   add={addAttachment}
-                  onAddingChange={(count) => {
-                    adding.current = count;
-                  }}
+                  onAddingChange={attaching.onAddingChange}
                 />
               )}
             </form.AppField>

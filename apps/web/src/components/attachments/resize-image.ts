@@ -1,5 +1,5 @@
-// Images are resized in the browser to about 2048 px on the long edge, to keep uploads
-// small (product.md › Attachments). JPEG and WebP are always redrawn: the browser applies
+// Images are resized in the browser to about 2048 px on the long edge, to keep files
+// small to send (product.md › Attachments). JPEG and WebP are always redrawn: the browser applies
 // the photo's rotation as it draws, so the picture stays upright once the server strips
 // the Exif that held it. PNGs are redrawn only when too big. GIFs are left alone, because
 // redrawing one would stop its animation. The server strips metadata either way.
