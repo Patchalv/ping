@@ -90,7 +90,7 @@ export {
   type RichTextListItem,
   type RichTextMark,
 } from './rich-text';
-export { listSavedQuery, type SavedPage } from './saved';
+export { listSavedQuery, type SavedPage, type SavedSummary } from './saved';
 export {
   type ChannelSearchResult,
   type ChannelSearchResults,

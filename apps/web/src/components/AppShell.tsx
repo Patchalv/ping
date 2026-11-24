@@ -98,28 +98,25 @@ export function AppShell() {
   );
 }
 
-/** The dark bar across the top: sidebar toggle, name, search and the avatar. */
+/** The dark bar across the top: sidebar toggle, the logo (a link home), search and the avatar. */
 function TopBar({ children }: { children: ReactNode }) {
   return (
     <header className="flex h-11 items-center gap-2 px-2 text-chrome-foreground md:px-3">
       <SidebarTrigger />
-      <span className="flex items-center gap-1.5 px-1 text-lg font-bold tracking-tight">
-        <PingMark className="size-6" />
-        Ping
+      <span className="flex items-center gap-1.5 px-1">
+        <Link
+          to="/"
+          aria-label="Ping home"
+          className="flex items-center gap-1.5 rounded-md text-lg font-bold tracking-tight outline-none focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          <PingMark className="size-6" />
+          Ping
+        </Link>
         <EnvironmentBadge />
       </span>
       <TopBarSearch />
       {children}
     </header>
-  );
-}
-
-/** The home route's main area. On a phone it's hidden: the sidebar is home. */
-export function HomeNote() {
-  return (
-    <p className="px-6 py-10 text-center text-muted-foreground">
-      Pick a Channel from the sidebar, or create one.
-    </p>
   );
 }
 

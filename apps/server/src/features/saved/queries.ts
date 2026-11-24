@@ -1,7 +1,7 @@
 // The Saved feature's queries. Each takes the request's ActorTx from withActorTx, so
 // row-level security applies to every one: the actor reads and writes only their own Saved
 // Threads, in Channels they can read.
-import { type SavedPage, THREAD_PAGE_SIZE } from '@ping/shared';
+import { type SavedPage, type SavedSummary, THREAD_PAGE_SIZE } from '@ping/shared';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
@@ -106,4 +106,21 @@ export async function listSaved(
     })),
     nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
   };
+}
+
+/**
+ * How many Threads the actor has Saved. It joins what the Saved list joins, so the count
+ * always matches what the list shows when paged to its end.
+ */
+export async function summariseSaved({ tx, actor }: ActorTx): Promise<SavedSummary> {
+  const [row] = await tx
+    .select({ count: sql<number>`count(*)::int` })
+    .from(savedThread)
+    .innerJoin(
+      thread,
+      and(eq(thread.id, savedThread.threadId), eq(thread.channelId, savedThread.channelId)),
+    )
+    .innerJoin(channel, eq(channel.id, thread.channelId))
+    .where(eq(savedThread.staffId, actor.staffId));
+  return { count: row?.count ?? 0 };
 }

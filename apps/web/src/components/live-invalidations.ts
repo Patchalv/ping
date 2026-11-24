@@ -13,20 +13,23 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
     case 'channel.created':
       return [channelKeys.mine(), channelKeys.browse()];
     case 'channel.changed':
-      // Includes losing access, which drops the Channel's Pings. Joining, leaving and
-      // archiving change what the viewer may do on its Threads (react, respond, edit).
+      // Includes losing access, which drops the Channel's Pings and Saved Threads. Joining,
+      // leaving and archiving change what the viewer may do on its Threads (react, respond,
+      // edit).
       return [
         channelKeys.detail(event.channelId),
         channelKeys.mine(),
         channelKeys.browse(),
         pingKeys.all,
+        savedKeys.all,
         threadKeys.list(event.channelId),
         threadKeys.detailsIn(event.channelId),
         threadKeys.responsesIn(event.channelId),
       ];
     case 'membership.changed':
-      // Left or removed: the Channel may now be hidden, wherever it shows.
-      return [channelKeys.all, threadKeys.all, pingKeys.all];
+      // Left or removed: the Channel may now be hidden, wherever it shows. Leaving a Private
+      // channel drops their Saved Threads in it.
+      return [channelKeys.all, threadKeys.all, pingKeys.all, savedKeys.all];
     case 'channel.made_private':
       // Non-members lose it everywhere at once: the sidebar, Browse, its feed, Pings, Saved.
       return [channelKeys.all, threadKeys.all, pingKeys.all, savedKeys.all];
@@ -41,7 +44,13 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
         savedKeys.list(),
       ];
     case 'thread.deleted':
-      return [threadKeys.list(event.channelId), threadKeys.detail(event.channelId, event.threadId)];
+      // Deleting a Thread drops its Pings and every Saved copy of it.
+      return [
+        threadKeys.list(event.channelId),
+        threadKeys.detail(event.channelId, event.threadId),
+        pingKeys.all,
+        savedKeys.all,
+      ];
     case 'thread_response.created':
     case 'thread_response.changed':
       return [

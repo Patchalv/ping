@@ -12,12 +12,13 @@ import {
   type RouterHistory,
   useParams,
 } from '@tanstack/react-router';
-import { AppShell, HomeNote } from './components/AppShell';
+import { AppShell } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { SearchPage } from './features/search/SearchPage';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
+import { HomePage } from './features/thread/HomePage';
 import { useThreadListView } from './features/thread/list-view';
 import { PingsPage } from './features/thread/PingsPage';
 import { SavedPage } from './features/thread/SavedPage';
@@ -31,7 +32,7 @@ const rootRoute = createRootRoute({ component: AppShell, notFoundComponent: Page
 const homeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  component: HomeNote,
+  component: HomePage,
 });
 
 /** A Channel ID that fails the schema is not found. */

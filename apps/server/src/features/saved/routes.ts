@@ -2,7 +2,7 @@
 // validate(), all the work in withActorTx with a require… helper inside it, then publish()
 // after a change commits.
 //
-// - savedRoutes, mounted at /api/saved: the Saved view.
+// - savedRoutes, mounted at /api/saved: the Saved view and its count.
 // - saveRoutes, mounted at /api/channels/:channelId/threads/:threadId/saved: Save a Thread
 //   (which Acknowledges its Ping), or remove it from Saved.
 import { listSavedQuery, threadParams } from '@ping/shared';
@@ -18,22 +18,41 @@ import {
   requireCanRemoveSavedThread,
   requireCanSaveThread,
 } from '../../permissions/attention';
-import { findSavedChannel, listSaved, removeSavedThread, saveThread } from './queries';
+import {
+  findSavedChannel,
+  listSaved,
+  removeSavedThread,
+  saveThread,
+  summariseSaved,
+} from './queries';
 
 type Options = { auth: Auth; database: Database };
 
-/** The Staff member's own Saved list, newest saved first. */
+/** The Staff member's own Saved list, newest saved first, and how many they have. */
 export function savedRoutes({ auth, database }: Options) {
   const withActorTx = createWithActorTx(database);
 
-  return new Hono().get('/', signedIn(auth), validate('query', listSavedQuery), async (c) => {
-    const { after } = c.req.valid('query');
-    const page = await withActorTx(c, (ctx) => {
-      requireCanListOwnSaved(ctx.actor);
-      return listSaved(ctx, after);
-    });
-    return c.json(page);
-  });
+  return (
+    new Hono()
+      .get('/', signedIn(auth), validate('query', listSavedQuery), async (c) => {
+        const { after } = c.req.valid('query');
+        const page = await withActorTx(c, (ctx) => {
+          requireCanListOwnSaved(ctx.actor);
+          return listSaved(ctx, after);
+        });
+        return c.json(page);
+      })
+
+      // The Saved count on the home screen. The list comes a page at a time, so it can't be
+      // counted from that.
+      .get('/summary', signedIn(auth), async (c) => {
+        const summary = await withActorTx(c, (ctx) => {
+          requireCanListOwnSaved(ctx.actor);
+          return summariseSaved(ctx);
+        });
+        return c.json(summary);
+      })
+  );
 }
 
 /** Save a Thread, or remove it from Saved. */
