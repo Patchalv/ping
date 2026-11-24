@@ -2,7 +2,15 @@
 // route in an inset panel (screens.md › Laptop). On a phone the sidebar is the home
 // screen, and any other route replaces it.
 import { Link, Outlet, useNavigate, useRouterState } from '@tanstack/react-router';
-import { BellIcon, CompassIcon, PlusIcon, SearchIcon, UserPenIcon, UsersIcon } from 'lucide-react';
+import {
+  BellIcon,
+  BookmarkIcon,
+  CompassIcon,
+  PlusIcon,
+  SearchIcon,
+  UserPenIcon,
+  UsersIcon,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Button } from '#/components/ui/button';
 import { DropdownMenuItem, DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
@@ -167,6 +175,14 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
                     <span className="sr-only"> Threads with Pings</span>
                   </span>
                 ) : null}
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+            <SidebarMenuItem>
+              <SidebarMenuButton
+                render={<Link to="/saved" activeProps={{ 'aria-current': 'page' }} />}
+              >
+                <BookmarkIcon aria-hidden="true" />
+                <span>Saved</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>

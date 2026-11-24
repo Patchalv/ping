@@ -23,6 +23,10 @@
     {
       "match": "migrationsFolder",
       "reason": "Drizzle's migrator option name (drizzle-orm/node-postgres/migrator), not Ping vocabulary."
+    },
+    {
+      "match": "BookmarkIcon",
+      "reason": "lucide-react's name for the icon the Save control shows (screens.md uses 🔖), not Ping vocabulary: the UI and code say Save and Saved."
     }
   ]
 }

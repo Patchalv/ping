@@ -11,6 +11,7 @@ import { cn } from '#/lib/utils';
 import { useMarkRead, useThreads } from './api';
 import { Byline } from './Byline';
 import { Reactions } from './Reactions';
+import { SaveButton } from './SaveButton';
 
 /**
  * The Channel's feed: Thread rows as the Thread list controls choose, 50 at a time
@@ -107,7 +108,7 @@ export function ThreadRow({
 }: {
   thread: ThreadRowData;
   open: boolean;
-  /** Shown above the author in the Pings view, where rows come from many Channels. */
+  /** Shown above the author in the Pings and Saved views, where rows come from many Channels. */
   channelName?: string;
 }) {
   const markRead = useMarkRead();
@@ -161,20 +162,23 @@ export function ThreadRow({
           canReact={thread.canReact}
           className="relative z-10 mt-0"
         />
-        {thread.pingCount > 0 ? (
-          // Acknowledge: on a phone the button sits under the row, full width.
-          <Button
-            variant="outline"
-            size="sm"
-            className="relative z-10 max-md:w-full md:ml-auto"
-            aria-label={`Mark ${thread.title} read`}
-            disabled={markRead.isPending}
-            onClick={() => markRead.mutate({ channelId: thread.channelId, threadId: thread.id })}
-          >
-            <CheckIcon aria-hidden="true" />
-            <span className="md:sr-only">Mark read</span>
-          </Button>
-        ) : null}
+        <div className="relative z-10 flex items-center gap-2 max-md:w-full md:ml-auto">
+          <SaveButton thread={thread} className="max-md:-ml-2 md:[&>span]:sr-only" />
+          {thread.pingCount > 0 ? (
+            // Acknowledge: on a phone the button sits under the row, full width.
+            <Button
+              variant="outline"
+              size="sm"
+              className="max-md:flex-1"
+              aria-label={`Mark ${thread.title} read`}
+              disabled={markRead.isPending}
+              onClick={() => markRead.mutate({ channelId: thread.channelId, threadId: thread.id })}
+            >
+              <CheckIcon aria-hidden="true" />
+              <span className="md:sr-only">Mark read</span>
+            </Button>
+          ) : null}
+        </div>
       </div>
     </div>
   );

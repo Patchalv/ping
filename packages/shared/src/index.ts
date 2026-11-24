@@ -70,6 +70,7 @@ export {
   type RichTextListItem,
   type RichTextMark,
 } from './rich-text';
+export { listSavedQuery, type SavedPage } from './saved';
 export {
   type CreateSectionBody,
   createSectionBody,

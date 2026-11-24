@@ -15,7 +15,7 @@ CREATE UNIQUE INDEX "mention_thread_staff_unique" ON "mention" USING btree ("thr
 CREATE UNIQUE INDEX "mention_thread_response_staff_unique" ON "mention" USING btree ("thread_response_id","staff_id") WHERE "mention"."thread_response_id" is not null;--> statement-breakpoint
 CREATE INDEX "mention_staff_id_idx" ON "mention" USING btree ("staff_id");--> statement-breakpoint
 
--- Mentions (#49). Hand-written after the generated DDL, like 0007 to 0010.
+-- Mentions (#49). Hand-written after the generated DDL, like 0007 to 0013.
 --
 -- Row-level security: the visibility rule, FOR ALL, with no Admin exception, the same as
 -- thread's. Two restrictive policies narrow writes. A Mention is written, and removed, only
@@ -72,21 +72,22 @@ CREATE POLICY mention_insert_readable_staff ON "mention" AS RESTRICTIVE FOR INSE
   );--> statement-breakpoint
 
 -- The Ping fan-out now covers Mentions (product.md › Who gets a Ping). A redefinition of
--- 0010's function; grants and the pinned search_path carry over.
+-- 0013's function; grants and the pinned search_path carry over.
 --
 -- It Pings the Mention rows of the post created in this very transaction: the people this
 -- save newly Mentioned, as the server rebuilt the rows from the body. A Mention Pings
--- whatever the person's mutes, so it joins the recipients with UNION after any member
--- filtering, and someone who is both a member and Mentioned gets one Ping, not two. It
--- Pings only Mentioned people who can still read the Thread: active, joined, and a member
--- if the Channel is Private.
+-- whatever the person's mutes, so its branch of the UNION sits outside the mute filter,
+-- and someone who is a member, has Saved the Thread and is Mentioned still gets one Ping,
+-- not three. It Pings only Mentioned people who can still read the Thread: active, joined,
+-- and a member if the Channel is Private.
 --
--- A new Thread or Thread Response (by the actor, created now, in a Channel they're a member
--- of) Pings every other active member plus the newly Mentioned. An edit (by the actor,
--- edited now, in a Channel they can read; a company Admin may edit where they aren't a
--- member) Pings only the newly Mentioned: edits Ping nobody else. Its arguments still can't
--- steer it at anyone: the recipients come from the Channel's members and from Mention rows
--- that row-level security let the actor write.
+-- A new Thread or Thread Response (by the actor, created now, in a Channel they're a
+-- member of) Pings as 0013 did (other members, mutes and Saved as there) plus the newly
+-- Mentioned. An edit (by the actor, edited now, in a Channel they can read; a company Admin
+-- may edit where they aren't a member) Pings only the newly Mentioned: edits Ping no
+-- members and no one who Saved the Thread. Its arguments still can't steer it at anyone:
+-- the recipients come from the Channel's members, Saved Threads and Mention rows that
+-- row-level security let the actor write.
 CREATE OR REPLACE FUNCTION public.fan_out_pings(target_thread_id uuid, target_response_id uuid DEFAULT NULL)
   RETURNS integer
   LANGUAGE plpgsql VOLATILE SECURITY DEFINER
@@ -139,10 +140,35 @@ CREATE OR REPLACE FUNCTION public.fan_out_pings(target_thread_id uuid, target_re
     INSERT INTO public.ping (staff_id, thread_id, channel_id)
       SELECT recipient.staff_id, target_thread_id, target_channel
         FROM (
+          -- New posts: the Channel's members, less those who muted it for a Thread Response.
           SELECT m.staff_id
             FROM public.channel_member m
-           WHERE is_new AND m.channel_id = target_channel
+           WHERE is_new
+             AND m.channel_id = target_channel
+             AND (
+               target_response_id IS NULL
+               OR NOT EXISTS (
+                 SELECT 1 FROM public.mute u
+                  WHERE u.staff_id = m.staff_id AND u.channel_id = target_channel
+                    AND (u.thread_id IS NULL OR u.thread_id = target_thread_id)
+               )
+             )
           UNION
+          -- New Thread Responses: whoever Saved the Thread and can still read it.
+          SELECT st.staff_id
+            FROM public.saved_thread st
+           WHERE is_new
+             AND target_response_id IS NOT NULL
+             AND st.thread_id = target_thread_id
+             AND (
+               target_public
+               OR EXISTS (
+                 SELECT 1 FROM public.channel_member m
+                  WHERE m.channel_id = target_channel AND m.staff_id = st.staff_id
+               )
+             )
+          UNION
+          -- New posts and edits: the newly Mentioned, mutes ignored.
           SELECT n.staff_id
             FROM public.mention n
            WHERE (

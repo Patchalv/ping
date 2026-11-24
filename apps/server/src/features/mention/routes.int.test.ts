@@ -257,6 +257,50 @@ describe('Mentions', () => {
       expect(await pingCountFor(first, thread.id)).toBe(1);
     });
 
+    it('Pings a Mentioned person who muted the Channel and the Thread, and keeps the mutes', async () => {
+      const muted = await createStaffMember();
+      const { author, channel, request } = await channelOf('public', muted);
+      const thread = await insertThread({ channelId: channel.id, authorId: author.id });
+      const asMuted = await as(muted);
+      expect((await asMuted(`/api/channels/${channel.id}/mute`, { method: 'PUT' })).status).toBe(
+        204,
+      );
+      expect(
+        (await asMuted(`/api/channels/${channel.id}/threads/${thread.id}/mute`, { method: 'PUT' }))
+          .status,
+      ).toBe(204);
+      const responses = `/api/channels/${channel.id}/threads/${thread.id}/responses`;
+
+      await request(responses, { method: 'POST', body: { body: mentioning() } });
+      expect(await pingCountFor(muted, thread.id)).toBe(0);
+      await request(responses, { method: 'POST', body: { body: mentioning(muted) } });
+      expect(await pingCountFor(muted, thread.id)).toBe(1);
+      // Still muted: the next Thread Response without a Mention Pings them no further.
+      await request(responses, { method: 'POST', body: { body: mentioning() } });
+      expect(await pingCountFor(muted, thread.id)).toBe(1);
+    });
+
+    it('Pings nobody who Saved the Thread when an edit adds a Mention', async () => {
+      const saver = await createStaffMember();
+      const added = await createStaffMember();
+      const { author, channel, request } = await channelOf('public', saver);
+      const thread = await insertThread({ channelId: channel.id, authorId: author.id });
+      const asSaver = await as(saver);
+      await asSaver(`/api/channels/${channel.id}/threads/${thread.id}/saved`, { method: 'PUT' });
+      const responses = `/api/channels/${channel.id}/threads/${thread.id}/responses`;
+      const sent = (await (
+        await request(responses, { method: 'POST', body: { body: mentioning() } })
+      ).json()) as ThreadResponseView;
+      expect(await pingCountFor(saver, thread.id)).toBe(1);
+
+      await request(`${responses}/${sent.id}`, {
+        method: 'PATCH',
+        body: { body: mentioning(added) },
+      });
+      expect(await pingCountFor(added, thread.id)).toBe(1);
+      expect(await pingCountFor(saver, thread.id)).toBe(1);
+    });
+
     it('refuses a Mention of a non-member of a Private channel', async () => {
       const outsider = await createStaffMember();
       const { author, channel, request } = await channelOf('private');

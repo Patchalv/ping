@@ -27,7 +27,8 @@ import {
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, mention, ping, staffMember, thread, user } = schema;
+const { auditEvent, channel, channelMember, mention, mute, ping, staffMember, thread, user } =
+  schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, or undefined when it's
@@ -194,6 +195,9 @@ export async function findThread(
       pingFirstAt: sql<Date | null>`(
         select ${ping.firstAt} from ${ping}
          where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actor.staffId}::uuid)`,
+      isMuted: sql<boolean>`exists (
+        select 1 from ${mute}
+         where ${mute.threadId} = ${thread.id} and ${mute.staffId} = ${actor.staffId}::uuid)`,
     })
     .from(thread)
     .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
@@ -201,7 +205,7 @@ export async function findThread(
     .leftJoin(editor, eq(editor.id, thread.editedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
-  const { body, mentionNames, editedAt, editedBy, editorName, pingFirstAt, ...rest } = row;
+  const { body, mentionNames, editedAt, editedBy, editorName, pingFirstAt, isMuted, ...rest } = row;
   const authorship = { authorId: rest.authorId };
   return {
     ...toThreadRow(rest, canReact(actor, access).allow),
@@ -214,6 +218,7 @@ export async function findThread(
       rest.pingCount > 0 && pingFirstAt
         ? { count: rest.pingCount, firstAt: new Date(pingFirstAt).toISOString() }
         : null,
+    isMuted,
     canResolve: canResolveThread(actor, access, authorship).allow,
     canEdit: canEditThread(actor, access, authorship).allow,
     canDelete: canDeleteThread(actor, access, authorship).allow,

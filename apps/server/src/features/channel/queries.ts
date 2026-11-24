@@ -14,7 +14,13 @@ import { schema } from '../../db';
 import type { AuditEventKind } from '../../db/schema';
 import type { ChannelAdminTarget } from '../../permissions/channel';
 
-const { auditEvent, channel, channelMember, staffMember, user } = schema;
+const { auditEvent, channel, channelMember, mute, staffMember, user } = schema;
+
+/** Whether the actor muted the whole Channel. */
+const isMuted = (actorId: string) => sql<boolean>`exists (
+  select 1 from ${mute}
+   where ${mute.channelId} = ${channel.id} and ${mute.staffId} = ${actorId}::uuid
+     and ${mute.threadId} is null)`;
 
 /** A Channel's active members: "member" means an active member, so Deactivated ones don't count. */
 const memberCount = sql<number>`(
@@ -36,6 +42,7 @@ export async function findChannel(
       memberCount,
       isChannelAdmin: channelMember.isChannelAdmin,
       isArchived: sql<boolean>`${channel.archivedAt} is not null`,
+      isMuted: isMuted(actor.staffId),
     })
     .from(channel)
     .leftJoin(
@@ -56,7 +63,12 @@ export async function findChannel(
  */
 export function listMemberChannels({ tx, actor }: ActorTx): Promise<SidebarChannel[]> {
   return tx
-    .select({ id: channel.id, name: channel.name, visibility: channel.visibility })
+    .select({
+      id: channel.id,
+      name: channel.name,
+      visibility: channel.visibility,
+      isMuted: isMuted(actor.staffId),
+    })
     .from(channel)
     .innerJoin(channelMember, eq(channelMember.channelId, channel.id))
     .where(eq(channelMember.staffId, actor.staffId))

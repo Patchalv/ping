@@ -64,6 +64,12 @@ describe('canReceiveLiveEvent', () => {
     expect(canReceiveLiveEvent(admin, mine, undefined)).toEqual(deny({ kind: 'hidden' }));
   });
 
+  it('tells a Staff member their own Saved list or mutes changed, and nobody else', () => {
+    const mine: LiveEvent = { kind: 'attention.changed', staffId: member.staffId };
+    expect(canReceiveLiveEvent(member, mine, undefined)).toEqual(allow());
+    expect(canReceiveLiveEvent(admin, mine, undefined)).toEqual(deny({ kind: 'hidden' }));
+  });
+
   it('sends changes to Staff members to everyone, since everyone can read them', () => {
     const changed: LiveEvent = { kind: 'staff.changed', staffId: admin.staffId };
     expect(canReceiveLiveEvent(member, changed, undefined)).toEqual(allow());

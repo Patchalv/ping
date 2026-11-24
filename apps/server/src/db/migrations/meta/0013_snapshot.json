@@ -1,5 +1,5 @@
 {
-  "id": "982ae91e-4d9f-483c-b4c7-7c3251961189",
+  "id": "2516eb7c-2f59-424b-b2dc-afe89a6f9862",
   "prevId": "5218044c-7299-4c9e-a426-18a3ab0eb2d7",
   "version": "7",
   "dialect": "postgresql",
@@ -409,16 +409,15 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.mention": {
-      "name": "mention",
+    "public.mute": {
+      "name": "mute",
       "schema": "",
       "columns": {
-        "id": {
-          "name": "id",
+        "staff_id": {
+          "name": "staff_id",
           "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
+          "primaryKey": false,
+          "notNull": true
         },
         "channel_id": {
           "name": "channel_id",
@@ -431,126 +430,48 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
-        },
-        "thread_response_id": {
-          "name": "thread_response_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "staff_id": {
-          "name": "staff_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
-      "indexes": {
-        "mention_thread_staff_unique": {
-          "name": "mention_thread_staff_unique",
-          "columns": [
-            {
-              "expression": "thread_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "staff_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"mention\".\"thread_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "mention_thread_response_staff_unique": {
-          "name": "mention_thread_response_staff_unique",
-          "columns": [
-            {
-              "expression": "thread_response_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "staff_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": true,
-          "where": "\"mention\".\"thread_response_id\" is not null",
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "mention_staff_id_idx": {
-          "name": "mention_staff_id_idx",
-          "columns": [
-            {
-              "expression": "staff_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "mention_staff_id_staff_member_id_fk": {
-          "name": "mention_staff_id_staff_member_id_fk",
-          "tableFrom": "mention",
+        "mute_staff_id_staff_member_id_fk": {
+          "name": "mute_staff_id_staff_member_id_fk",
+          "tableFrom": "mute",
           "tableTo": "staff_member",
           "columnsFrom": ["staff_id"],
           "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "mention_thread_fk": {
-          "name": "mention_thread_fk",
-          "tableFrom": "mention",
-          "tableTo": "thread",
-          "columnsFrom": ["thread_id", "channel_id"],
-          "columnsTo": ["id", "channel_id"],
-          "onDelete": "cascade",
+        "mute_channel_id_channel_id_fk": {
+          "name": "mute_channel_id_channel_id_fk",
+          "tableFrom": "mute",
+          "tableTo": "channel",
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "mention_thread_response_fk": {
-          "name": "mention_thread_response_fk",
-          "tableFrom": "mention",
-          "tableTo": "thread_response",
-          "columnsFrom": ["thread_response_id", "channel_id"],
+        "mute_thread_fk": {
+          "name": "mute_thread_fk",
+          "tableFrom": "mute",
+          "tableTo": "thread",
+          "columnsFrom": ["thread_id", "channel_id"],
           "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "mention_exactly_one_target": {
-          "name": "mention_exactly_one_target",
-          "value": "(\"mention\".\"thread_id\" is not null) <> (\"mention\".\"thread_response_id\" is not null)"
+      "uniqueConstraints": {
+        "mute_staff_id_channel_id_thread_id_unique": {
+          "name": "mute_staff_id_channel_id_thread_id_unique",
+          "nullsNotDistinct": true,
+          "columns": ["staff_id", "channel_id", "thread_id"]
         }
       },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.ping": {
@@ -801,6 +722,90 @@
           "value": "(\"reaction\".\"thread_id\" is not null) <> (\"reaction\".\"thread_response_id\" is not null)"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.saved_thread": {
+      "name": "saved_thread",
+      "schema": "",
+      "columns": {
+        "staff_id": {
+          "name": "staff_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "thread_id": {
+          "name": "thread_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "channel_id": {
+          "name": "channel_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "saved_at": {
+          "name": "saved_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "saved_thread_staff_id_saved_at_idx": {
+          "name": "saved_thread_staff_id_saved_at_idx",
+          "columns": [
+            {
+              "expression": "staff_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "saved_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "saved_thread_staff_id_staff_member_id_fk": {
+          "name": "saved_thread_staff_id_staff_member_id_fk",
+          "tableFrom": "saved_thread",
+          "tableTo": "staff_member",
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "saved_thread_thread_fk": {
+          "name": "saved_thread_thread_fk",
+          "tableFrom": "saved_thread",
+          "tableTo": "thread",
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "saved_thread_staff_id_thread_id_pk": {
+          "name": "saved_thread_staff_id_thread_id_pk",
+          "columns": ["staff_id", "thread_id"]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.section": {

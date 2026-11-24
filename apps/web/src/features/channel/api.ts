@@ -178,3 +178,23 @@ export function useSetChannelAdmin(channelId: string) {
     onSuccess: () => refetchAfterMembershipChange(queryClient, channelId),
   });
 }
+
+/**
+ * Mutes or unmutes a whole Channel the Staff member is in: new Thread Responses stop
+ * Pinging them, and its sidebar count turns grey.
+ */
+export function useMuteChannel(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mute: boolean): Promise<void> => {
+      const route = channels[':channelId'].mute;
+      const param = { channelId };
+      return callNoContent(() => (mute ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: () =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: channelKeys.detail(channelId) }),
+        queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
+      ]),
+  });
+}

@@ -20,6 +20,7 @@ import { SectionPicker } from './features/section/SectionPicker';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
 import { useThreadListView } from './features/thread/list-view';
 import { PingsPage } from './features/thread/PingsPage';
+import { SavedPage } from './features/thread/SavedPage';
 import { StartThreadButton } from './features/thread/StartThreadDialog';
 import { ThreadList } from './features/thread/ThreadList';
 import { ThreadListControls } from './features/thread/ThreadListControls';
@@ -130,6 +131,13 @@ const pingsRoute = createRoute({
   component: PingsPage,
 });
 
+// The Saved view: the Staff member's Saved Threads, from the sidebar.
+const savedRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/saved',
+  component: SavedPage,
+});
+
 // The Admins' Staff members screen, from the avatar menu. A Member who opens it gets the
 // server's refusal.
 const staffRoute = createRoute({
@@ -142,6 +150,7 @@ const routeTree = rootRoute.addChildren([
   homeRoute,
   browseRoute,
   pingsRoute,
+  savedRoute,
   channelRoute.addChildren([threadRoute]),
   channelMembersRoute,
   staffRoute,

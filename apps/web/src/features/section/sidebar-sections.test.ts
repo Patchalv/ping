@@ -6,6 +6,7 @@ const channel = (id: string, name: string): SidebarChannel => ({
   id,
   name,
   visibility: 'public',
+  isMuted: false,
 });
 
 const section = (id: string, channelIds: string[], collapsed = false): SectionView => ({

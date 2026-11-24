@@ -6,6 +6,7 @@ import type {
   PingPage,
   PingSummary,
   ReactionList,
+  SavedPage,
   StartThreadBody,
   ThreadListView,
   ThreadPage,
@@ -20,6 +21,7 @@ import { call, callNoContent } from '../../lib/api-client';
 
 const threads = api.api.channels[':channelId'].threads;
 const pings = api.api.pings;
+const saved = api.api.saved;
 const responses = threads[':threadId'].responses;
 const mentionCandidates = api.api.channels[':channelId']['mention-candidates'];
 
@@ -64,6 +66,70 @@ export const pingKeys = {
   list: () => [...pingKeys.all, 'list'] as const,
   summary: () => [...pingKeys.all, 'summary'] as const,
 };
+
+/**
+ * The query keys for the Saved view. Saving and removing invalidate `all`; live updates do
+ * too.
+ */
+export const savedKeys = {
+  all: ['saved'] as const,
+  list: () => [...savedKeys.all, 'list'] as const,
+};
+
+/** The Saved view: the Staff member's Saved Threads, newest saved first, 50 at a time. */
+export function useSaved() {
+  return useInfiniteQuery({
+    queryKey: savedKeys.list(),
+    initialPageParam: undefined as string | undefined,
+    queryFn: ({ pageParam }): Promise<SavedPage> =>
+      call(() => saved.$get({ query: pageParam ? { after: pageParam } : {} })),
+    getNextPageParam: (last) => last.nextCursor ?? undefined,
+  });
+}
+
+/**
+ * Saves a Thread (which Acknowledges its Ping) or removes it from Saved. Refetches what
+ * shows it: the Saved view, the Thread, its row, and the Pings.
+ */
+export function useSaveThread() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      channelId,
+      threadId,
+      save,
+    }: {
+      channelId: string;
+      threadId: string;
+      save: boolean;
+    }): Promise<void> => {
+      const route = threads[':threadId'].saved;
+      const param = { channelId, threadId };
+      return callNoContent(() => (save ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: (_data, { channelId, threadId }) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: savedKeys.all }),
+        queryClient.invalidateQueries({ queryKey: pingKeys.all }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
+        queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
+      ]),
+  });
+}
+
+/** Mutes or unmutes one Thread: new Thread Responses in it stop Pinging the Staff member. */
+export function useMuteThread(channelId: string, threadId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (mute: boolean): Promise<void> => {
+      const route = threads[':threadId'].mute;
+      const param = { channelId, threadId };
+      return callNoContent(() => (mute ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({ queryKey: threadKeys.detail(channelId, threadId) }),
+  });
+}
 
 /** The Pings view: Threads with a Ping, by latest activity, 50 at a time. */
 export function usePings() {
@@ -178,8 +244,9 @@ export function useSetResolved(channelId: string, threadId: string) {
       queryClient.setQueryData(threadKeys.detail(channelId, threadId), thread);
       return Promise.all([
         queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) }),
-        // The Pings view shows Resolved threads too, marked.
+        // The Pings and Saved views show Resolved threads too, marked.
         queryClient.invalidateQueries({ queryKey: pingKeys.list() }),
+        queryClient.invalidateQueries({ queryKey: savedKeys.list() }),
       ]);
     },
   });

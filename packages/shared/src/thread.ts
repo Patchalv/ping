@@ -91,6 +91,8 @@ export type ThreadRow = {
   canReact: boolean;
   /** What's new for the viewer in the Thread: its open Ping's count, 0 with none. */
   pingCount: number;
+  /** Whether the Thread is on the viewer's Saved list. */
+  isSaved: boolean;
   /** When the Thread was resolved, or null while it's open. */
   resolvedAt: string | null;
   /** "@You": the viewer is Mentioned in the Thread or one of its Thread Responses. */
@@ -122,6 +124,8 @@ export type ThreadView = Omit<ThreadRow, 'preview'> & {
   canRespond: boolean;
   /** The viewer's open Ping on the Thread, or null. */
   ping: ThreadPing | null;
+  /** Whether the viewer muted this Thread (not the whole Channel). */
+  isMuted: boolean;
   /**
    * Whether the viewer may resolve the Thread, or reopen it when it's Resolved: the
    * Channel's "Who can resolve threads?" setting decides both.
