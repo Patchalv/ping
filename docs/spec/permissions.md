@@ -70,7 +70,7 @@ Terms used below:
 | Remove a Thread from Saved ✱ | Its owner |
 | Mute a Channel ✱ | Member |
 | Mute a Thread ✱ | Anyone who can read it |
-| Sections | Their owner only |
+| Sections ✱ | Their owner only |
 | Search | Anyone; results limited to what they can read |
 
 ### Refusals
