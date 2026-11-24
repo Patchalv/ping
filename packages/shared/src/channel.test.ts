@@ -5,6 +5,7 @@ import {
   channelParams,
   createChannelBody,
   setChannelAdminBody,
+  updateChannelBody,
 } from './channel';
 
 describe('createChannelBody', () => {
@@ -113,5 +114,51 @@ describe('the member schemas', () => {
     const result = schema.safeParse(input);
     expect(result.success).toBe(false);
     expect(result.error?.issues[0]?.message).toBe(message);
+  });
+});
+
+describe('updateChannelBody', () => {
+  it('accepts the settings form, trimming the text', () => {
+    expect(
+      updateChannelBody.parse({
+        name: ' Front desk ',
+        description: ' Visitors ',
+        resolvePolicy: 'author_and_channel_admins',
+      }),
+    ).toEqual({
+      name: 'Front desk',
+      description: 'Visitors',
+      resolvePolicy: 'author_and_channel_admins',
+    });
+  });
+
+  it('accepts a visibility on its own, Public included, so the server can refuse it', () => {
+    expect(updateChannelBody.parse({ visibility: 'private' })).toEqual({ visibility: 'private' });
+    expect(updateChannelBody.parse({ visibility: 'public' })).toEqual({ visibility: 'public' });
+  });
+
+  it.each([
+    ['nothing to change', {}, '', 'Change at least one setting.'],
+    ['an empty name', { name: ' ' }, 'name', 'Give the Channel a name.'],
+    ['a long name', { name: 'x'.repeat(81) }, 'name', 'Keep the name to 80 characters or fewer.'],
+    [
+      'a long description',
+      { description: 'x'.repeat(501) },
+      'description',
+      'Keep the description to 500 characters or fewer.',
+    ],
+    [
+      'an unknown resolve setting',
+      { resolvePolicy: 'anyone' },
+      'resolvePolicy',
+      'Choose who can resolve threads.',
+    ],
+    ['an unknown visibility', { visibility: 'secret' }, 'visibility', 'Choose Public or Private.'],
+  ])('refuses %s, saying why', (_name, body, path, message) => {
+    const result = updateChannelBody.safeParse(body);
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((i) => [i.path.join('.'), i.message])).toEqual([
+      [path, message],
+    ]);
   });
 });

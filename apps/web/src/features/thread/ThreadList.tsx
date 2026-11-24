@@ -116,6 +116,8 @@ export function ThreadRow({
     <div
       className={cn(
         'relative rounded-lg border border-transparent bg-card px-4 py-3 text-card-foreground transition-colors focus-within:ring-3 focus-within:ring-ring/50 hover:border-border',
+        // A System thread comes from Ping, not a person: a dashed outline sets it apart.
+        thread.isSystem && 'border-dashed border-border',
         open && 'border-primary/60 hover:border-primary/60',
       )}
     >

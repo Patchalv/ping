@@ -6,7 +6,13 @@
 // (ADR 0005). Company Admins get no exception anywhere.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
-import { asPingApp, createStaffMember, insertChannel, type Query } from '../../db/test-support';
+import {
+  asOwner,
+  asPingApp,
+  createStaffMember,
+  insertChannel,
+  type Query,
+} from '../../db/test-support';
 
 const visibleChannelIds = async (query: Query, ids: string[]) =>
   (await query<{ id: string }>('select id from channel where id = any($1)', [ids])).rows
@@ -166,6 +172,94 @@ describe('channel INSERT, UPDATE and DELETE', () => {
     });
     await asPingApp(admin.id, async (query) => {
       await expect(query('delete from channel where id = $1', [channel.id])).rejects.toThrow(
+        /permission denied/,
+      );
+    });
+  });
+});
+
+// Channel settings (#42): ping_app may update a Channel's name, description and "Who can
+// resolve threads?", as its Channel admin. Never its visibility: turning a Channel Private
+// goes through make_channel_private, and nothing makes one Public.
+describe('channel UPDATE', () => {
+  const rename = (query: Query, channelId: string) =>
+    query(
+      `update channel set name = 'Renamed', description = 'New', resolve_policy = 'author_and_channel_admins'
+            where id = $1`,
+      [channelId],
+    );
+
+  it('lets a Channel admin change the name, description and resolve setting', async () => {
+    const channelAdmin = await createStaffMember();
+    const channel = await insertChannel({
+      visibility: 'private',
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }],
+    });
+    await asPingApp(channelAdmin.id, async (query) => {
+      expect((await rename(query, channel.id)).rowCount).toBe(1);
+      const row = await query(
+        'select name, description, resolve_policy from channel where id = $1',
+        [channel.id],
+      );
+      expect(row.rows).toEqual([
+        { name: 'Renamed', description: 'New', resolve_policy: 'author_and_channel_admins' },
+      ]);
+    });
+  });
+
+  it.each([
+    ['a plain member', 'member'],
+    ['a non-member', 'none'],
+    ['a company Admin who isn’t Channel admin', 'admin'],
+  ] as const)('changes nothing for %s', async (_name, who) => {
+    const channelAdmin = await createStaffMember();
+    const actor = await createStaffMember({ role: who === 'admin' ? 'admin' : 'member' });
+    const channel = await insertChannel({
+      members: [
+        { staffId: channelAdmin.id, channelAdmin: true },
+        ...(who === 'member' ? [{ staffId: actor.id }] : []),
+      ],
+    });
+    await asPingApp(actor.id, async (query) => {
+      expect((await rename(query, channel.id)).rowCount).toBe(0);
+    });
+  });
+
+  it('changes nothing for a Deactivated Channel admin', async () => {
+    const channelAdmin = await createStaffMember();
+    const admin = await createStaffMember({ role: 'admin' });
+    const channel = await insertChannel({
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }],
+    });
+    await asOwner((query) =>
+      query('update staff_member set deactivated_at = now(), deactivated_by = $2 where id = $1', [
+        channelAdmin.id,
+        admin.id,
+      ]),
+    );
+    await asPingApp(channelAdmin.id, async (query) => {
+      expect((await rename(query, channel.id)).rowCount).toBe(0);
+    });
+  });
+
+  it('fails closed with no app.staff_id', async () => {
+    const channel = await insertChannel();
+    await asPingApp(null, async (query) => {
+      expect((await rename(query, channel.id)).rowCount).toBe(0);
+    });
+  });
+
+  it.each([
+    ['visibility', `visibility = 'private'`],
+    ['created_by', 'created_by = created_by'],
+    ['archived_at', 'archived_at = now()'],
+  ])('refuses %s, even from the Channel admin', async (_column, set) => {
+    const channelAdmin = await createStaffMember();
+    const channel = await insertChannel({
+      members: [{ staffId: channelAdmin.id, channelAdmin: true }],
+    });
+    await asPingApp(channelAdmin.id, async (query) => {
+      await expect(query(`update channel set ${set} where id = $1`, [channel.id])).rejects.toThrow(
         /permission denied/,
       );
     });

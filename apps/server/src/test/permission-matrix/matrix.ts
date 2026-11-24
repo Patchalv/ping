@@ -461,6 +461,65 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
+  // Channel settings and visibility. From "Channel settings, visibility change and System
+  // threads" (#42).
+
+  // Edit the name, description and "Who can resolve threads?": Channel admins only, outside
+  // an Archived channel. A company Admin who isn't Channel admin is refused on a Public
+  // channel and can't see a Private one they aren't in.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId',
+        action: `edit the settings of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}`,
+          method: 'PATCH',
+          body: {
+            name: 'Front desk',
+            description: 'Reception and visitors',
+            resolvePolicy: 'author_and_channel_admins',
+          },
+        }),
+      },
+      membershipChange(channel, 200, (actor) => CHANNEL_ROLE[actor] === 'channelAdmin'),
+    ),
+  ),
+
+  // Turn a Public channel Private: Channel admins only, outside an Archived channel.
+  ...(['public', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId',
+        action: `turn a ${CHANNEL_KIND_NAME[channel]} channel Private`,
+        channel,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}`,
+          method: 'PATCH',
+          body: { visibility: 'private' },
+        }),
+      },
+      membershipChange(channel, 200, (actor) => CHANNEL_ROLE[actor] === 'channelAdmin'),
+    ),
+  ),
+
+  // Make a Private channel Public: refused for every actor, its Channel admins included.
+  // Anyone not in it can't see it at all.
+  ...rowsFor(
+    {
+      route: 'PATCH /api/channels/:channelId',
+      action: 'make a Private channel Public',
+      channel: 'private',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}`,
+        method: 'PATCH',
+        body: { visibility: 'public' },
+      }),
+    },
+    membershipChange('private', 200, () => false),
+  ),
+
   // Threads. From "Start and read Threads" (#38).
 
   // Start a Thread: Channel members only, company Admins included. A non-member of a

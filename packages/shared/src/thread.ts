@@ -6,6 +6,7 @@ import type { MentionNames } from './mention';
 import type { ThreadPing } from './ping';
 import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
+import type { SystemThreadEvent } from './system-thread';
 
 export const THREAD_TITLE_MAX = 200;
 /** How many Threads a Thread list loads at a time (screens.md › Baseline behaviours). */
@@ -81,6 +82,11 @@ export type ThreadRow = {
   preview: string;
   author: ThreadAuthor | null;
   isSystem: boolean;
+  /**
+   * What a System thread announces, with the current names of the people involved; null
+   * for an ordinary Thread. Its title is already written from it.
+   */
+  system: SystemThreadEvent | null;
   createdAt: string;
   latestActivityAt: string;
   /** "N Thread Responses": deleted ones count, because their placeholders still show. */

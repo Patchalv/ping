@@ -8,6 +8,7 @@ import {
   channelParams,
   createChannelBody,
   setChannelAdminBody,
+  updateChannelBody,
 } from '@ping/shared';
 import { Hono } from 'hono';
 import type { Auth } from '../../auth';
@@ -22,6 +23,7 @@ import {
   requireCanAddChannelMember,
   requireCanAddMembers,
   requireCanBrowseChannels,
+  requireCanChangeChannelSettings,
   requireCanCreateChannel,
   requireCanJoinChannel,
   requireCanLeaveChannel,
@@ -30,7 +32,12 @@ import {
   requireCanRemoveChannelMember,
   requireCanSetChannelAdmin,
 } from '../../permissions/channel';
-import { adminSetChannelAdmin, cleanUpLostAccess, createChannel } from '../../system-actions';
+import {
+  adminSetChannelAdmin,
+  cleanUpLostAccess,
+  createChannel,
+  makeChannelPrivate,
+} from '../../system-actions';
 import {
   addChannelMember,
   countOthersInChannel,
@@ -43,9 +50,11 @@ import {
   listMemberChannels,
   listPublicChannels,
   lockChannelMembership,
+  recordChannelMadePrivate,
   recordMembershipChange,
   removeChannelMember,
   setChannelAdminRole,
+  updateChannelSettings,
 } from './queries';
 
 export function channelRoutes({ auth, database }: { auth: Auth; database: Database }) {
@@ -98,6 +107,46 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
         });
         return c.json(channel);
       })
+
+      // Change a Channel's settings: Channel admins only, outside an Archived channel.
+      // Turning a Public channel Private also starts its System thread and, in the same
+      // transaction, drops every non-member's Pings, Saved Threads and mutes. Nobody makes
+      // a Private channel Public.
+      .patch(
+        '/:channelId',
+        signedIn(auth),
+        validate('param', channelParams),
+        validate('json', updateChannelBody),
+        async (c) => {
+          const { channelId } = c.req.valid('param');
+          const { visibility, ...settings } = c.req.valid('json');
+          const result = await withActorTx(c, async (ctx) => {
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            requireCanChangeChannelSettings(ctx.actor, found, { visibility });
+            await updateChannelSettings(ctx, channelId, settings);
+            // Visibility first: the clean-up works from the Channel being Private.
+            const systemThreadId =
+              visibility === 'private' ? await makeChannelPrivate(ctx.tx, channelId) : null;
+            if (systemThreadId) {
+              await cleanUpLostAccess(ctx.tx, channelId);
+              await recordChannelMadePrivate(ctx, channelId);
+            }
+            return { channel: await findChannel(ctx, channelId), systemThreadId };
+          });
+          // The actor is its Channel admin, in the same transaction: it can't be hidden.
+          if (!result.channel) throw new Error('A changed Channel did not read back');
+          publish({ kind: 'channel.changed', channelId });
+          if (result.systemThreadId) {
+            const threadId = result.systemThreadId;
+            // Everyone hears it, so non-members drop it at once; members see the System thread.
+            publish({ kind: 'channel.made_private', channelId });
+            publish({ kind: 'thread.created', channelId, threadId });
+            publish({ kind: 'ping.changed', channelId, threadId });
+          }
+          return c.json(result.channel);
+        },
+      )
 
       // Join a Public channel. Joining one you're already in changes nothing. A Private
       // channel you aren't in answers 404, as when reading it.
