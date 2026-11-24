@@ -47,6 +47,7 @@ export {
   type MentionNames,
   mentionChanges,
   mentionedStaffIds,
+  withCurrentMentionNames,
 } from './mention';
 export {
   listPingsQuery,

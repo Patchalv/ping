@@ -3,6 +3,7 @@ import {
   editThreadBody,
   THREAD_TITLE_MAX,
   type ThreadView,
+  withCurrentMentionNames,
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
@@ -26,7 +27,11 @@ export function EditThreadDialog({ thread, onClose }: { thread: ThreadView; onCl
   const mentionCandidates = useMentionCandidates(thread.channelId).data ?? [];
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
-  const defaultValues: EditThreadBody = { title: thread.title, body: thread.body };
+  // Start from each Mentioned person's current name, so saving writes it into the preview.
+  const [defaultValues] = useState<EditThreadBody>(() => ({
+    title: thread.title,
+    body: withCurrentMentionNames(thread.body, thread.mentionNames),
+  }));
   const form = useAppForm({
     formId: 'edit-thread',
     defaultValues,
