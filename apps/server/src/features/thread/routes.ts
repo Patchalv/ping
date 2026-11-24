@@ -16,6 +16,7 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
+import { requireCanAttach } from '../../permissions/attachment';
 import { requireCanMentionEach } from '../../permissions/mention';
 import {
   requireCanDeleteThread,
@@ -27,12 +28,14 @@ import {
 import { fanOutPings } from '../../system-actions';
 import {
   auditAdminChange,
+  attachToThread,
   deleteThread,
   editThread,
   findThread,
   findThreadAuthorship,
   findThreadChannel,
   listThreads,
+  planThreadAttachments,
   planThreadMentions,
   saveThreadMentions,
   setThreadResolved,
@@ -105,8 +108,10 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             requireCanStartThread(ctx.actor, found);
             const mentions = await planThreadMentions(ctx, channelId, undefined, input.body);
             requireCanMentionEach(ctx.actor, found, mentions);
+            requireCanAttach(await planThreadAttachments(ctx, undefined, input.attachmentIds));
             const id = await startThread(ctx, channelId, input);
             await saveThreadMentions(ctx, channelId, id, mentions);
+            await attachToThread(ctx, channelId, id, input.attachmentIds);
             // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId: id });
             return findThread(ctx, found, channelId, id);
@@ -152,8 +157,10 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             requireCanEditThread(ctx.actor, channel, authorship);
             const mentions = await planThreadMentions(ctx, channelId, threadId, input.body);
             requireCanMentionEach(ctx.actor, channel, mentions);
+            requireCanAttach(await planThreadAttachments(ctx, threadId, input.attachmentIds));
             await editThread(ctx, threadId, input);
             await saveThreadMentions(ctx, channelId, threadId, mentions);
+            await attachToThread(ctx, channelId, threadId, input.attachmentIds);
             // An edit Pings only the newly Mentioned.
             const pinged = await fanOutPings(ctx.tx, { threadId });
             await auditAdminChange(ctx, 'admin_edited_thread', {

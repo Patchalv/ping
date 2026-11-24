@@ -3,10 +3,11 @@
 import { randomUUID } from 'node:crypto';
 import { createApp, type InviteServices } from '../app';
 import { type Auth, type AuthEmailServices, createAuth } from '../auth';
-import type { PingEnvironment } from '../config';
+import { LOCAL_STORAGE, type PingEnvironment } from '../config';
 import { createDatabase, type Database } from '../db';
 import { testUrls } from '../db/test-support';
 import { createMailer, type Mailer, type OutgoingMail } from '../lib/email';
+import { createStorage } from '../lib/storage/storage';
 import { createSystemActions, type SystemActions } from '../system-actions';
 
 const TEST_ORIGIN = 'http://localhost:5173';
@@ -84,6 +85,8 @@ export function createTestApp(options: { mail?: MailSettings } = {}): TestApp {
       auth,
       database,
       trustedOrigins: [TEST_ORIGIN],
+      // The local MinIO; global-setup.ts creates its bucket.
+      storage: createStorage(LOCAL_STORAGE),
       captureError: (error) => reported.push(error),
       invites: {
         mailer,
@@ -161,6 +164,15 @@ export function jsonHeaders(extra: Record<string, string> = {}): Record<string, 
     'fly-client-ip': randomIp(),
     ...extra,
   };
+}
+
+/**
+ * Headers a browser on the app's origin sends with a multipart form (adding an
+ * Attachment). The body sets its own content type, with the boundary.
+ */
+export function formHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  const { 'content-type': _json, ...headers } = jsonHeaders(extra);
+  return headers;
 }
 
 /** Signs in through the real Better Auth route and returns the Cookie header to send. */

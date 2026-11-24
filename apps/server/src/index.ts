@@ -7,6 +7,7 @@ import { createAuth } from './auth';
 import { loadEnvLocal, readConfig } from './config';
 import { createDatabase } from './db';
 import { createMailerFromConfig } from './lib/email';
+import { createStorage } from './lib/storage/storage';
 import { captureError, flushSentry, initSentry } from './sentry';
 import { createSystemActions } from './system-actions';
 
@@ -20,6 +21,7 @@ const webDistDir =
 const database = createDatabase(config.databaseUrl);
 const systemActions = createSystemActions(config.systemDatabaseUrl);
 const mailer = createMailerFromConfig(config.email);
+const storage = config.storage && createStorage(config.storage);
 const auth = createAuth(database, config.auth, {
   mailer,
   appUrl: config.auth.baseUrl,
@@ -40,6 +42,7 @@ const app = createApp({
   },
   trustedOrigins: config.auth.trustedOrigins,
   environment: config.environment,
+  ...(storage && { storage }),
   // In development Vite serves the SPA; the server only serves a build that exists.
   ...(existsSync(webDistDir) && { webDistDir }),
   ...(config.sentry && { sentry: config.sentry, captureError }),

@@ -18,6 +18,7 @@ describe('startThreadBody', () => {
     expect(startThreadBody.parse({ title: '  Broken heater ', body })).toEqual({
       title: 'Broken heater',
       body,
+      attachmentIds: [],
     });
   });
 

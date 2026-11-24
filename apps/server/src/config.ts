@@ -4,6 +4,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { RolePasswords } from './db/migrate';
 import type { SmtpSettings } from './lib/email';
+import type { StorageSettings } from './lib/storage/storage';
 
 const envLocal = fileURLToPath(new URL('../../../.env.local', import.meta.url));
 
@@ -29,6 +30,11 @@ export type ServerConfig = {
   /** Error reporting for the server and the SPA. Off when SENTRY_DSN is unset. */
   sentry?: SentrySettings;
   email: EmailSettings;
+  /**
+   * Object storage for Attachments. Undefined in a deployment whose storage settings
+   * aren't set yet: it still boots, and adding an Attachment fails.
+   */
+  storage?: StorageSettings;
 };
 
 /**
@@ -79,6 +85,43 @@ function readEmail(env: NodeJS.ProcessEnv, environment: PingEnvironment): EmailS
     ...(host && user && password ? { smtp: { host, port, user, password } } : {}),
     allowlist,
   };
+}
+
+/** The local MinIO in compose.yaml, and the bucket tests and `pnpm dev` create in it. */
+export const LOCAL_STORAGE: StorageSettings = {
+  endpoint: 'http://localhost:9000',
+  region: 'auto',
+  bucket: 'ping-attachments',
+  accessKeyId: 'ping',
+  secretAccessKey: 'ping-minio-local',
+};
+
+/**
+ * Object storage (platform.md › Object storage). Set the endpoint, bucket and both keys,
+ * or none: production and staging then boot without storage, and local development uses
+ * MinIO.
+ */
+function readStorage(env: NodeJS.ProcessEnv, isProduction: boolean): StorageSettings | undefined {
+  const {
+    STORAGE_ENDPOINT: endpoint,
+    STORAGE_BUCKET: bucket,
+    STORAGE_ACCESS_KEY_ID: accessKeyId,
+    STORAGE_SECRET_ACCESS_KEY: secretAccessKey,
+  } = env;
+  const given = [endpoint, bucket, accessKeyId, secretAccessKey].filter(Boolean).length;
+  if (given > 0 && given < 4) {
+    throw new Error(
+      'Set all of STORAGE_ENDPOINT, STORAGE_BUCKET, STORAGE_ACCESS_KEY_ID and STORAGE_SECRET_ACCESS_KEY, or none of them',
+    );
+  }
+  if (endpoint && bucket && accessKeyId && secretAccessKey) {
+    const { protocol } = new URL(endpoint);
+    if (isProduction && protocol !== 'https:') {
+      throw new Error('STORAGE_ENDPOINT must use https when NODE_ENV=production');
+    }
+    return { endpoint, bucket, accessKeyId, secretAccessKey, region: env.STORAGE_REGION || 'auto' };
+  }
+  return isProduction ? undefined : LOCAL_STORAGE;
 }
 
 const SENTRY_ENVIRONMENTS = ['production', 'staging'] as const;
@@ -135,6 +178,7 @@ export function readConfig(env: NodeJS.ProcessEnv = process.env): ServerConfig {
     environment,
     sentry: readSentry(env),
     email: readEmail(env, environment),
+    storage: readStorage(env, isProduction),
   };
 }
 

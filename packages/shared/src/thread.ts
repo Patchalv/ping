@@ -1,5 +1,6 @@
 // Threads: the request schemas both apps use, and the shapes the server answers with.
 import { z } from 'zod';
+import { type AttachmentView, attachmentIds } from './attachment';
 import { channelParams } from './channel';
 import type { ContentActions, EditedMark } from './edited';
 import type { MentionNames } from './mention';
@@ -19,6 +20,8 @@ const threadContent = {
     .min(1, 'Give the Thread a title.')
     .max(THREAD_TITLE_MAX, `Keep the title to ${THREAD_TITLE_MAX} characters or fewer.`),
   body: richTextDoc.default(EMPTY_RICH_TEXT),
+  /** Pending Attachments the save attaches; an edit adds them to those already there. */
+  attachmentIds,
 };
 
 /** POST /api/channels/:channelId/threads: start a Thread. */
@@ -97,7 +100,14 @@ export type ThreadRow = {
   resolvedAt: string | null;
   /** "@You": the viewer is Mentioned in the Thread or one of its Thread Responses. */
   mentionsYou: boolean;
+  /** The Thread's first Attachments, oldest first (THREAD_ROW_ATTACHMENTS of them). */
+  attachments: AttachmentView[];
+  /** How many Attachments the Thread has in all. */
+  attachmentCount: number;
 };
+
+/** How many Attachments a Thread row shows. */
+export const THREAD_ROW_ATTACHMENTS = 3;
 
 /** A page of one view of a Channel's Thread list. */
 export type ThreadPage = {
@@ -116,6 +126,8 @@ export type ThreadPage = {
  * Responses load separately.
  */
 export type ThreadView = Omit<ThreadRow, 'preview'> & {
+  /** Every Attachment on the Thread, oldest first. */
+  attachments: AttachmentView[];
   body: RichTextDoc;
   /** The current name of everyone Mentioned in the body. */
   mentionNames: MentionNames;

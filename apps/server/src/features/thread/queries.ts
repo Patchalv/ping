@@ -14,9 +14,11 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import { attachmentsSql, attachPending, planAttach } from '../../db/attachment';
 import { type MentionPlan, mentionNamesSql, planMentions, saveMentions } from '../../db/mention';
 import type { AuditEventKind } from '../../db/schema';
 import { threadPreviewSql, threadRowColumns, toThreadRow } from '../../db/thread-row';
+import type { AttachRequest } from '../../permissions/attachment';
 import { canReact } from '../../permissions/reaction';
 import {
   canDeleteThread,
@@ -27,8 +29,18 @@ import {
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, mention, mute, ping, staffMember, thread, user } =
-  schema;
+const {
+  attachment,
+  auditEvent,
+  channel,
+  channelMember,
+  mention,
+  mute,
+  ping,
+  staffMember,
+  thread,
+  user,
+} = schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, or undefined when it's
@@ -100,6 +112,28 @@ export function saveThreadMentions(
   plan: MentionPlan,
 ): Promise<void> {
   return saveMentions(tx, { threadId }, channelId, plan.changes);
+}
+
+/**
+ * What attaching these pending Attachments to the Thread would mean: how many are the
+ * actor's own pending ones, and how many the Thread already has (none while it's started).
+ */
+export function planThreadAttachments(
+  { tx, actor }: ActorTx,
+  threadId: string | undefined,
+  ids: readonly string[],
+): Promise<AttachRequest> {
+  return planAttach(tx, actor.staffId, threadId === undefined ? undefined : { threadId }, ids);
+}
+
+/** Attaches the actor's pending Attachments to the Thread, after it's written. */
+export function attachToThread(
+  { tx, actor }: ActorTx,
+  channelId: string,
+  threadId: string,
+  ids: readonly string[],
+): Promise<void> {
+  return attachPending(tx, actor.staffId, { threadId }, channelId, ids);
 }
 
 /** The column each sort orders by, with its name for the cursor's subquery. */
@@ -187,6 +221,8 @@ export async function findThread(
   const [row] = await tx
     .select({
       ...threadRowColumns(actor.staffId),
+      // Every Attachment, where a Thread row shows the first few.
+      attachments: attachmentsSql(attachment.threadId, thread.id),
       body: thread.body,
       mentionNames: mentionNamesSql(mention.threadId, thread.id),
       editedAt: thread.editedAt,

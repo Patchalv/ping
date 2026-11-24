@@ -134,6 +134,7 @@ export {
   type StartThreadBody,
   startThreadBody,
   THREAD_PAGE_SIZE,
+  THREAD_ROW_ATTACHMENTS,
   THREAD_TITLE_MAX,
   type ThreadAuthor,
   type ThreadListView,

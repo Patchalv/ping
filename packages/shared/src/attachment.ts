@@ -61,10 +61,26 @@ export const ATTACHMENT_MESSAGES = {
 
 const FILENAME_MAX = 255;
 
+/**
+ * A File, described by what Ping uses of it, so the schema needs neither the DOM's types
+ * nor Node's.
+ */
+type FileLike = { name: string; size: number; arrayBuffer(): Promise<ArrayBuffer> };
+
+const isFileLike = (value: unknown): value is FileLike =>
+  typeof value === 'object' &&
+  value !== null &&
+  'name' in value &&
+  typeof value.name === 'string' &&
+  'size' in value &&
+  typeof value.size === 'number' &&
+  'arrayBuffer' in value &&
+  typeof value.arrayBuffer === 'function';
+
 /** POST /api/channels/:channelId/attachments: one file, as multipart form data. */
 export const addAttachmentForm = z.object({
   file: z
-    .instanceof(File, { error: 'Choose a file to attach.' })
+    .custom<FileLike>(isFileLike, { error: 'Choose a file to attach.' })
     .refine((file) => file.name.trim() !== '', ATTACHMENT_MESSAGES.noName)
     .refine((file) => file.size > 0, ATTACHMENT_MESSAGES.empty)
     .refine((file) => file.size <= ATTACHMENT_MAX_BYTES, ATTACHMENT_MESSAGES.tooLarge),

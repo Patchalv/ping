@@ -1,6 +1,7 @@
 // Thread Responses: the request schemas both apps use, and the shapes the server answers
 // with.
 import { z } from 'zod';
+import { type AttachmentView, attachmentIds } from './attachment';
 import type { ContentActions, EditedMark } from './edited';
 import type { MentionNames } from './mention';
 import type { ReactionSummary } from './reaction';
@@ -17,6 +18,8 @@ export const threadResponseBody = z.object({
   body: richTextDoc
     .default(EMPTY_RICH_TEXT)
     .refine((doc) => extractBodyText(doc).trim() !== '', EMPTY_MESSAGE),
+  /** Pending Attachments the save attaches; an edit adds them to those already there. */
+  attachmentIds,
 });
 export type ThreadResponseBody = z.input<typeof threadResponseBody>;
 
@@ -40,6 +43,8 @@ export type ThreadResponseView = {
   /** Empty once deleted: a Thread Response's reactions go with its content. */
   reactions: ReactionSummary[];
   canReact: boolean;
+  /** Every Attachment, oldest first. Empty once deleted. */
+  attachments: AttachmentView[];
 } & ContentActions;
 
 /** GET …/threads/:threadId/responses: all of a Thread's Thread Responses, oldest first. */

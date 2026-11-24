@@ -15,6 +15,7 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
+import { requireCanAttach } from '../../permissions/attachment';
 import { requireCanMentionEach } from '../../permissions/mention';
 import { requireCanReadThreads } from '../../permissions/thread';
 import {
@@ -25,12 +26,14 @@ import {
 import { fanOutPings } from '../../system-actions';
 import {
   acknowledgePing,
+  attachToResponse,
   auditAdminChange,
   deleteThreadResponse,
   editThreadResponse,
   findLiveResponseAuthor,
   findResponseChannel,
   listThreadResponses,
+  planResponseAttachments,
   planResponseMentions,
   saveResponseMentions,
   sendThreadResponse,
@@ -62,15 +65,17 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
         validate('json', threadResponseBody),
         async (c) => {
           const { channelId, threadId } = c.req.valid('param');
-          const { body } = c.req.valid('json');
+          const { body, attachmentIds } = c.req.valid('json');
           const sent = await withActorTx(c, async (ctx) => {
             const access = await findResponseChannel(ctx, channelId, threadId);
             if (!access) throw new NotFoundError();
             requireCanSendThreadResponse(ctx.actor, access);
             const mentions = await planResponseMentions(ctx, channelId, undefined, body);
             requireCanMentionEach(ctx.actor, access, mentions);
+            requireCanAttach(await planResponseAttachments(ctx, undefined, attachmentIds));
             const id = await sendThreadResponse(ctx, { channelId, threadId }, body);
             await saveResponseMentions(ctx, channelId, id, mentions);
+            await attachToResponse(ctx, channelId, id, attachmentIds);
             // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId, threadResponseId: id });
             // Sending a Thread Response Acknowledges the sender's own Ping.
@@ -100,7 +105,7 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
         validate('json', threadResponseBody),
         async (c) => {
           const { channelId, threadId, threadResponseId } = c.req.valid('param');
-          const { body } = c.req.valid('json');
+          const { body, attachmentIds } = c.req.valid('json');
           const edited = await withActorTx(c, async (ctx) => {
             const access = await findResponseChannel(ctx, channelId, threadId);
             if (!access) throw new NotFoundError();
@@ -110,8 +115,12 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             requireCanEditThreadResponse(ctx.actor, access, response);
             const mentions = await planResponseMentions(ctx, channelId, threadResponseId, body);
             requireCanMentionEach(ctx.actor, access, mentions);
+            requireCanAttach(
+              await planResponseAttachments(ctx, threadResponseId, attachmentIds),
+            );
             await editThreadResponse(ctx, threadResponseId, body);
             await saveResponseMentions(ctx, channelId, threadResponseId, mentions);
+            await attachToResponse(ctx, channelId, threadResponseId, attachmentIds);
             // An edit Pings only the newly Mentioned.
             const pinged = await fanOutPings(ctx.tx, { threadId, threadResponseId });
             await auditAdminChange(ctx, 'admin_edited_thread_response', {
