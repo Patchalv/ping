@@ -1,8 +1,7 @@
 import type { ChannelView } from '@ping/shared';
-import { Link, useNavigate } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import {
   ArchiveIcon,
-  ArchiveRestoreIcon,
   BellIcon,
   BellOffIcon,
   ChevronLeftIcon,
@@ -12,26 +11,10 @@ import {
 import { type ReactNode, useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
-import {
-  Dialog,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '#/components/ui/dialog';
 import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
-import {
-  useArchiveChannel,
-  useChannel,
-  useJoinChannel,
-  useLeaveChannel,
-  useMuteChannel,
-  useUnarchiveChannel,
-} from './api';
+import { useChannel, useJoinChannel, useMuteChannel } from './api';
 import { ChannelSettingsDialog } from './ChannelSettingsDialog';
 import { MembersTab } from './MembersTab';
 
@@ -39,17 +22,15 @@ type ChannelTab = 'threads' | 'members';
 
 /**
  * The Channel view: its Channel bar above the Thread feed or the Members tab, with an
- * open Thread's panel beside them. The Thread and Section pieces come from the router,
- * because one feature never imports another: `startThread` is the + New Thread control,
- * `sectionPicker` the Section picker (shown to members), `listControls` the Thread list
- * controls in the bar, `children` the feed, and `panel`
- * the open Thread.
+ * open Thread's panel beside them. The Thread pieces come from the router, because one
+ * feature never imports another: `startThread` is the + New Thread control, `listControls`
+ * the Thread list controls beside the tabs, `children` the feed, and `panel` the open
+ * Thread.
  */
 export function ChannelPage({
   channelId,
   tab,
   startThread,
-  sectionPicker,
   listControls,
   children,
   panel,
@@ -57,7 +38,6 @@ export function ChannelPage({
   channelId: string;
   tab: ChannelTab;
   startThread?: ReactNode;
-  sectionPicker?: ReactNode;
   listControls?: ReactNode;
   children?: ReactNode;
   panel?: ReactNode;
@@ -82,7 +62,6 @@ export function ChannelPage({
           channel={channel.data}
           tab={tab}
           startThread={startThread}
-          sectionPicker={sectionPicker}
           listControls={listControls}
         />
         {tab === 'members' ? (
@@ -105,13 +84,11 @@ function ChannelBar({
   channel,
   tab,
   startThread,
-  sectionPicker,
   listControls,
 }: {
   channel: ChannelView;
   tab: ChannelTab;
   startThread: ReactNode;
-  sectionPicker: ReactNode;
   listControls: ReactNode;
 }) {
   const isPrivate = channel.visibility === 'private';
@@ -152,30 +129,13 @@ function ChannelBar({
           <>
             {channel.isArchived ? null : startThread}
             <MuteAction channel={channel} />
-            {/* Settings don't change in an Archived channel. */}
-            {channel.isChannelAdmin && !channel.isArchived ? (
-              <SettingsAction channel={channel} />
-            ) : null}
-            <LeaveAction channel={channel} />
           </>
         ) : channel.isArchived ? null : (
           <JoinAction channel={channel} />
         )}
-        {/* Channel admins, and company Admins on a Public channel or a Private one
-            they're in, whether they've joined or not. */}
-        {channel.isArchived ? (
-          channel.can.unarchive ? (
-            <UnarchiveAction channel={channel} />
-          ) : null
-        ) : channel.can.archive ? (
-          <ArchiveAction channel={channel} />
-        ) : null}
+        {/* Everyone who can read the Channel; Archive, Unarchive and Leave live inside. */}
+        <SettingsAction channel={channel} />
       </div>
-      {channel.description ? (
-        <p className="mt-0.5 text-sm text-muted-foreground [overflow-wrap:anywhere]">
-          {channel.description}
-        </p>
-      ) : null}
       {channel.isArchived ? (
         <p className="mt-0.5 text-sm text-muted-foreground">
           Archived: you can read it, but nobody can start Threads, respond or react until it’s
@@ -184,8 +144,9 @@ function ChannelBar({
       ) : null}
       {/* The router marks the current tab with aria-current="page". Threads matches its
           open Threads' paths too, but only exactly on the Members tab, whose path it
-          would also match. */}
-      <div className="mt-2 flex items-end gap-4">
+          would also match. The Thread list controls sit at the far right, and wrap under
+          the tabs when the bar is narrow. */}
+      <div className="mt-2 flex flex-wrap items-end justify-between gap-x-4">
         <nav className="flex gap-4" aria-label="Channel tabs">
           <Link
             to="/channels/$channelId"
@@ -204,12 +165,10 @@ function ChannelBar({
             Members
           </Link>
         </nav>
-        {/* Sections hold only the Channels you're in. */}
-        {channel.isMember && sectionPicker ? (
-          <div className="-mt-1 mb-0.5 ml-auto min-w-0">{sectionPicker}</div>
+        {tab === 'threads' && listControls ? (
+          <div className="ml-auto min-w-0">{listControls}</div>
         ) : null}
       </div>
-      {tab === 'threads' ? listControls : null}
     </section>
   );
 }
@@ -259,7 +218,7 @@ function MuteAction({ channel }: { channel: ChannelView }) {
   );
 }
 
-/** Channel settings, for its Channel admins. */
+/** Channel settings, for everyone who can read the Channel: read-only unless they may change them. */
 function SettingsAction({ channel }: { channel: ChannelView }) {
   const [open, setOpen] = useState(false);
   return (
@@ -276,136 +235,6 @@ function SettingsAction({ channel }: { channel: ChannelView }) {
       </Button>
       {open ? <ChannelSettingsDialog channel={channel} onClose={() => setOpen(false)} /> : null}
     </>
-  );
-}
-
-/** Archive, after asking: it stops new activity, and starts a System thread that Pings members. */
-function ArchiveAction({ channel }: { channel: ChannelView }) {
-  const [confirming, setConfirming] = useState(false);
-  return (
-    <>
-      {/* On a phone the bar is tight, so only the icon shows; the name stays for screen readers. */}
-      <Button
-        variant="outline"
-        className="shrink-0 max-md:[&>span]:sr-only"
-        title="Archive this Channel"
-        onClick={() => setConfirming(true)}
-      >
-        <ArchiveIcon aria-hidden="true" />
-        <span>Archive…</span>
-      </Button>
-      {confirming ? <ArchiveDialog channel={channel} onClose={() => setConfirming(false)} /> : null}
-    </>
-  );
-}
-
-function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): void }) {
-  const archive = useArchiveChannel(channel.id);
-  return (
-    <Dialog
-      defaultOpen
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Archive {channel.name}?</DialogTitle>
-          <DialogDescription>
-            Everyone who can read it still can. Nobody can start Threads, respond, react, edit,
-            resolve, join or change its members or settings until it’s unarchived. Its members get a
-            Ping for the System thread that announces it.
-          </DialogDescription>
-        </DialogHeader>
-        {archive.isError ? <FormError>{archive.error.message}</FormError> : null}
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button
-            disabled={archive.isPending}
-            onClick={() => archive.mutate(undefined, { onSuccess: onClose })}
-          >
-            {archive.isPending ? 'Archiving…' : 'Archive'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-/** Unarchive at once: it only reopens the Channel, and Pings nobody. */
-function UnarchiveAction({ channel }: { channel: ChannelView }) {
-  const unarchive = useUnarchiveChannel(channel.id);
-  return (
-    <>
-      <Button
-        variant="outline"
-        className="shrink-0 max-md:[&>span]:sr-only"
-        title="Unarchive this Channel"
-        disabled={unarchive.isPending}
-        onClick={() => unarchive.mutate()}
-      >
-        <ArchiveRestoreIcon aria-hidden="true" />
-        <span>{unarchive.isPending ? 'Unarchiving…' : 'Unarchive'}</span>
-      </Button>
-      {unarchive.isError ? (
-        <FormError className="basis-full">{unarchive.error.message}</FormError>
-      ) : null}
-    </>
-  );
-}
-
-/** Leave, after asking: the server refuses the last active Channel admin, with a reason. */
-function LeaveAction({ channel }: { channel: ChannelView }) {
-  const [confirming, setConfirming] = useState(false);
-  return (
-    <>
-      <Button variant="outline" className="shrink-0" onClick={() => setConfirming(true)}>
-        Leave…
-      </Button>
-      {confirming ? <LeaveDialog channel={channel} onClose={() => setConfirming(false)} /> : null}
-    </>
-  );
-}
-
-function LeaveDialog({ channel, onClose }: { channel: ChannelView; onClose(): void }) {
-  const navigate = useNavigate();
-  const isPrivate = channel.visibility === 'private';
-  const leave = useLeaveChannel({
-    onLeft: () => {
-      onClose();
-      // A Private channel is gone once you leave, so move off it.
-      if (isPrivate) void navigate({ to: '/browse' });
-    },
-  });
-  return (
-    <Dialog
-      defaultOpen
-      onOpenChange={(open) => {
-        if (!open) onClose();
-      }}
-    >
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Leave {channel.name}?</DialogTitle>
-          <DialogDescription>
-            {isPrivate
-              ? 'It’s Private, so you can’t read it any more once you leave. A Channel admin has to add you back.'
-              : 'It leaves your sidebar. It’s Public, so you can still read it and join again from Browse channels.'}
-          </DialogDescription>
-        </DialogHeader>
-        {leave.isError ? <FormError>{leave.error.message}</FormError> : null}
-        <DialogFooter>
-          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
-          <Button
-            variant="destructive"
-            disabled={leave.isPending}
-            onClick={() => leave.mutate(channel)}
-          >
-            {leave.isPending ? 'Leaving…' : 'Leave'}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
   );
 }
 

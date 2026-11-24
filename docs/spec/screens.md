@@ -29,7 +29,7 @@ Rules:
 - A Channel with Pings shows in bold with a count. A muted Channel's count is grey.
 - A Private channel shows a lock icon.
 - Sections are personal: you create, name, reorder and collapse your own, and nobody else sees them. A collapsed Section still shows any of its Channels that have Pings.
-- Channels move between Sections by drag and drop, or with the Section picker in the Channel bar. Channels you haven't placed, including ones you've just joined, sit in the default Channels section.
+- Channels move between Sections by drag and drop in the sidebar. Channels you haven't placed, including ones you've just joined, sit in the default Channels section.
 - The Staff member can drag the sidebar's right edge to make it wider or narrower (200 to 420px), or focus the edge and use the arrow keys. The width is kept in this browser.
 
 ### Channel view
@@ -38,12 +38,13 @@ A white **Channel bar** sits above a grey feed of Thread rows.
 
 The Channel bar has:
 
-- the name (with a lock icon if Private), the member count, a Mute toggle and **+ New Thread**;
-- the description;
-- **Threads** and **Members** tabs, plus the Section picker;
-- the Thread list controls: Status (Open, Resolved, All), Pings (All, With Pings), sort (Latest activity or Date started) and direction, with an "N Resolved hidden" note.
+- the name (with a lock icon if Private), the member count, a Mute toggle, **+ New Thread** and **Settings**;
+- an Archived notice, when the Channel is Archived;
+- **Threads** and **Members** tabs, with the Thread list controls at the far right on the Threads tab: Status (Open, Resolved, All), Pings (All, With Pings), sort (Latest activity or Date started) and direction, with an "N Resolved hidden" note. They wrap under the tabs when the bar is narrow.
 
-Channel admins also reach the Channel's settings and member management from the bar. A Staff member viewing a Public channel they haven't joined sees a **Join** button in place of + New Thread.
+A Staff member viewing a Public channel they haven't joined sees a **Join** button in place of + New Thread.
+
+**Settings** opens the Channel settings dialog for everyone who can read the Channel. It shows the name, the description, "Who can resolve threads?" and the visibility. Channel admins change them there; everyone else, and everyone in an Archived channel, reads them only. A bottom section holds Archive or Unarchive, for whoever may, and Leave, for members. Archive and Leave ask first; Unarchive happens at once. Channel admins manage members from the Members tab.
 
 Each **Thread row** is a white card showing:
 
@@ -88,7 +89,7 @@ Reached from the avatar menu, for Admins only:
 - The home screen is the sidebar (Pings, Saved and Sections) under the dark top bar, with search behind an icon.
 - Tapping a Channel shows its Channel bar and Thread list. The Acknowledge buttons sit under each row, within thumb reach.
 - Tapping a Thread opens it full screen, with the composer at the bottom.
-- The Section picker in the Channel bar replaces drag and drop.
+- Channels can't move between Sections on a phone, because that's done by drag and drop.
 
 ## Search
 

@@ -33,7 +33,11 @@ test('a member opens a Private channel from the sidebar', async ({ page }) => {
   await expect(bar.getByRole('heading', { name: 'Owners' })).toBeVisible();
   await expect(bar.getByText('Private')).toBeVisible();
   await expect(bar.getByText('2 members')).toBeVisible();
-  await expect(bar.getByText('Contracts and budgets. Owners only.')).toBeVisible();
+  await bar.getByRole('button', { name: 'Settings' }).click();
+  await expect(
+    page.getByRole('dialog', { name: 'Channel settings' }).getByLabel('Description'),
+  ).toHaveValue('Contracts and budgets. Owners only.');
+  await page.keyboard.press('Escape');
   await expect(page.getByText('No Threads yet')).toBeVisible();
 });
 

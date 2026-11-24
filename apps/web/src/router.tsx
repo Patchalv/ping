@@ -17,7 +17,6 @@ import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
 import { SearchPage } from './features/search/SearchPage';
-import { SectionPicker } from './features/section/SectionPicker';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
 import { useThreadListView } from './features/thread/list-view';
 import { PingsPage } from './features/thread/PingsPage';
@@ -68,7 +67,6 @@ function ChannelThreads({ channelId }: { channelId: string }) {
       channelId={channelId}
       tab="threads"
       startThread={<StartThreadButton channelId={channelId} />}
-      sectionPicker={<SectionPicker channelId={channelId} />}
       listControls={<ThreadListControls channelId={channelId} view={view} onChange={setView} />}
       panel={<Outlet />}
     >
@@ -118,14 +116,7 @@ const channelMembersRoute = createRoute({
 
 function ChannelMembersRoute() {
   const { channelId } = channelMembersRoute.useParams();
-  return (
-    <ChannelPage
-      key={channelId}
-      channelId={channelId}
-      tab="members"
-      sectionPicker={<SectionPicker channelId={channelId} />}
-    />
-  );
+  return <ChannelPage key={channelId} channelId={channelId} tab="members" />;
 }
 
 // Browse channels: every Public channel, to join. Accepting an invite lands here.

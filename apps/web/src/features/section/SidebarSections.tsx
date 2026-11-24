@@ -1,7 +1,7 @@
 // The sidebar's Channels, in the Staff member's own Sections and then the default Channels
 // section (screens.md › Sidebar). On a laptop, Channels move between Sections by drag and
-// drop, and Sections reorder the same way; each Section's menu also moves it up and down,
-// and the Section picker in the Channel bar moves Channels from the keyboard or a phone.
+// drop, and Sections reorder the same way; each Section's menu also moves it up and down.
+// Moving Channels needs drag and drop, so a phone or the keyboard alone can't do it.
 import type { SectionView, SidebarChannel } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
 import {
