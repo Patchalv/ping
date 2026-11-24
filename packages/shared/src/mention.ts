@@ -46,6 +46,35 @@ export function mentionedStaffIds(doc: RichTextDoc): string[] {
   return [...found];
 }
 
+/**
+ * A copy of a body with each Mention showing the person's current name, so an edit starts
+ * from, and saves into `body_text`, the name people go by now. A Mention with no entry in
+ * `names` keeps the name it was made with.
+ */
+export function withCurrentMentionNames(doc: RichTextDoc, names: MentionNames): RichTextDoc {
+  const inline = (node: RichTextInline): RichTextInline => {
+    if (node.type !== 'mention') return node;
+    const name = names[node.attrs.id.toLowerCase()];
+    return name === undefined ? node : { ...node, attrs: { ...node.attrs, label: name } };
+  };
+  const block = (node: RichTextBlock): RichTextBlock => {
+    switch (node.type) {
+      case 'paragraph':
+      case 'heading':
+      case 'codeBlock':
+        return node.content ? { ...node, content: node.content.map(inline) } : node;
+      case 'blockquote':
+        return node.content ? { ...node, content: node.content.map(block) } : node;
+      case 'bulletList':
+      case 'orderedList':
+        return node.content ? { ...node, content: node.content.map(listItem) } : node;
+    }
+  };
+  const listItem = (node: RichTextListItem): RichTextListItem =>
+    node.content ? { ...node, content: node.content.map(block) } : node;
+  return doc.content ? { ...doc, content: doc.content.map(block) } : doc;
+}
+
 export type MentionChanges = { added: string[]; removed: string[] };
 
 /**

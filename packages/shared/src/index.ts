@@ -46,6 +46,8 @@ export {
   type ResolvePolicy,
   type SidebarChannel,
   setChannelAdminBody,
+  type UpdateChannelBody,
+  updateChannelBody,
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
@@ -62,6 +64,7 @@ export {
   type MentionNames,
   mentionChanges,
   mentionedStaffIds,
+  withCurrentMentionNames,
 } from './mention';
 export {
   listPingsQuery,
@@ -126,6 +129,7 @@ export {
   type StaffState,
   staffParams,
 } from './staff';
+export { type SystemThreadEvent, systemThreadTitle } from './system-thread';
 export {
   DEFAULT_THREAD_LIST_VIEW,
   type EditThreadBody,

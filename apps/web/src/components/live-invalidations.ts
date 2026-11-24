@@ -23,6 +23,9 @@ export function liveInvalidations(event: LiveEvent): QueryKey[] {
     case 'membership.changed':
       // Left or removed: the Channel may now be hidden, wherever it shows.
       return [channelKeys.all, threadKeys.all, pingKeys.all];
+    case 'channel.made_private':
+      // Non-members lose it everywhere at once: the sidebar, Browse, its feed, Pings, Saved.
+      return [channelKeys.all, threadKeys.all, pingKeys.all, savedKeys.all];
     case 'thread.created':
       return [threadKeys.list(event.channelId)];
     case 'thread.changed':

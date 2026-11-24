@@ -15,6 +15,9 @@ export const liveEvent = z.discriminatedUnion('kind', [
   // The Staff member left a Channel or was removed from one. Only they hear it, and it
   // names no Channel, since they may no longer read it: their sidebar and screens refetch.
   z.object({ kind: z.literal('membership.changed'), staffId: id }),
+  // A Public channel turned Private. Everyone hears it, since everyone could read it a
+  // moment ago: non-members drop it wherever it shows, and members see its System thread.
+  z.object({ kind: z.literal('channel.made_private'), channelId: id }),
   z.object({ kind: z.literal('thread.created'), channelId: id, threadId: id }),
   // A Thread was edited, or someone reacted to it or took a reaction back.
   z.object({ kind: z.literal('thread.changed'), channelId: id, threadId: id }),

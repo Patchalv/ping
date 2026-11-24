@@ -3,6 +3,7 @@ import {
   editThreadBody,
   THREAD_TITLE_MAX,
   type ThreadView,
+  withCurrentMentionNames,
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useState } from 'react';
@@ -29,12 +30,13 @@ export function EditThreadDialog({ thread, onClose }: { thread: ThreadView; onCl
   const attaching = useAttachingCount();
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
+  // Start from each Mentioned person's current name, so saving writes it into the preview.
   // An edit adds Attachments to those already there.
-  const defaultValues: EditThreadBody = {
+  const [defaultValues] = useState<EditThreadBody>(() => ({
     title: thread.title,
-    body: thread.body,
+    body: withCurrentMentionNames(thread.body, thread.mentionNames),
     attachmentIds: [],
-  };
+  }));
   const form = useAppForm({
     formId: 'edit-thread',
     defaultValues,

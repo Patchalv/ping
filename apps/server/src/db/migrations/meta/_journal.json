@@ -110,8 +110,15 @@
     {
       "idx": 15,
       "version": "7",
-      "when": 1795508836491,
-      "tag": "0015_attachment",
+      "when": 1795508662765,
+      "tag": "0015_channel_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795524073381,
+      "tag": "0016_attachment",
       "breakpoints": true
     }
   ]

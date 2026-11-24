@@ -23,6 +23,16 @@ describe('liveInvalidations', () => {
     ]);
   });
 
+  it('refetches every Channel, Thread, Ping and Saved view when a Channel turns Private', () => {
+    // Non-members lose it everywhere at once: the sidebar, Browse, its feed, Pings, Saved.
+    expect(liveInvalidations({ kind: 'channel.made_private', channelId })).toEqual([
+      ['channels'],
+      ['threads'],
+      ['pings'],
+      ['saved'],
+    ]);
+  });
+
   it('refetches the Channel’s Thread feed for a new Thread', () => {
     expect(liveInvalidations({ kind: 'thread.created', channelId, threadId })).toEqual([
       ['threads', 'list', channelId],

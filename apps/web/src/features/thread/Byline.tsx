@@ -2,6 +2,7 @@ import type { ThreadAuthor } from '@ping/shared';
 import { Badge } from '#/components/ui/badge';
 import { formatPostedAt } from '#/lib/format-time';
 import { cn } from '#/lib/utils';
+import { PingMark } from '../../components/PingMark';
 import { StaffAvatar } from '../../components/StaffAvatar';
 
 /**
@@ -17,6 +18,7 @@ export function Byline({ author, at }: { author: ThreadAuthor | null; at: string
   if (!author) {
     return (
       <div className="flex items-center gap-2">
+        <PingMark className="size-6" />
         <span className="text-small font-semibold">Ping</span>
         {time}
       </div>

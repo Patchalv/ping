@@ -25,7 +25,7 @@ CREATE INDEX "attachment_thread_id_idx" ON "attachment" USING btree ("thread_id"
 CREATE INDEX "attachment_thread_response_id_idx" ON "attachment" USING btree ("thread_response_id");--> statement-breakpoint
 CREATE INDEX "attachment_pending_idx" ON "attachment" USING btree ("uploader_id","created_at") WHERE "attachment"."channel_id" is null;--> statement-breakpoint
 
--- Attachments (#50). Hand-written after the generated DDL, like 0007 to 0014.
+-- Attachments (#50). Hand-written after the generated DDL, like 0007 to 0015.
 --
 -- Row-level security (permissions.md › Policies):
 -- - Pending (no Channel): its uploader only. ping_app inserts only its own pending rows.

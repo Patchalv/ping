@@ -6,6 +6,7 @@ import {
   type ThreadResponseView,
   threadResponseBody,
   threadResponseCount,
+  withCurrentMentionNames,
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
@@ -147,8 +148,12 @@ function EditThreadResponseForm({
   const addAttachment = useAddAttachment(channelId);
   const attaching = useAttachingCount();
   const [formError, setFormError] = useState<string | null>(null);
+  // Start from each Mentioned person's current name, so saving writes it into the preview.
   // An edit adds Attachments to those already there.
-  const defaultValues: ThreadResponseBody = { body, attachmentIds: [] };
+  const [defaultValues] = useState<ThreadResponseBody>(() => ({
+    body: withCurrentMentionNames(body, response.mentionNames),
+    attachmentIds: [],
+  }));
   const form = useAppForm({
     formId: `edit-thread-response-${response.id}`,
     defaultValues,

@@ -24,8 +24,9 @@ export function canReceiveLiveEvent(
   event: LiveEvent,
   channel: ChannelAccess | undefined,
 ): Decision {
-  // Every signed-in Staff member can read the Staff members list.
-  if (event.kind === 'staff.changed') return allow();
+  // Every signed-in Staff member can read the Staff members list, and could read a Channel
+  // that just turned Private: they must hear it to drop it.
+  if (event.kind === 'staff.changed' || event.kind === 'channel.made_private') return allow();
   // Only the Staff member it's about: their memberships (naming no Channel), their own
   // Sidebar Sections, or their own Saved list and mutes.
   if (

@@ -601,6 +601,8 @@ export type AuditEventKind =
   | 'channel_member_removed'
   | 'channel_admin_appointed'
   | 'channel_admin_removed'
+  // A Channel admin turned a Public channel Private. No target: channel_id is the Channel.
+  | 'channel_made_private'
   // A company Admin edited or deleted someone else's content. target_staff_id is its
   // author; channel_id its Channel.
   | 'admin_edited_thread'

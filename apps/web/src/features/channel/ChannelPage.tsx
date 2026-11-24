@@ -1,6 +1,6 @@
 import type { ChannelView } from '@ping/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { BellIcon, BellOffIcon, ChevronLeftIcon, LockIcon } from 'lucide-react';
+import { BellIcon, BellOffIcon, ChevronLeftIcon, LockIcon, SettingsIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
@@ -17,6 +17,7 @@ import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import { useChannel, useJoinChannel, useLeaveChannel, useMuteChannel } from './api';
+import { ChannelSettingsDialog } from './ChannelSettingsDialog';
 import { MembersTab } from './MembersTab';
 
 type ChannelTab = 'threads' | 'members';
@@ -130,6 +131,10 @@ function ChannelBar({
           <>
             {channel.isArchived ? null : startThread}
             <MuteAction channel={channel} />
+            {/* Settings don't change in an Archived channel. */}
+            {channel.isChannelAdmin && !channel.isArchived ? (
+              <SettingsAction channel={channel} />
+            ) : null}
             <LeaveAction channel={channel} />
           </>
         ) : channel.isArchived ? null : (
@@ -214,6 +219,26 @@ function MuteAction({ channel }: { channel: ChannelView }) {
         {channel.isMuted ? 'Muted' : 'Mute'}
       </Button>
       {mute.isError ? <FormError className="basis-full">{mute.error.message}</FormError> : null}
+    </>
+  );
+}
+
+/** Channel settings, for its Channel admins. */
+function SettingsAction({ channel }: { channel: ChannelView }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      {/* On a phone the bar is tight, so only the icon shows; the name stays for screen readers. */}
+      <Button
+        variant="outline"
+        className="shrink-0 max-md:[&>span]:sr-only"
+        title="Channel settings"
+        onClick={() => setOpen(true)}
+      >
+        <SettingsIcon aria-hidden="true" />
+        <span>Settings</span>
+      </Button>
+      {open ? <ChannelSettingsDialog channel={channel} onClose={() => setOpen(false)} /> : null}
     </>
   );
 }

@@ -4,6 +4,7 @@ import type { Actor } from './actor';
 import {
   canAddChannelMember,
   canBrowseChannels,
+  canChangeChannelSettings,
   canCreateChannel,
   canJoinChannel,
   canLeaveChannel,
@@ -16,6 +17,7 @@ import {
   needsCompanyAdminPower,
   ONLY_MEMBER_ARCHIVED_MESSAGE,
   ONLY_MEMBER_MESSAGE,
+  PRIVATE_STAYS_PRIVATE_MESSAGE,
   requireCanCreateChannel,
   requireCanReadChannel,
 } from './channel';
@@ -478,6 +480,74 @@ describe('the require helpers', () => {
     const decision = deny({ kind: 'refused', message: 'Only Channel admins can do that.' });
     expect(() => requireAllowed(decision)).toThrow(
       new ForbiddenError('Only Channel admins can do that.'),
+    );
+  });
+});
+
+// Channel settings and visibility (#42).
+describe('canChangeChannelSettings', () => {
+  const settings = (overrides: Partial<Parameters<typeof canChangeChannelSettings>[1]> = {}) => ({
+    visibility: 'public' as const,
+    isMember: true,
+    isChannelAdmin: true,
+    isArchived: false,
+    ...overrides,
+  });
+
+  it.each([
+    ['a Channel admin of a Public channel', member, settings(), {}],
+    [
+      'a Channel admin turning a Public channel Private',
+      member,
+      settings(),
+      { visibility: 'private' as const },
+    ],
+    ['a Channel admin of a Private channel', member, settings({ visibility: 'private' }), {}],
+    ['a company Admin who is Channel admin', admin, settings(), {}],
+    [
+      'a Channel admin asking for a Private channel to stay Private',
+      member,
+      settings({ visibility: 'private' }),
+      { visibility: 'private' as const },
+    ],
+  ])('allows %s', (_name, actor, channel, change) => {
+    expect(canChangeChannelSettings(actor, channel, change)).toEqual(allow());
+  });
+
+  it.each([
+    ['a Member', member],
+    ['a company Admin', admin],
+  ])('hides a Private channel from %s who isn’t in it', (_name, actor) => {
+    const channel = settings({ visibility: 'private', isMember: false, isChannelAdmin: false });
+    expect(canChangeChannelSettings(actor, channel, {})).toEqual(deny({ kind: 'hidden' }));
+  });
+
+  it.each([
+    ['a plain member', member, settings({ isChannelAdmin: false })],
+    ['a non-member', member, settings({ isMember: false, isChannelAdmin: false })],
+    ['a company Admin who isn’t Channel admin', admin, settings({ isChannelAdmin: false })],
+  ])('refuses %s', (_name, actor, channel) => {
+    expect(canChangeChannelSettings(actor, channel, {})).toEqual(
+      deny({ kind: 'refused', message: 'Only Channel admins change this Channel’s settings.' }),
+    );
+  });
+
+  it.each([
+    ['its Channel admin', member, settings({ visibility: 'private' })],
+    ['a company Admin who is Channel admin', admin, settings({ visibility: 'private' })],
+    ['a plain member', member, settings({ visibility: 'private', isChannelAdmin: false })],
+  ])('never lets %s make a Private channel Public', (_name, actor, channel) => {
+    expect(canChangeChannelSettings(actor, channel, { visibility: 'public' })).toEqual(
+      deny({ kind: 'refused', message: PRIVATE_STAYS_PRIVATE_MESSAGE }),
+    );
+  });
+
+  it('refuses every change in an Archived channel, even from its Channel admin', () => {
+    expect(canChangeChannelSettings(member, settings({ isArchived: true }), {})).toEqual(
+      deny({
+        kind: 'refused',
+        message: 'This Channel is archived, so its settings can’t change. Unarchive it first.',
+      }),
     );
   });
 });
