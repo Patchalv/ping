@@ -92,6 +92,23 @@ export {
 } from './rich-text';
 export { listSavedQuery, type SavedPage } from './saved';
 export {
+  type ChannelSearchResult,
+  type ChannelSearchResults,
+  SEARCH_TEXT_MAX,
+  type SearchPeople,
+  type SearchPerson,
+  type SearchRouteSearch,
+  type SearchStatus,
+  type SearchTab,
+  type SearchThreadsQuery,
+  type SnippetPart,
+  searchChannelsQuery,
+  searchRouteSearch,
+  searchThreadsQuery,
+  type ThreadSearchPage,
+  type ThreadSearchResult,
+} from './search';
+export {
   type CreateSectionBody,
   createSectionBody,
   type PlaceChannelBody,
@@ -149,6 +166,7 @@ export {
   type ThreadView,
   threadListView,
   threadParams,
+  threadRouteSearch,
 } from './thread';
 export {
   type ThreadResponseBody,

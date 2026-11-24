@@ -7,14 +7,11 @@ import {
   BookmarkIcon,
   CompassIcon,
   PlusIcon,
-  SearchIcon,
   UserPenIcon,
   UsersIcon,
 } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { Button } from '#/components/ui/button';
 import { DropdownMenuItem, DropdownMenuLinkItem } from '#/components/ui/dropdown-menu';
-import { Input } from '#/components/ui/input';
 import {
   Sidebar,
   SidebarContent,
@@ -30,6 +27,7 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
+import { SearchField, SearchIconLink } from '../features/search/SearchField';
 import { useSections } from '../features/section/api';
 import { NewSectionButton, SidebarSections } from '../features/section/SidebarSections';
 import { useCurrentStaffMember } from '../features/staff/api';
@@ -110,30 +108,9 @@ function TopBar({ children }: { children: ReactNode }) {
         Ping
         <EnvironmentBadge />
       </span>
-      <div className="relative mx-auto w-full max-w-xl max-md:hidden">
-        <SearchIcon
-          aria-hidden="true"
-          className="pointer-events-none absolute top-1/2 left-2.5 z-10 size-4 -translate-y-1/2 text-chrome-foreground/70"
-        />
-        <Input
-          className="h-7 border-chrome-foreground/15 bg-chrome-foreground/10 pl-8 text-chrome-foreground shadow-none placeholder:text-chrome-foreground/70 disabled:opacity-100"
-          type="search"
-          placeholder="Search arrives in a later release"
-          aria-label="Search"
-          disabled
-        />
-      </div>
+      <SearchField tone="chrome" className="mx-auto w-full max-w-xl max-md:hidden" />
       {/* Search sits behind an icon on a phone (screens.md › Phone). */}
-      <Button
-        variant="chrome"
-        size="icon-sm"
-        className="ml-auto md:hidden"
-        aria-label="Search"
-        title="Search arrives in a later release"
-        disabled
-      >
-        <SearchIcon />
-      </Button>
+      <SearchIconLink />
       {children}
     </header>
   );

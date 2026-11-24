@@ -230,8 +230,9 @@ export const thread = pgTable(
     editedBy: uuid('edited_by').references(() => staffMember.id),
     resolvedAt: timestamp('resolved_at', { withTimezone: true }),
     resolvedBy: uuid('resolved_by').references(() => staffMember.id),
+    // Mentions are taken out, so search never matches a person's name (0019).
     search: tsvector('search').generatedAlwaysAs(
-      sql`to_tsvector('english', title || ' ' || body_text)`,
+      sql`to_tsvector('english', title || ' ' || public.text_without_mentions(body_text, body))`,
     ),
   },
   (t) => [
@@ -272,7 +273,7 @@ export const threadResponse = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
     deletedBy: uuid('deleted_by').references(() => staffMember.id),
     search: tsvector('search').generatedAlwaysAs(
-      sql`to_tsvector('english', coalesce(body_text, ''))`,
+      sql`to_tsvector('english', coalesce(public.text_without_mentions(body_text, body), ''))`,
     ),
   },
   (t) => [

@@ -44,6 +44,14 @@ export const threadParams = channelParams.extend({
 });
 
 /**
+ * The SPA's open-Thread route: `response` is a Thread Response to scroll to, as a search
+ * result opens it. A garbled one is ignored, so the Thread still opens.
+ */
+export const threadRouteSearch = z.object({
+  response: z.uuid().optional().catch(undefined),
+});
+
+/**
  * The Thread list controls (product.md › A Channel's Thread list): Status, Pings ("with"
  * means Threads where the viewer has a Ping now), sort and direction. Each choice falls
  * back to its default, so a view stored by an older version still reads.

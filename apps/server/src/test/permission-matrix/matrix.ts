@@ -1052,6 +1052,51 @@ export const MATRIX: MatrixRow[] = [
     allowed(200),
   ),
 
+  // Search: anyone. Row-level security decides what they find, the same for everyone,
+  // Admins included (features/search/routes.int.test.ts proves a Private channel's content
+  // never appears for a non-member).
+  ...rowsFor(
+    {
+      route: 'GET /api/search/channels',
+      action: 'search Channels',
+      channel: null,
+      request: () => ({ path: '/api/search/channels?q=front' }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'GET /api/search/threads',
+      action: 'search Threads',
+      channel: null,
+      request: () => ({ path: '/api/search/threads?q=rota' }),
+    },
+    allowed(200),
+  ),
+  ...rowsFor(
+    {
+      route: 'GET /api/search/people',
+      action: 'list the people the From chip offers',
+      channel: null,
+      request: () => ({ path: '/api/search/people' }),
+    },
+    allowed(200),
+  ),
+  // Search In one Channel: anyone who can read it. A Private channel they aren't in is
+  // hidden (404), Admins included.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/search/threads',
+        action: `search Threads In a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        request: (ctx) => ({ path: `/api/search/threads?q=rota&in=${ctx.channel?.id}` }),
+      },
+      readsChannel(channel),
+    ),
+  ),
+
   // Save a Thread, remove it from Saved, and mute or unmute a Thread: anyone who can read
   // it, non-members of a Public channel included. A Private channel they aren't in is
   // hidden (404).

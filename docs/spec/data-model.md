@@ -86,7 +86,7 @@ Both tables are visible only to their owner.
 - `unique (id, channel_id)`, for the composite foreign keys.
 - Check: a System thread has no author and has a kind and payload; an ordinary Thread is the other way round.
 - `latest_activity_at` only moves forward. It starts at `created_at`, and each new Thread Response sets it to that Thread Response's `created_at`. Deleting a Thread Response doesn't move it back.
-- Search: a generated `search` tsvector over `title` and `body_text`, with a GIN index.
+- Search: a generated `search` tsvector over `title` and `body_text` with its Mentions taken out (`text_without_mentions()`, so search never matches a person's name), with a GIN index.
 - Indexes: `(channel_id, latest_activity_at)` and `(channel_id, created_at)`.
 - Deleting a Thread is a real delete that cascades to its Thread Responses, reactions, Mentions, Attachments, Pings and Saved entries. Its file objects go through `pending_file_deletion`.
 
@@ -94,7 +94,7 @@ Both tables are visible only to their owner.
 
 - `id`, `thread_id`, `channel_id` (composite foreign key), `author_id`, `body` (`jsonb`), `body_text`, `created_at`, `edited_at/by`, `deleted_at/by`.
 - Deleting a Thread Response keeps the row as the "Thread Response deleted" placeholder: its `body` and `body_text` are nulled (check: deleted ⇒ both are null), which also empties its `search` vector, and its Attachments, reactions and Mentions are removed.
-- Search: a generated `search` tsvector over `body_text`, with a GIN index. Search excludes deleted Thread Responses.
+- Search: a generated `search` tsvector over `body_text` with its Mentions taken out, like `thread`'s, with a GIN index. Search excludes deleted Thread Responses.
 - Index: `(thread_id, created_at)`.
 
 ## On Threads and Thread Responses

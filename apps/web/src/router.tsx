@@ -2,7 +2,7 @@
 // URL. Params and search params are validated with the zod schemas in packages/shared; a
 // path that fails them is not found. The server answers every non-API path with
 // index.html, so a deep link loads the app and lands here.
-import { channelParams, threadParams } from '@ping/shared';
+import { channelParams, searchRouteSearch, threadParams, threadRouteSearch } from '@ping/shared';
 import {
   createRootRoute,
   createRoute,
@@ -16,6 +16,7 @@ import { AppShell, HomeNote } from './components/AppShell';
 import { PageNotFound } from './components/NotFound';
 import { BrowseChannelsPage } from './features/channel/BrowseChannelsPage';
 import { ChannelPage } from './features/channel/ChannelPage';
+import { SearchPage } from './features/search/SearchPage';
 import { SectionPicker } from './features/section/SectionPicker';
 import { StaffMembersPage } from './features/staff/StaffMembersPage';
 import { useThreadListView } from './features/thread/list-view';
@@ -89,12 +90,22 @@ const threadRoute = createRoute({
     },
     stringify: (params: { threadId: string }) => params,
   },
+  // A search result opens a Thread at its matched Thread Response.
+  validateSearch: (raw: Record<string, unknown>) => threadRouteSearch.parse(raw),
   component: ThreadRoute,
 });
 
 function ThreadRoute() {
   const { channelId, threadId } = threadRoute.useParams();
-  return <ThreadPanel key={threadId} channelId={channelId} threadId={threadId} />;
+  const { response } = threadRoute.useSearch();
+  return (
+    <ThreadPanel
+      key={threadId}
+      channelId={channelId}
+      threadId={threadId}
+      scrollToResponseId={response}
+    />
+  );
 }
 
 // The same Channel view, on its Members tab.
@@ -138,6 +149,15 @@ const savedRoute = createRoute({
   component: SavedPage,
 });
 
+// Search: Channels and Threads the Staff member can read. The text, tab and chips live in
+// the URL, so Back returns to the same results.
+const searchRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/search',
+  validateSearch: (raw: Record<string, unknown>) => searchRouteSearch.parse(raw),
+  component: SearchPage,
+});
+
 // The Admins' Staff members screen, from the avatar menu. A Member who opens it gets the
 // server's refusal.
 const staffRoute = createRoute({
@@ -151,6 +171,7 @@ const routeTree = rootRoute.addChildren([
   browseRoute,
   pingsRoute,
   savedRoute,
+  searchRoute,
   channelRoute.addChildren([threadRoute]),
   channelMembersRoute,
   staffRoute,

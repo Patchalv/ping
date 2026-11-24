@@ -134,6 +134,13 @@
       "when": 1795529169374,
       "tag": "0018_pending_file_deletion",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795531977011,
+      "tag": "0019_search_text",
+      "breakpoints": true
     }
   ]
 }
