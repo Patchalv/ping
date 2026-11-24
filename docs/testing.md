@@ -40,7 +40,7 @@ They run against the `docker compose` Postgres:
 - Database names start with a hash of the checkout's path, so worktrees sharing the stack never collide.
 - Each test seeds its own fixtures with fresh UUIDs and never cleans up. Nothing is wrapped in a rollback, because the code under test opens its own transactions.
 
-The plumbing is in `apps/server/src/db/test-support.ts`, because only `db/` may open a raw connection. Use `createStaffMember()` for fixtures and `asOwner()` to set up or inspect rows behind row-level security.
+Attachment tests store real files in the local MinIO: `globalSetup` creates its `ping-attachments` bucket. The plumbing is in `apps/server/src/db/test-support.ts`, because only `db/` may open a raw connection. Use `createStaffMember()` for fixtures and `asOwner()` to set up or inspect rows behind row-level security.
 
 ### The RLS suite (`apps/server/src/test/rls/`)
 
@@ -84,6 +84,7 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 
 - The standard actors are in `actors.ts`. Each is a real Staff member signed in through Better Auth. The Deactivated actor replays a cookie from before their Deactivation.
 - Deny rows assert the status and that the database is unchanged: every table's rows are checksummed before and after.
+- A row with `attachment` gets an Attachment row (no file): the actor's own pending one, someone else's pending one, or one attached to the row's Thread. A row's `request` may return `form` instead of `body` to send multipart form data with one file.
 - Rows with a Channel use the Channel fixtures in `run-row.ts`. Each row gets a fresh Channel of its `channel` kind (`public`, `private`, `archived`, which is Public, or `archivedPrivate`, used by the archive and unarchive rows), and `CHANNEL_ROLE` in `actors.ts` sets each actor's place in it: Channel admin, member, or not a member.
 - A row with `thread: true` also gets a Thread in its Channel, started by the `author` actor (or, for any other actor, by another member), passed to `request` as `ctx.thread`.
 - Every new or changed endpoint needs at least one allow row, plus a deny row for every standard actor who shouldn't pass.
@@ -94,7 +95,7 @@ It lists every registered Hono route and fails if one has neither a matrix row n
 
 ### The publish-coverage check (`apps/server/src/test/publish-coverage.int.test.ts`)
 
-It runs every mutating route's permission-matrix allow rows (POST, PUT, PATCH, DELETE) while watching the live-update hub, and fails if a route never called `publish()`. The exemptions, with their reasons, are in `publish-coverage.ts`: Better Auth's routes, invite lookup, and changing your email (the change publishes when its link is opened). Invite accept and email-change confirm sit outside the matrix, so their own tests assert they publish. Changing the exemptions weakens the check: list it under **Permission changes**.
+It runs every mutating route's permission-matrix allow rows (POST, PUT, PATCH, DELETE) while watching the live-update hub, and fails if a route never called `publish()`. The exemptions, with their reasons, are in `publish-coverage.ts`: Better Auth's routes, invite lookup, changing your email (the change publishes when its link is opened), and adding a pending Attachment (only its uploader can see it; saving the post publishes). Invite accept and email-change confirm sit outside the matrix, so their own tests assert they publish. Changing the exemptions weakens the check: list it under **Permission changes**.
 
 ### Live updates (`apps/server/src/lib/sse/`)
 
@@ -114,7 +115,7 @@ DATABASE_URL='<url>' pnpm --filter @ping/server exec tsx src/db/cli/pooler-smoke
 
 ### Playwright (`e2e/`)
 
-The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin, nothing cached reaching the next person to sign in on the same browser, a lost session returning to sign-in, a failed network call, an empty sign-in, starting a Thread with formatting and reading it in its panel, Join in place of New Thread for a non-member, sending, editing ("edited") and deleting a Thread Response (its placeholder), editing a Thread, a company Admin's edit reading "edited by <name>", deleting a Thread after a confirmation that counts other people's Thread Responses, form mistakes (found by the schema or by the server) shown on their field, focused, and cleared when fixed, and a second Staff member receiving a Ping over the live-update stream, with Acknowledging clearing it. Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
+The smoke suite builds the app, recreates and seeds a `ping_e2e` database, starts the production server on port 3100, and runs each journey at laptop and phone size. Today it covers signing in, a wrong password, a Deactivated Staff member, signing out, creating a Channel, opening a Private channel as a member, a Private channel staying absent (sidebar and URL) for a non-member Member and a non-member company Admin, nothing cached reaching the next person to sign in on the same browser, a lost session returning to sign-in, a failed network call, an empty sign-in, starting a Thread with formatting and reading it in its panel, Join in place of New Thread for a non-member, sending, editing ("edited") and deleting a Thread Response (its placeholder), editing a Thread, a company Admin's edit reading "edited by <name>", deleting a Thread after a confirmation that counts other people's Thread Responses, form mistakes (found by the schema or by the server) shown on their field, focused, and cleared when fixed, a second Staff member receiving a Ping over the live-update stream, with Acknowledging clearing it, and an Attachment round trip against MinIO (attaching the metadata-stripper's fixtures while writing, then another member decoding each stripped image and fetching it through its signed link). Shared helpers are in `e2e/support.ts`. Change it only when a slice changes one of the smoke journeys.
 
 Locally nothing sets `Fly-Client-IP`, so Better Auth's sign-in rate limiter would put every test in one bucket. Each test sends its own address.
 

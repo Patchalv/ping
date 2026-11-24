@@ -7,6 +7,7 @@ import { csrf } from 'hono/csrf';
 import type { Auth } from './auth';
 import type { PingEnvironment, SentrySettings } from './config';
 import type { Database } from './db';
+import { addAttachmentRoutes, attachmentRoutes } from './features/attachment/routes';
 import { channelRoutes } from './features/channel/routes';
 import { mentionRoutes } from './features/mention/routes';
 import { channelMuteRoutes, threadMuteRoutes } from './features/mute/routes';
@@ -23,6 +24,7 @@ import type { Mailer } from './lib/email';
 import { errorResponse } from './lib/errors';
 import { setLiveErrorReporter } from './lib/sse/publish';
 import { liveRoutes } from './lib/sse/routes';
+import type { Storage } from './lib/storage/storage';
 import { noStoreOnApi, securityHeaders } from './security-headers';
 import type { SystemActions } from './system-actions';
 
@@ -55,6 +57,11 @@ type AppOptions = {
   sentry?: SentrySettings;
   /** Called with every unhandled error (Sentry, in production). */
   captureError?: (error: unknown, route: ErrorRoute) => void;
+  /**
+   * Object storage for Attachments, and the origin the CSP lets images load from. Unset
+   * until a deployment's storage settings are: adding an Attachment then answers 503.
+   */
+  storage?: Storage;
 };
 
 function escapeAttribute(value: string): string {
@@ -105,7 +112,7 @@ export function createApp(options: AppOptions) {
   const app = new Hono()
     .use(
       '/*',
-      securityHeaders(options.sentry?.dsn),
+      securityHeaders({ sentryDsn: options.sentry?.dsn, storageOrigin: options.storage?.origin }),
       csrf({ origin: options.trustedOrigins }),
       noStoreOnApi,
     )
@@ -124,6 +131,8 @@ export function createApp(options: AppOptions) {
     .route('/api/saved', savedRoutes(options))
     .route('/api/sections', sectionRoutes(options))
     .route('/api/channels/:channelId/section', placementRoutes(options))
+    .route('/api/channels/:channelId/attachments', addAttachmentRoutes(options))
+    .route('/api/attachments', attachmentRoutes(options))
     .route('/api/live', liveRoutes(options))
     .route(
       '/api/staff',

@@ -30,6 +30,11 @@ export default defineConfig({
       BETTER_AUTH_SECRET: 'playwright-secret-for-the-local-e2e-database-only',
       // Emails are printed, never sent.
       PING_ENVIRONMENT: 'local',
+      // Attachments go to the local MinIO; prepare-e2e.ts creates the bucket.
+      STORAGE_ENDPOINT: 'http://localhost:9000',
+      STORAGE_BUCKET: 'ping-attachments',
+      STORAGE_ACCESS_KEY_ID: 'ping',
+      STORAGE_SECRET_ACCESS_KEY: 'ping-minio-local',
     },
   },
 });

@@ -21,7 +21,7 @@ const body = {
 
 describe('threadResponseBody', () => {
   it('accepts a body with text in it', () => {
-    expect(threadResponseBody.parse({ body })).toEqual({ body });
+    expect(threadResponseBody.parse({ body })).toEqual({ body, attachmentIds: [] });
   });
 
   it.each([

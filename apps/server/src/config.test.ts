@@ -130,3 +130,52 @@ describe('readConfig › Sentry', () => {
     ).toThrow('EU');
   });
 });
+
+describe('readConfig › storage', () => {
+  const r2 = {
+    STORAGE_ENDPOINT: 'https://account.eu.r2.cloudflarestorage.com',
+    STORAGE_BUCKET: 'ping-prod',
+    STORAGE_ACCESS_KEY_ID: 'key',
+    STORAGE_SECRET_ACCESS_KEY: 'secret',
+  };
+
+  it('uses the local MinIO in development', () => {
+    expect(readConfig({}).storage).toEqual({
+      endpoint: 'http://localhost:9000',
+      region: 'auto',
+      bucket: 'ping-attachments',
+      accessKeyId: 'ping',
+      secretAccessKey: 'ping-minio-local',
+    });
+  });
+
+  it('starts without storage in production, so a deploy before the secrets are set still boots', () => {
+    expect(readConfig(production).storage).toBeUndefined();
+  });
+
+  it('reads R2’s settings, with region auto', () => {
+    expect(readConfig({ ...production, ...r2 }).storage).toEqual({
+      endpoint: r2.STORAGE_ENDPOINT,
+      region: 'auto',
+      bucket: 'ping-prod',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+    });
+  });
+
+  it('refuses half a storage setup', () => {
+    expect(() => readConfig({ ...production, STORAGE_BUCKET: 'ping-prod' })).toThrow(
+      'STORAGE_ENDPOINT',
+    );
+  });
+
+  it('refuses a plain-http endpoint in production, except on this machine', () => {
+    expect(() =>
+      readConfig({ ...production, ...r2, STORAGE_ENDPOINT: 'http://minio.internal:9000' }),
+    ).toThrow('https');
+    expect(
+      readConfig({ ...production, ...r2, STORAGE_ENDPOINT: 'http://localhost:9000' }).storage
+        ?.endpoint,
+    ).toBe('http://localhost:9000');
+  });
+});

@@ -5,6 +5,7 @@ import {
 } from '@ping/shared';
 import { Link } from '@tanstack/react-router';
 import { CheckIcon, CircleCheckIcon, HashIcon } from 'lucide-react';
+import { AttachmentSummary } from '#/components/attachments/AttachmentList';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
 import { cn } from '#/lib/utils';
@@ -147,6 +148,7 @@ export function ThreadRow({
           {thread.preview}
         </p>
       ) : null}
+      <AttachmentSummary attachments={thread.attachments} count={thread.attachmentCount} />
       <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1">
         <p className="text-xs text-muted-foreground">
           {threadResponseCount(thread.responseCount)}

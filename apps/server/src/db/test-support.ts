@@ -429,6 +429,42 @@ export async function insertMention(options: {
 }
 
 /**
+ * Inserts an Attachment row as the owner, behind row-level security: pending with no
+ * target, or attached to a Thread or a Thread Response in `channelId`. No file is stored.
+ * Returns its ID and object key.
+ */
+export async function insertAttachment(options: {
+  uploaderId: string;
+  channelId?: string;
+  threadId?: string;
+  threadResponseId?: string;
+  filename?: string;
+  contentType?: string;
+  objectKey?: string;
+}): Promise<{ id: string; objectKey: string }> {
+  const id = randomUUID();
+  const objectKey = options.objectKey ?? randomUUID();
+  await asOwner((query) =>
+    query(
+      `insert into attachment (id, channel_id, thread_id, thread_response_id, uploader_id,
+                               object_key, original_filename, content_type, size_bytes)
+       values ($1, $2, $3, $4, $5, $6, $7, $8, 12)`,
+      [
+        id,
+        options.channelId ?? null,
+        options.threadId ?? null,
+        options.threadResponseId ?? null,
+        options.uploaderId,
+        objectKey,
+        options.filename ?? 'rota.pdf',
+        options.contentType ?? 'application/pdf',
+      ],
+    ),
+  );
+  return { id, objectKey };
+}
+
+/**
  * A checksum of every row of every table in the public schema, read as the owner. Two
  * equal snapshots mean nothing was inserted, updated or deleted in between.
  */

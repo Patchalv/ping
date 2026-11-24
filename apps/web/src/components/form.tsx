@@ -26,6 +26,7 @@ import {
   useStore,
 } from '@tanstack/react-form';
 import type { ComponentProps, FormEvent, ReactNode } from 'react';
+import { type AddAttachment, AttachmentPicker } from '#/components/attachments/AttachmentPicker';
 import { RichTextEditor } from '#/components/rich-text/RichTextEditor';
 import { Button } from '#/components/ui/button';
 import {
@@ -211,6 +212,36 @@ function RichTextField({
 }
 
 /**
+ * The composer's Attachments: files added while writing, held as the IDs of the added
+ * ones. `onAddingChange` tells the composer how many are still being sent, so it can wait
+ * for them before saving.
+ */
+function AttachmentsField({
+  add,
+  onAddingChange,
+  alreadyAttached,
+}: {
+  add: AddAttachment;
+  onAddingChange(count: number): void;
+  /** When editing, how many Attachments the post already has. */
+  alreadyAttached?: number;
+}) {
+  const { controlProps, fieldProps, errorNode, change } = useFieldWiring<string[]>();
+  return (
+    <Field {...fieldProps}>
+      <AttachmentPicker
+        add={add}
+        onChange={change}
+        onAddingChange={onAddingChange}
+        alreadyAttached={alreadyAttached}
+        describedBy={controlProps['aria-describedby']}
+      />
+      {errorNode}
+    </Field>
+  );
+}
+
+/**
  * The <form> element. It submits through TanStack Form, then moves focus to the first field
  * with an error, in page order, whether the schema or the server found it.
  */
@@ -274,7 +305,13 @@ function SubmitButton({
 export const { useAppForm } = createFormHook({
   fieldContext,
   formContext,
-  fieldComponents: { TextField, TextareaField, RadioGroupField, RichTextField },
+  fieldComponents: {
+    TextField,
+    TextareaField,
+    RadioGroupField,
+    RichTextField,
+    AttachmentsField,
+  },
   formComponents: { Form, SubmitButton },
 });
 

@@ -8,6 +8,7 @@ import { createApp } from './app';
 import { createAuth } from './auth';
 import { createDatabase } from './db';
 import { ForbiddenError, NotFoundError, ValidationError } from './lib/errors';
+import { createStorage } from './lib/storage/storage';
 import { offlineAuthEmailServices, offlineInviteServices } from './test/test-app';
 
 // Never connects: these routes don't touch the database.
@@ -140,6 +141,30 @@ describe('security headers', () => {
     );
     expect(csp(res).get('connect-src')).toBe("'self' https://o42.ingest.de.sentry.io");
     expect(csp(res).get('script-src')).toBe("'self'");
+  });
+
+  it('lets images come only from Ping, data: and blob: URLs, and object storage', async () => {
+    const without = await createApp({ auth, database, trustedOrigins, invites }).request(
+      '/healthz',
+    );
+    expect(csp(without).get('img-src')).toBe("'self' data: blob:");
+
+    const storage = createStorage({
+      endpoint: 'https://account.eu.r2.cloudflarestorage.com',
+      region: 'auto',
+      bucket: 'ping-prod',
+      accessKeyId: 'key',
+      secretAccessKey: 'secret',
+    });
+    const res = await createApp({ auth, database, trustedOrigins, invites, storage }).request(
+      '/healthz',
+    );
+    expect(csp(res).get('img-src')).toBe(
+      "'self' data: blob: https://account.eu.r2.cloudflarestorage.com",
+    );
+    // Scripts and connections stay same-origin: storage only serves images.
+    expect(csp(res).get('script-src')).toBe("'self'");
+    expect(csp(res).get('connect-src')).toBe("'self'");
   });
 
   it('sends the same CSP with the SPA', async () => {
