@@ -63,7 +63,8 @@ export function ChannelSettingsDialog({ channel, onClose }: Props) {
   // and remount them, losing the close on success.
   const unarchive = useUnarchiveChannel(channel.id);
   // Settings don't change in an Archived channel, nor while it's being unarchived.
-  const editable = channel.isChannelAdmin && !channel.isArchived && unarchive.isIdle;
+  const editable =
+    channel.isChannelAdmin && !channel.isArchived && !unarchive.isPending && !unarchive.isSuccess;
 
   // Kept while a confirmation shows, so Back returns to the same edits.
   const update = useUpdateChannel(channel.id);
@@ -140,14 +141,14 @@ export function ChannelSettingsDialog({ channel, onClose }: Props) {
                   </field.RadioGroupField>
                 )}
               </form.AppField>
-              <Visibility channel={channel}>
+              <VisibilitySection channel={channel}>
                 {channel.visibility === 'public' ? (
                   <Button variant="outline" onClick={() => setStep('make-private')}>
                     <LockIcon aria-hidden="true" />
                     Make Private…
                   </Button>
                 ) : null}
-              </Visibility>
+              </VisibilitySection>
               {formError ? <FormError>{formError}</FormError> : null}
               {actions}
               <DialogFooter>
@@ -217,7 +218,7 @@ function visibilityNote(channel: ChannelView): string {
 }
 
 /** The Visibility section of the editable settings, with room for Make Private…. */
-function Visibility({ channel, children }: { channel: ChannelView; children: ReactNode }) {
+function VisibilitySection({ channel, children }: { channel: ChannelView; children: ReactNode }) {
   return (
     <section className="grid gap-2" aria-labelledby="channel-visibility">
       <h3 id="channel-visibility" className="text-sm font-semibold">
