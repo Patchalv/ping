@@ -82,6 +82,8 @@ describe('Thread routes', () => {
         isSaved: false,
         resolvedAt: null,
         mentionsYou: false,
+        attachments: [],
+        attachmentCount: 0,
         mentionNames: {},
         edited: null,
         canRespond: true,
@@ -200,6 +202,8 @@ describe('Thread routes', () => {
         isSaved: false,
         resolvedAt: null,
         mentionsYou: false,
+        attachments: [],
+        attachmentCount: 0,
       });
     });
 
