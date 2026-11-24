@@ -219,9 +219,12 @@ function RichTextField({
 function AttachmentsField({
   add,
   onAddingChange,
+  alreadyAttached,
 }: {
   add: AddAttachment;
   onAddingChange(count: number): void;
+  /** When editing, how many Attachments the post already has. */
+  alreadyAttached?: number;
 }) {
   const { controlProps, fieldProps, errorNode, change } = useFieldWiring<string[]>();
   return (
@@ -230,6 +233,7 @@ function AttachmentsField({
         add={add}
         onChange={change}
         onAddingChange={onAddingChange}
+        alreadyAttached={alreadyAttached}
         describedBy={controlProps['aria-describedby']}
       />
       {errorNode}

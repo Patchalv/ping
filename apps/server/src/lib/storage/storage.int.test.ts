@@ -10,7 +10,11 @@ describe('storage', () => {
   it('stores a file and serves it through a signed link that expires in under 5 minutes', async () => {
     const key = randomUUID();
     const content = new TextEncoder().encode('name,room\nMarta,2\n');
-    await storage.put(key, content, 'text/csv');
+    await storage.put(key, content, {
+      filename: 'Horari d’estiu.csv',
+      contentType: 'text/csv',
+      inline: false,
+    });
 
     const link = new URL(
       await storage.signedDownloadUrl(key, {
@@ -35,7 +39,11 @@ describe('storage', () => {
 
   it('refuses the object without a signature, or with a tampered one', async () => {
     const key = randomUUID();
-    await storage.put(key, new Uint8Array([1, 2, 3]), 'application/pdf');
+    await storage.put(key, new Uint8Array([1, 2, 3]), {
+      filename: 'rota.pdf',
+      contentType: 'application/pdf',
+      inline: false,
+    });
     const link = new URL(
       await storage.signedDownloadUrl(key, {
         filename: 'rota.pdf',

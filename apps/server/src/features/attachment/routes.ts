@@ -80,7 +80,11 @@ export function addAttachmentRoutes({ auth, database, storage }: Options) {
             // Stored before the row commits: a failed store rolls the row back. A commit
             // that fails after the store leaves an object no row points to; the sweepers
             // (#51) only see rows, so that rare case stays until a storage clean-up.
-            await store.put(objectKey, prepared.content, prepared.contentType);
+            await store.put(objectKey, prepared.content, {
+              filename: prepared.filename,
+              contentType: prepared.contentType,
+              inline: isImageType(prepared.contentType),
+            });
             return view;
           });
           return c.json(added, 201);

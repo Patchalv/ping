@@ -265,6 +265,27 @@ describe('Attachments', () => {
     expect(((await edited.json()) as ThreadView).attachments).toHaveLength(5);
   });
 
+  it('deleting a Thread takes its Attachment rows with it', async () => {
+    const { author, channel } = await channelWith('public');
+    const { add, request } = await as(author);
+    const added = (await (await add(channel.id, 'r.txt', 'r')).json()) as AttachmentView;
+    const thread = (await (
+      await request(`/api/channels/${channel.id}/threads`, {
+        method: 'POST',
+        body: { title: 'Rota', body: doc('Start.'), attachmentIds: [added.id] },
+      })
+    ).json()) as ThreadView;
+
+    const deleted = await request(`/api/channels/${channel.id}/threads/${thread.id}`, {
+      method: 'DELETE',
+    });
+    expect(deleted.status).toBe(204);
+    const rows = await asOwner((query) =>
+      query('select 1 from attachment where id = $1', [added.id]),
+    );
+    expect(rows.rowCount).toBe(0);
+  });
+
   it('attaches to a Thread Response, and hides them once it’s deleted', async () => {
     const { author, channel } = await channelWith('public');
     const { add, request } = await as(author);

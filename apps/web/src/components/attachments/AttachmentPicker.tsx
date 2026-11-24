@@ -48,6 +48,7 @@ type Item = {
   /** A blob: URL of the file as sent, for an image's preview. */
   previewUrl: string | null;
   state:
+    | { kind: 'waiting' }
     | { kind: 'adding'; progress: number }
     | { kind: 'added'; attachment: AttachmentView }
     | { kind: 'failed'; message: string };
@@ -73,9 +74,12 @@ export function AttachmentPicker({
   add,
   onChange,
   onAddingChange,
+  alreadyAttached = 0,
   describedBy,
 }: {
   add: AddAttachment;
+  /** How many Attachments the post already has, when editing: they count toward the 5. */
+  alreadyAttached?: number;
   /** The added Attachments' IDs, in the order they were picked. */
   onChange(ids: string[]): void;
   /** How many files are still being sent; the composer waits for them before saving. */
@@ -89,12 +93,17 @@ export function AttachmentPicker({
   // The latest items, so each file's progress and outcome update the current list.
   const itemsRef = useRef<Item[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Files are sent one at a time, so the server only ever holds one in memory for this
+  // composer (the prod Machine has 256 MB).
+  const queue = useRef<Promise<void>>(Promise.resolve());
 
   const update = (change: (items: Item[]) => Item[]) => {
     const next = change(itemsRef.current);
     itemsRef.current = next;
     setItems(next);
-    onAddingChange(next.filter((item) => item.state.kind === 'adding').length);
+    onAddingChange(
+      next.filter((item) => item.state.kind === 'waiting' || item.state.kind === 'adding').length,
+    );
     return next;
   };
   const setState = (key: string, state: Item['state']) =>
@@ -110,11 +119,11 @@ export function AttachmentPicker({
     [],
   );
 
-  async function addOne(picked: File) {
+  /** Lists a picked file at once, in the order picked, and queues it to be sent. */
+  function pick(picked: File) {
     const key = crypto.randomUUID();
     const isImage = isImageName(picked.name);
     const refused = refusal(picked);
-    // Listed at once, in the order picked; an image's preview follows its resize.
     update((current) => [
       ...current,
       {
@@ -122,10 +131,17 @@ export function AttachmentPicker({
         filename: picked.name,
         isImage,
         previewUrl: null,
-        state: refused ? { kind: 'failed', message: refused } : { kind: 'adding', progress: 0 },
+        state: refused ? { kind: 'failed', message: refused } : { kind: 'waiting' },
       },
     ]);
     if (refused) return;
+    queue.current = queue.current.then(() => send(key, picked, isImage));
+  }
+
+  /** Resizes an image, then sends the file, unless it was removed while it waited. */
+  async function send(key: string, picked: File, isImage: boolean) {
+    if (!itemsRef.current.some((item) => item.key === key)) return;
+    setState(key, { kind: 'adding', progress: 0 });
     const file = isImage ? await prepareImage(picked) : picked;
     // Removed while it was being resized: nothing to send.
     if (!itemsRef.current.some((item) => item.key === key)) return;
@@ -154,7 +170,7 @@ export function AttachmentPicker({
   }
 
   const kept = items.filter((item) => item.state.kind !== 'failed').length;
-  const room = ATTACHMENTS_PER_POST_MAX - kept;
+  const room = ATTACHMENTS_PER_POST_MAX - alreadyAttached - kept;
 
   return (
     <div className="grid gap-2">
@@ -182,7 +198,7 @@ export function AttachmentPicker({
             const files = [...(event.target.files ?? [])].slice(0, Math.max(0, room));
             // Picking the same file again must fire a change.
             event.target.value = '';
-            for (const file of files) void addOne(file);
+            for (const file of files) pick(file);
           }}
         />
         <Button
@@ -207,13 +223,15 @@ export function AttachmentPicker({
 function PickedAttachment({ item, onRemove }: { item: Item; onRemove(): void }) {
   const { state } = item;
   const status =
-    state.kind === 'adding'
-      ? `Attaching, ${Math.round(state.progress * 100)}%`
-      : state.kind === 'failed'
-        ? state.message
-        : state.attachment.isImage
-          ? null
-          : formatFileSize(state.attachment.sizeBytes);
+    state.kind === 'waiting'
+      ? 'Waiting…'
+      : state.kind === 'adding'
+        ? `Attaching, ${Math.round(state.progress * 100)}%`
+        : state.kind === 'failed'
+          ? state.message
+          : state.attachment.isImage
+            ? null
+            : formatFileSize(state.attachment.sizeBytes);
   return (
     <div
       className={cn(

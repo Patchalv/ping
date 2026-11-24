@@ -24,7 +24,11 @@ export type Delivery = { filename: string; contentType: string; inline: boolean 
 export type Storage = {
   /** The storage origin, which the CSP allows images from. */
   origin: string;
-  put(objectKey: string, content: Uint8Array, contentType: string): Promise<void>;
+  /**
+   * Stores a file with the type and Content-Disposition it's served with, so it downloads
+   * safely even where a signed link's overrides were ignored.
+   */
+  put(objectKey: string, content: Uint8Array, delivery: Delivery): Promise<void>;
   /** A GET link that expires in SIGNED_LINK_SECONDS and serves the file as `delivery`. */
   signedDownloadUrl(objectKey: string, delivery: Delivery): Promise<string>;
 };
@@ -57,11 +61,15 @@ export function createStorage(settings: StorageSettings): Storage {
   return {
     origin: new URL(base).origin,
 
-    async put(objectKey, content, contentType) {
+    async put(objectKey, content, delivery) {
       const response = await client.fetch(objectUrl(objectKey), {
         method: 'PUT',
         body: content,
-        headers: { 'Content-Type': contentType, 'Content-Length': String(content.length) },
+        headers: {
+          'Content-Type': delivery.contentType,
+          'Content-Disposition': contentDisposition(delivery),
+          'Content-Length': String(content.length),
+        },
       });
       if (!response.ok) {
         throw new Error(

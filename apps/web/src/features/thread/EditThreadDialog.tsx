@@ -84,6 +84,7 @@ export function EditThreadDialog({ thread, onClose }: { thread: ThreadView; onCl
                 <field.AttachmentsField
                   add={addAttachment}
                   onAddingChange={attaching.onAddingChange}
+                  alreadyAttached={thread.attachments.length}
                 />
               )}
             </form.AppField>

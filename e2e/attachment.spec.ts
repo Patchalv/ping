@@ -63,6 +63,22 @@ test('an Attachment round trip: attach while writing, then open it as another me
     .filter({ has: page.getByRole('heading', { name: title }) });
   await expect(row.getByText('+1 more')).toBeVisible();
 
+  // Editing the Thread adds a fifth; the picker counts the four already there.
+  await panel.getByRole('button', { name: 'Thread actions' }).click();
+  await page.getByRole('menuitem', { name: 'Edit' }).click();
+  const editDialog = page.getByRole('dialog', { name: 'Edit Thread' });
+  await editDialog.locator('input[type=file]').setInputFiles({
+    name: 'rota.csv',
+    mimeType: 'text/csv',
+    buffer: Buffer.from('name,room\nMarta,2\n'),
+  });
+  await expect(editDialog.getByText('rota.csv')).toBeVisible();
+  await expect(editDialog.getByRole('button', { name: 'Attach files' })).toBeDisabled();
+  await expect(editDialog.getByRole('progressbar')).toHaveCount(0);
+  await editDialog.getByRole('button', { name: 'Save' }).click();
+  await expect(editDialog).toBeHidden();
+  await expect(panel.getByRole('list', { name: 'Files' }).getByText('rota.csv')).toBeVisible();
+
   // Another member opens the Thread: every image decodes in the browser, after the server
   // stripped it, served from object storage through a signed link.
   const laura = await signedInAs(browser, 'laura.gomez@example.com', 21);

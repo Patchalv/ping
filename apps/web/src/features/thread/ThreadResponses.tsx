@@ -182,7 +182,11 @@ function EditThreadResponseForm({
         </form.AppField>
         <form.AppField name="attachmentIds">
           {(field) => (
-            <field.AttachmentsField add={addAttachment} onAddingChange={attaching.onAddingChange} />
+            <field.AttachmentsField
+              add={addAttachment}
+              onAddingChange={attaching.onAddingChange}
+              alreadyAttached={response.attachments.length}
+            />
           )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}
