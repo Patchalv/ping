@@ -25,11 +25,12 @@ import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
 import {
+  useArchiveChannel,
   useChannel,
   useJoinChannel,
   useLeaveChannel,
   useMuteChannel,
-  useSetChannelArchived,
+  useUnarchiveChannel,
 } from './api';
 import { ChannelSettingsDialog } from './ChannelSettingsDialog';
 import { MembersTab } from './MembersTab';
@@ -293,15 +294,13 @@ function ArchiveAction({ channel }: { channel: ChannelView }) {
         <ArchiveIcon aria-hidden="true" />
         <span>Archive…</span>
       </Button>
-      {confirming ? (
-        <ArchiveDialog channel={channel} onClose={() => setConfirming(false)} />
-      ) : null}
+      {confirming ? <ArchiveDialog channel={channel} onClose={() => setConfirming(false)} /> : null}
     </>
   );
 }
 
 function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): void }) {
-  const archive = useSetChannelArchived(channel.id);
+  const archive = useArchiveChannel(channel.id);
   return (
     <Dialog
       defaultOpen
@@ -314,8 +313,8 @@ function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): 
           <DialogTitle>Archive {channel.name}?</DialogTitle>
           <DialogDescription>
             Everyone who can read it still can. Nobody can start Threads, respond, react, edit,
-            resolve, join or change its members or settings until it’s unarchived. Its members
-            get a Ping for the System thread that announces it.
+            resolve, join or change its members or settings until it’s unarchived. Its members get a
+            Ping for the System thread that announces it.
           </DialogDescription>
         </DialogHeader>
         {archive.isError ? <FormError>{archive.error.message}</FormError> : null}
@@ -323,7 +322,7 @@ function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): 
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button
             disabled={archive.isPending}
-            onClick={() => archive.mutate(true, { onSuccess: onClose })}
+            onClick={() => archive.mutate(undefined, { onSuccess: onClose })}
           >
             {archive.isPending ? 'Archiving…' : 'Archive'}
           </Button>
@@ -335,7 +334,7 @@ function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): 
 
 /** Unarchive at once: it only reopens the Channel, and Pings nobody. */
 function UnarchiveAction({ channel }: { channel: ChannelView }) {
-  const unarchive = useSetChannelArchived(channel.id);
+  const unarchive = useUnarchiveChannel(channel.id);
   return (
     <>
       <Button
@@ -343,7 +342,7 @@ function UnarchiveAction({ channel }: { channel: ChannelView }) {
         className="shrink-0 max-md:[&>span]:sr-only"
         title="Unarchive this Channel"
         disabled={unarchive.isPending}
-        onClick={() => unarchive.mutate(false)}
+        onClick={() => unarchive.mutate()}
       >
         <ArchiveRestoreIcon aria-hidden="true" />
         <span>{unarchive.isPending ? 'Unarchiving…' : 'Unarchive'}</span>

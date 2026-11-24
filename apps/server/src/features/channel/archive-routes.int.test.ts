@@ -92,13 +92,18 @@ describe('PUT and DELETE /api/channels/:channelId/archived', () => {
     await (await as(channelAdmin))(archivedPath(channel.id), { method: 'PUT' });
 
     const page = (await (
-      await (await as(member))(`/api/channels/${channel.id}/threads`)
+      await (
+        await as(member)
+      )(`/api/channels/${channel.id}/threads`)
     ).json()) as ThreadPage;
     const system = page.threads.find((t) => t.isSystem);
     expect(system).toMatchObject({
       author: null,
       title: 'Laura Gómez archived this Channel',
-      system: { kind: 'channel_archived', staff: { staffId: channelAdmin.id, name: 'Laura Gómez' } },
+      system: {
+        kind: 'channel_archived',
+        staff: { staffId: channelAdmin.id, name: 'Laura Gómez' },
+      },
       pingCount: 1,
       canReact: false,
     });
@@ -215,7 +220,10 @@ describe('PUT and DELETE /api/channels/:channelId/archived', () => {
         method: 'POST',
         body: {
           title: 'Heater broken in room 2',
-          body: { type: 'doc', content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cold' }] }] },
+          body: {
+            type: 'doc',
+            content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Cold' }] }],
+          },
         },
       });
     await admin(archivedPath(channel.id), { method: 'PUT' });

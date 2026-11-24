@@ -13,11 +13,7 @@ import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 import type { AuditEventKind } from '../../db/schema';
-import {
-  type ChannelAdminTarget,
-  canArchiveChannel,
-  canUnarchiveChannel,
-} from '../../permissions/channel';
+import { type ChannelAdminTarget, channelActions } from '../../permissions/channel';
 
 const { auditEvent, channel, channelMember, mute, staffMember, user } = schema;
 
@@ -65,13 +61,8 @@ export async function findChannel(
     isMember: isChannelAdmin !== null,
     isChannelAdmin: isChannelAdmin ?? false,
   };
-  return {
-    ...access,
-    can: {
-      archive: canArchiveChannel(actor, access).allow,
-      unarchive: canUnarchiveChannel(actor, access).allow,
-    },
-  };
+  // Every answer carries the Channel bar's controls, decided by the permissions module.
+  return { ...access, can: channelActions(actor, access) };
 }
 
 /**

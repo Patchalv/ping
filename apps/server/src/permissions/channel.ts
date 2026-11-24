@@ -1,6 +1,6 @@
 // Channels (permissions.md › Channels). "Can read a Channel" means the Channel is Public,
 // or the actor is a member of it. This is the same for everyone, Admins included.
-import type { ChannelMembers, ChannelVisibility } from '@ping/shared';
+import type { ChannelMembers, ChannelView, ChannelVisibility } from '@ping/shared';
 import type { Actor } from './actor';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
@@ -343,6 +343,17 @@ export function canArchiveChannel(actor: Actor, channel: MembershipAccess): Deci
  */
 export function canUnarchiveChannel(actor: Actor, channel: MembershipAccess): Decision {
   return canSetArchived(actor, channel);
+}
+
+/**
+ * Which Channel bar controls the actor gets, so the SPA hides the ones the server would
+ * refuse. The server still decides each request.
+ */
+export function channelActions(actor: Actor, channel: MembershipAccess): ChannelView['can'] {
+  return {
+    archive: canArchiveChannel(actor, channel).allow,
+    unarchive: canUnarchiveChannel(actor, channel).allow,
+  };
 }
 
 export function requireCanArchiveChannel(actor: Actor, channel: MembershipAccess): void {

@@ -22,6 +22,8 @@ export function systemThreadTitle(event: SystemThreadEvent): string {
         ? `${event.staff.name} made this Channel Private`
         : 'This Channel was made Private';
     case 'channel_archived':
-      return event.staff ? `${event.staff.name} archived this Channel` : 'This Channel was archived';
+      return event.staff
+        ? `${event.staff.name} archived this Channel`
+        : 'This Channel was archived';
   }
 }

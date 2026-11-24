@@ -15,6 +15,7 @@ import {
   canRemoveChannelMember,
   canSetChannelAdmin,
   canUnarchiveChannel,
+  channelActions,
   channelMemberActions,
   LAST_CHANNEL_ADMIN_MESSAGE,
   needsCompanyAdminPower,
@@ -576,11 +577,7 @@ describe.each([
       channel({ visibility: 'private', isChannelAdmin: true }),
     ],
     ['a company Admin who is a member of a Public channel', admin, channel()],
-    [
-      'a company Admin who isn’t a member of a Public channel',
-      admin,
-      channel({ isMember: false }),
-    ],
+    ['a company Admin who isn’t a member of a Public channel', admin, channel({ isMember: false })],
     [
       'a company Admin who is a member of a Private channel',
       admin,
@@ -626,7 +623,35 @@ describe('archiving an Archived channel', () => {
 
 describe('unarchiving a Channel that isn’t Archived', () => {
   it('is allowed and changes nothing, like reopening an open Thread', () => {
-    const open = { visibility: 'public' as const, isMember: true, isChannelAdmin: true, isArchived: false };
+    const open = {
+      visibility: 'public' as const,
+      isMember: true,
+      isChannelAdmin: true,
+      isArchived: false,
+    };
     expect(canUnarchiveChannel(member, open)).toEqual(allow());
+  });
+});
+
+describe('channelActions', () => {
+  const access = { visibility: 'public' as const, isMember: true, isChannelAdmin: true };
+  it('offers both on an open Channel to its Channel admin (Unarchive changes nothing there)', () => {
+    expect(channelActions(member, { ...access, isArchived: false })).toEqual({
+      archive: true,
+      unarchive: true,
+    });
+  });
+
+  it('offers only Unarchive on an Archived channel', () => {
+    expect(channelActions(member, { ...access, isArchived: true })).toEqual({
+      archive: false,
+      unarchive: true,
+    });
+  });
+
+  it('offers neither to a plain member', () => {
+    expect(channelActions(member, { ...access, isChannelAdmin: false, isArchived: false })).toEqual(
+      { archive: false, unarchive: false },
+    );
   });
 });
