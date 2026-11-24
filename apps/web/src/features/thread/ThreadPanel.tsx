@@ -34,7 +34,16 @@ import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
  * screen on a phone (screens.md › Thread view). The Thread, its Thread Responses, and the
  * composer at the bottom for members. Its "N new" divider marks what's new since the viewer's Ping began.
  */
-export function ThreadPanel({ channelId, threadId }: { channelId: string; threadId: string }) {
+export function ThreadPanel({
+  channelId,
+  threadId,
+  scrollToResponseId,
+}: {
+  channelId: string;
+  threadId: string;
+  /** A Thread Response to scroll to, when a search result opened the Thread. */
+  scrollToResponseId?: string | undefined;
+}) {
   const thread = useThread(channelId, threadId);
   const markRead = useMarkRead();
   const setResolved = useSetResolved(channelId, threadId);
@@ -110,7 +119,7 @@ export function ThreadPanel({ channelId, threadId }: { channelId: string; thread
           </p>
         )
       ) : (
-        <ThreadBody thread={thread.data} />
+        <ThreadBody thread={thread.data} scrollToResponseId={scrollToResponseId} />
       )}
     </SidePanel>
   );
@@ -147,7 +156,13 @@ function ThreadAttention({ thread }: { thread: ThreadView }) {
 
 type OpenDialog = 'none' | 'edit' | 'delete';
 
-function ThreadBody({ thread }: { thread: ThreadView }) {
+function ThreadBody({
+  thread,
+  scrollToResponseId,
+}: {
+  thread: ThreadView;
+  scrollToResponseId: string | undefined;
+}) {
   const responses = useThreadResponses(thread.channelId, thread.id);
   const staffMemberId = authClient.useSession().data?.user.id;
   const [dialog, setDialog] = useState<OpenDialog>('none');
@@ -199,6 +214,7 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
             channelId={thread.channelId}
             responses={list}
             newSince={thread.ping ?? undefined}
+            scrollToId={scrollToResponseId}
           />
         )}
       </div>

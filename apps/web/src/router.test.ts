@@ -18,6 +18,16 @@ async function resolve(path: string) {
   };
 }
 
+/**
+ * The route `path` matches and its validated search params. Matched without loading: a
+ * load whose search the schema rewrites (a default filled in) settles asynchronously.
+ */
+function searchOf(path: string) {
+  const router = createAppRouter(createMemoryHistory({ initialEntries: [path] }));
+  const leaf = router.matchRoutes(router.state.location).at(-1);
+  return { routeId: leaf?.routeId, search: leaf?.search };
+}
+
 describe('routes', () => {
   it('reads the root as home', async () => {
     expect(await resolve('/')).toMatchObject({ notFound: false, routeId: '/' });
@@ -60,6 +70,33 @@ describe('routes', () => {
     expect(await resolve(`/channels/${id}/`)).toMatchObject({
       notFound: false,
       params: { channelId: id },
+    });
+  });
+
+  it('reads an open Thread’s path with the Thread Response to scroll to', () => {
+    const threadId = '00000000-0000-4000-8000-000000000201';
+    const responseId = '00000000-0000-4000-8000-000000000301';
+    expect(searchOf(`/channels/${id}/threads/${threadId}?response=${responseId}`)).toEqual({
+      routeId: '/channels/$channelId/threads/$threadId',
+      search: { response: responseId },
+    });
+    // A garbled one is ignored: the Thread still opens.
+    expect(searchOf(`/channels/${id}/threads/${threadId}?response=x`).search).toEqual({
+      response: undefined,
+    });
+  });
+
+  it('reads the search path with its text, tab and chips', () => {
+    expect(searchOf(`/search?q=rota&tab=threads&in=${id}&status=open&near=${id}`)).toEqual({
+      routeId: '/search',
+      search: { q: 'rota', tab: 'threads', in: id, status: 'open', near: id },
+    });
+  });
+
+  it('reads a garbled search path with the defaults', () => {
+    expect(searchOf('/search?tab=people&in=x&status=z')).toMatchObject({
+      routeId: '/search',
+      search: { q: '', tab: 'all', status: 'all', in: undefined },
     });
   });
 

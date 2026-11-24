@@ -14,6 +14,7 @@ import { STILL_ATTACHING, useAttachingCount } from '#/components/attachments/Att
 import { showServerIssues, useAppForm } from '#/components/form';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { Button } from '#/components/ui/button';
+import { cn } from '#/lib/utils';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
@@ -29,16 +30,27 @@ import { DeleteThreadResponseDialog } from './DeleteDialogs';
 import { PostAttachments } from './PostAttachments';
 import { Reactions } from './Reactions';
 
+/**
+ * Scrolls a search result's Thread Response into view once, when it first shows. Stable,
+ * so React calls it on mount only, not on every render.
+ */
+function scrollIntoView(element: HTMLElement | null) {
+  element?.scrollIntoView({ block: 'center' });
+}
+
 /** A Thread's Thread Responses, oldest first, with deleted ones as placeholders. */
 export function ThreadResponseList({
   channelId,
   responses,
   newSince,
+  scrollToId,
 }: {
   channelId: string;
   responses: ThreadResponseView[];
   /** The viewer's open Ping: Thread Responses from `firstAt` on are new. */
   newSince?: { count: number; firstAt: string };
+  /** The Thread Response a search result opened, scrolled to and marked. */
+  scrollToId?: string | undefined;
 }) {
   if (responses.length === 0) return null;
   const firstNewIndex = newSince
@@ -53,7 +65,15 @@ export function ThreadResponseList({
       </h3>
       <ol className="mt-3 grid gap-4">
         {responses.map((response) => (
-          <li key={response.id}>
+          <li
+            key={response.id}
+            id={`thread-response-${response.id}`}
+            ref={response.id === scrollToId ? scrollIntoView : undefined}
+            className={cn(
+              response.id === scrollToId &&
+                '-mx-2 rounded-lg bg-primary/5 px-2 py-1.5 ring-1 ring-primary/30',
+            )}
+          >
             {newSince && response.id === firstNewId ? (
               <p className="mb-3 flex items-center gap-2 text-xs font-semibold text-ping">
                 <span aria-hidden="true" className="h-px flex-1 bg-ping/40" />
