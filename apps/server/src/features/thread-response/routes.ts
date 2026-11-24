@@ -15,6 +15,7 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
+import { requireCanMentionEach } from '../../permissions/mention';
 import { requireCanReadThreads } from '../../permissions/thread';
 import {
   requireCanDeleteThreadResponse,
@@ -30,6 +31,8 @@ import {
   findLiveResponseAuthor,
   findResponseChannel,
   listThreadResponses,
+  planResponseMentions,
+  saveResponseMentions,
   sendThreadResponse,
 } from './queries';
 
@@ -64,7 +67,11 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             const access = await findResponseChannel(ctx, channelId, threadId);
             if (!access) throw new NotFoundError();
             requireCanSendThreadResponse(ctx.actor, access);
+            const mentions = await planResponseMentions(ctx, channelId, undefined, body);
+            requireCanMentionEach(ctx.actor, access, mentions);
             const id = await sendThreadResponse(ctx, { channelId, threadId }, body);
+            await saveResponseMentions(ctx, channelId, id, mentions);
+            // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId, threadResponseId: id });
             // Sending a Thread Response Acknowledges the sender's own Ping.
             await acknowledgePing(ctx, threadId);
@@ -101,17 +108,23 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             const response = await findLiveResponseAuthor(ctx, threadId, threadResponseId);
             if (!response) throw new NotFoundError();
             requireCanEditThreadResponse(ctx.actor, access, response);
+            const mentions = await planResponseMentions(ctx, channelId, threadResponseId, body);
+            requireCanMentionEach(ctx.actor, access, mentions);
             await editThreadResponse(ctx, threadResponseId, body);
+            await saveResponseMentions(ctx, channelId, threadResponseId, mentions);
+            // An edit Pings only the newly Mentioned.
+            const pinged = await fanOutPings(ctx.tx, { threadId, threadResponseId });
             await auditAdminChange(ctx, 'admin_edited_thread_response', {
               channelId,
               authorId: response.authorId,
             });
             const [view] = await listThreadResponses(ctx, access, threadId, threadResponseId);
-            return view;
+            return view && { view, pinged };
           });
           if (!edited) throw new Error('An edited Thread Response did not read back');
           publish({ kind: 'thread_response.changed', channelId, threadId, threadResponseId });
-          return c.json(edited);
+          if (edited.pinged > 0) publish({ kind: 'ping.changed', channelId, threadId });
+          return c.json(edited.view);
         },
       )
 

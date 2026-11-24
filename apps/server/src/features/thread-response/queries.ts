@@ -11,6 +11,13 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import {
+  type MentionPlan,
+  mentionNamesSql,
+  planMentions,
+  removeMentions,
+  saveMentions,
+} from '../../db/mention';
 import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
 import { canReact } from '../../permissions/reaction';
@@ -21,6 +28,7 @@ const {
   auditEvent,
   channel,
   channelMember,
+  mention,
   ping,
   reaction,
   staffMember,
@@ -102,6 +110,30 @@ export async function sendThreadResponse(
 }
 
 /**
+ * Who saving this body newly Mentions, checked against the Thread Response's Mention rows
+ * (none while it's being sent).
+ */
+export function planResponseMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadResponseId: string | undefined,
+  body: RichTextDoc,
+): Promise<MentionPlan> {
+  const post = threadResponseId === undefined ? undefined : { threadResponseId };
+  return planMentions(tx, channelId, post, body);
+}
+
+/** Rebuilds the Thread Response's Mention rows from a save, after it's written. */
+export function saveResponseMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadResponseId: string,
+  plan: MentionPlan,
+): Promise<void> {
+  return saveMentions(tx, { threadResponseId }, channelId, plan.changes);
+}
+
+/**
  * Acknowledges the actor's Ping on the Thread by deleting it, if they have one. Row-level
  * security limits the delete to their own.
  */
@@ -128,7 +160,8 @@ export async function editThreadResponse(
 
 /**
  * Deletes a Thread Response's content for real, keeping the row as the "Thread Response
- * deleted" placeholder. Its reactions go with it; Mentions and Attachments will, as their slices add them.
+ * deleted" placeholder. Its reactions and Mentions go with it; Attachments will, as their
+ * slice adds them.
  */
 export async function deleteThreadResponse(
   { tx, actor }: ActorTx,
@@ -141,6 +174,7 @@ export async function deleteThreadResponse(
   // The row-level security policy lets this remove other people's reactions only once
   // the Thread Response is marked deleted, which the update above has just done.
   await tx.delete(reaction).where(eq(reaction.threadResponseId, threadResponseId));
+  await removeMentions(tx, { threadResponseId });
 }
 
 /**
@@ -188,6 +222,7 @@ export async function listThreadResponses(
       body: threadResponse.body,
       deletedAt: threadResponse.deletedAt,
       reactions: reactionSummarySql(reaction.threadResponseId, threadResponse.id, actor.staffId),
+      mentionNames: mentionNamesSql(mention.threadResponseId, threadResponse.id),
     })
     .from(threadResponse)
     .innerJoin(staffMember, eq(staffMember.id, threadResponse.authorId))
@@ -211,6 +246,7 @@ export async function listThreadResponses(
       edited: isDeleted ? null : toEditedMark(row),
       // Written only through the allowlist, so it reads back as one.
       body: isDeleted ? null : (row.body as RichTextDoc),
+      mentionNames: isDeleted ? {} : row.mentionNames,
       isDeleted,
       reactions: isDeleted ? [] : row.reactions,
       canReact: !isDeleted && canReact(actor, access).allow,

@@ -127,6 +127,7 @@ export function ThreadRow({
       ) : null}
       <div className="flex items-center gap-2">
         <Byline author={thread.author} at={thread.createdAt} />
+        {thread.mentionsYou ? <Badge variant="mention">@You</Badge> : null}
         {thread.resolvedAt ? <ResolvedBadge /> : null}
       </div>
       <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">

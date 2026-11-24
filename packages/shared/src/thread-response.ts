@@ -2,6 +2,7 @@
 // with.
 import { z } from 'zod';
 import type { ContentActions, EditedMark } from './edited';
+import type { MentionNames } from './mention';
 import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, extractBodyText, type RichTextDoc, richTextDoc } from './rich-text';
 import { type ThreadAuthor, threadParams } from './thread';
@@ -33,6 +34,8 @@ export type ThreadResponseView = {
   edited: EditedMark | null;
   /** Null once deleted: the "Thread Response deleted" placeholder. */
   body: RichTextDoc | null;
+  /** The current name of everyone Mentioned in the body. Empty once deleted. */
+  mentionNames: MentionNames;
   isDeleted: boolean;
   /** Empty once deleted: a Thread Response's reactions go with its content. */
   reactions: ReactionSummary[];

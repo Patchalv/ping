@@ -179,6 +179,20 @@ const isChannelAdmin = (actor: ActorKind) => CHANNEL_ROLE[actor] === 'channelAdm
 const CHANNEL_KINDS = ['public', 'private', 'archived'] as const;
 const threadPath = (ctx: RowContext) =>
   `/api/channels/${ctx.channel?.id}/threads/${ctx.thread?.id}`;
+/** A description that Mentions one Staff member. */
+const mentionDoc = (staffId: string | undefined) => ({
+  type: 'doc',
+  content: [
+    {
+      type: 'paragraph',
+      content: [
+        { type: 'text', text: 'Over to ' },
+        { type: 'mention', attrs: { id: staffId, label: 'Someone', mentionSuggestionChar: '@' } },
+      ],
+    },
+  ],
+});
+
 const doc = (text: string) => ({
   type: 'doc',
   content: [{ type: 'paragraph', content: [{ type: 'text', text }] }],
@@ -1114,6 +1128,144 @@ export const MATRIX: MatrixRow[] = [
     },
     (actor) =>
       CHANNEL_ROLE[actor] ? { allow: false, status: 404 } : { allow: false, status: 403 },
+  ),
+
+  // Mentions. From "Mentions" (#49).
+
+  // The @ picker's list: anyone who can read the Channel.
+  ...CHANNEL_KINDS.flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'GET /api/channels/:channelId/mention-candidates',
+        action: `list who can be Mentioned in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        request: (ctx) => ({ path: `/api/channels/${ctx.channel?.id}/mention-candidates` }),
+      },
+      readsChannel(channel),
+    ),
+  ),
+
+  // Mention validation: only Staff members who can read the Thread can be Mentioned. In a
+  // Public channel that's a non-member too; in a Private one, only its members.
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/threads',
+      action: 'start a Thread Mentioning a non-member of a Public channel',
+      channel: 'public',
+      target: 'active',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}/threads`,
+        method: 'POST',
+        body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+      }),
+    },
+    membershipChange('public', 201, (actor) => CHANNEL_ROLE[actor] !== null),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/threads',
+      action: 'start a Thread Mentioning a member of a Private channel',
+      channel: 'private',
+      target: 'member',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}/threads`,
+        method: 'POST',
+        body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+      }),
+    },
+    membershipChange('private', 201, (actor) => CHANNEL_ROLE[actor] !== null),
+  ),
+  ...rowsFor(
+    {
+      route: 'POST /api/channels/:channelId/threads',
+      action: 'start a Thread Mentioning a non-member of a Private channel',
+      channel: 'private',
+      target: 'active',
+      request: (ctx) => ({
+        path: `/api/channels/${ctx.channel?.id}/threads`,
+        method: 'POST',
+        body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+      }),
+    },
+    membershipChange('private', 201, () => false),
+  ),
+  ...(['invited', 'deactivated'] as const).flatMap((target) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads',
+        action: `start a Thread Mentioning ${target === 'invited' ? 'an Invited' : 'a Deactivated'} Staff member`,
+        channel: 'public',
+        target,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads`,
+          method: 'POST',
+          body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      membershipChange('public', 201, () => false),
+    ),
+  ),
+  ...(['public', 'private'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads/:threadId/responses',
+        action: `send a Thread Response Mentioning a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        thread: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses`,
+          method: 'POST',
+          body: { body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      membershipChange(
+        channel,
+        201,
+        (actor) => channel === 'public' && CHANNEL_ROLE[actor] !== null,
+      ),
+    ),
+  ),
+  ...(['public', 'private'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/threads/:threadId/responses/:threadResponseId',
+        action: `edit a Thread Response to Mention a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        thread: true,
+        response: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses/${ctx.response?.id}`,
+          method: 'PATCH',
+          body: { body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      (actor) => {
+        const edit = contentChange(channel, 'edit', 200)(actor);
+        return channel === 'private' && edit.allow ? { allow: false, status: 403 } : edit;
+      },
+    ),
+  ),
+  ...(['public', 'private'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId/threads/:threadId',
+        action: `edit a Thread to Mention a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        thread: true,
+        request: (ctx) => ({
+          path: threadPath(ctx),
+          method: 'PATCH',
+          body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      (actor) => {
+        const edit = contentChange(channel, 'edit', 200)(actor);
+        return channel === 'private' && edit.allow ? { allow: false, status: 403 } : edit;
+      },
+    ),
   ),
 ];
 

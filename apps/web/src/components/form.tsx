@@ -17,7 +17,7 @@
 //     </form.Form>
 //   </form.AppForm>
 
-import type { RichTextDoc } from '@ping/shared';
+import type { MentionCandidate, RichTextDoc } from '@ping/shared';
 import {
   type AnyFieldApi,
   type AnyFormApi,
@@ -176,7 +176,14 @@ function RadioGroupField({ legend, children }: { legend: ReactNode; children: Re
  * <label> can't point at, so the label names it through aria-labelledby, and the wiring's
  * id, data-field and aria attributes go on that div, the element that takes focus.
  */
-function RichTextField({ label }: { label: ReactNode }) {
+function RichTextField({
+  label,
+  mentionCandidates,
+}: {
+  label: ReactNode;
+  /** Who the @ picker offers: the Staff members who can read the Thread. */
+  mentionCandidates: readonly MentionCandidate[];
+}) {
   const { field, id, fieldProps, controlProps, errorNode, change } = useFieldWiring<RichTextDoc>();
   const labelId = `${id}-label`;
   const attributes: Record<string, string> = {
@@ -196,6 +203,7 @@ function RichTextField({ label }: { label: ReactNode }) {
         attributes={attributes}
         onChange={change}
         onBlur={field.handleBlur}
+        mentionCandidates={mentionCandidates}
       />
       {errorNode}
     </Field>

@@ -82,6 +82,7 @@ describe('Thread Response routes', () => {
         edited: null,
         body: doc('On my way'),
         isDeleted: false,
+        mentionNames: {},
         reactions: [],
         canReact: true,
         canEdit: true,

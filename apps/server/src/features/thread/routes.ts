@@ -16,6 +16,7 @@ import type { Database } from '../../db';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
+import { requireCanMentionEach } from '../../permissions/mention';
 import {
   requireCanDeleteThread,
   requireCanEditThread,
@@ -32,6 +33,8 @@ import {
   findThreadAuthorship,
   findThreadChannel,
   listThreads,
+  planThreadMentions,
+  saveThreadMentions,
   setThreadResolved,
   startThread,
 } from './queries';
@@ -100,7 +103,11 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             const found = await findThreadChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             requireCanStartThread(ctx.actor, found);
+            const mentions = await planThreadMentions(ctx, channelId, undefined, input.body);
+            requireCanMentionEach(ctx.actor, found, mentions);
             const id = await startThread(ctx, channelId, input);
+            await saveThreadMentions(ctx, channelId, id, mentions);
+            // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId: id });
             return findThread(ctx, found, channelId, id);
           });
@@ -143,16 +150,23 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             const authorship = await findThreadAuthorship(ctx, channelId, threadId);
             if (!authorship) throw new NotFoundError();
             requireCanEditThread(ctx.actor, channel, authorship);
+            const mentions = await planThreadMentions(ctx, channelId, threadId, input.body);
+            requireCanMentionEach(ctx.actor, channel, mentions);
             await editThread(ctx, threadId, input);
+            await saveThreadMentions(ctx, channelId, threadId, mentions);
+            // An edit Pings only the newly Mentioned.
+            const pinged = await fanOutPings(ctx.tx, { threadId });
             await auditAdminChange(ctx, 'admin_edited_thread', {
               channelId,
               authorId: authorship.authorId,
             });
-            return findThread(ctx, channel, channelId, threadId);
+            const view = await findThread(ctx, channel, channelId, threadId);
+            return view && { view, pinged };
           });
           if (!edited) throw new Error('An edited Thread did not read back');
           publish({ kind: 'thread.changed', channelId, threadId });
-          return c.json(edited);
+          if (edited.pinged > 0) publish({ kind: 'ping.changed', channelId, threadId });
+          return c.json(edited.view);
         },
       )
 

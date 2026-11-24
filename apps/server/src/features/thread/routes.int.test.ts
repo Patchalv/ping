@@ -81,6 +81,8 @@ describe('Thread routes', () => {
         pingCount: 0,
         isSaved: false,
         resolvedAt: null,
+        mentionsYou: false,
+        mentionNames: {},
         edited: null,
         canRespond: true,
         ping: null,
@@ -197,6 +199,7 @@ describe('Thread routes', () => {
         pingCount: 0,
         isSaved: false,
         resolvedAt: null,
+        mentionsYou: false,
       });
     });
 

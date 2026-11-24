@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { channelParams } from './channel';
 import type { ContentActions, EditedMark } from './edited';
+import type { MentionNames } from './mention';
 import type { ThreadPing } from './ping';
 import type { ReactionSummary } from './reaction';
 import { EMPTY_RICH_TEXT, type RichTextDoc, richTextDoc } from './rich-text';
@@ -94,6 +95,8 @@ export type ThreadRow = {
   isSaved: boolean;
   /** When the Thread was resolved, or null while it's open. */
   resolvedAt: string | null;
+  /** "@You": the viewer is Mentioned in the Thread or one of its Thread Responses. */
+  mentionsYou: boolean;
 };
 
 /** A page of one view of a Channel's Thread list. */
@@ -114,6 +117,8 @@ export type ThreadPage = {
  */
 export type ThreadView = Omit<ThreadRow, 'preview'> & {
   body: RichTextDoc;
+  /** The current name of everyone Mentioned in the body. */
+  mentionNames: MentionNames;
   edited: EditedMark | null;
   /** Whether the viewer may send a Thread Response here. */
   canRespond: boolean;

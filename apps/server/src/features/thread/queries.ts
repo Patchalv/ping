@@ -14,6 +14,7 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import { type MentionPlan, mentionNamesSql, planMentions, saveMentions } from '../../db/mention';
 import type { AuditEventKind } from '../../db/schema';
 import { threadPreviewSql, threadRowColumns, toThreadRow } from '../../db/thread-row';
 import { canReact } from '../../permissions/reaction';
@@ -26,7 +27,8 @@ import {
 } from '../../permissions/thread';
 import { canSendThreadResponse } from '../../permissions/thread-response';
 
-const { auditEvent, channel, channelMember, mute, ping, staffMember, thread, user } = schema;
+const { auditEvent, channel, channelMember, mention, mute, ping, staffMember, thread, user } =
+  schema;
 
 /**
  * The Thread's Channel, as the permissions module needs it, or undefined when it's
@@ -75,6 +77,29 @@ export async function startThread(
     .returning({ id: thread.id });
   if (!row) throw new Error('A started Thread did not insert');
   return row.id;
+}
+
+/**
+ * Who saving this description newly Mentions, checked against the Thread's Mention rows
+ * (none while it's being started).
+ */
+export function planThreadMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadId: string | undefined,
+  body: RichTextDoc,
+): Promise<MentionPlan> {
+  return planMentions(tx, channelId, threadId === undefined ? undefined : { threadId }, body);
+}
+
+/** Rebuilds the Thread's Mention rows from a save, after the Thread itself is written. */
+export function saveThreadMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadId: string,
+  plan: MentionPlan,
+): Promise<void> {
+  return saveMentions(tx, { threadId }, channelId, plan.changes);
 }
 
 /** The column each sort orders by, with its name for the cursor's subquery. */
@@ -163,6 +188,7 @@ export async function findThread(
     .select({
       ...threadRowColumns(actor.staffId),
       body: thread.body,
+      mentionNames: mentionNamesSql(mention.threadId, thread.id),
       editedAt: thread.editedAt,
       editedBy: thread.editedBy,
       editorName: editor.name,
@@ -179,12 +205,13 @@ export async function findThread(
     .leftJoin(editor, eq(editor.id, thread.editedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
-  const { body, editedAt, editedBy, editorName, pingFirstAt, isMuted, ...rest } = row;
+  const { body, mentionNames, editedAt, editedBy, editorName, pingFirstAt, isMuted, ...rest } = row;
   const authorship = { authorId: rest.authorId };
   return {
     ...toThreadRow(rest, canReact(actor, access).allow),
     // Written only through the allowlist, so it reads back as one.
     body: body as RichTextDoc,
+    mentionNames,
     edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
     canRespond: canSendThreadResponse(actor, access).allow,
     ping:
@@ -256,8 +283,8 @@ export async function setThreadResolved(
 
 /**
  * Deletes a Thread for real. Its Thread Responses (other people's included) go with it by
- * cascade, and so do all their reactions (and the Thread's own); Pings go too (the
- * foreign key cascades); Mentions, Attachments and Saved entries will, as their slices add them.
+ * cascade, and so do all their reactions and Mentions (and the Thread's own); Pings go too
+ * (the foreign key cascades); Attachments and Saved entries will, as their slices add them.
  */
 export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<void> {
   await tx.delete(thread).where(eq(thread.id, threadId));

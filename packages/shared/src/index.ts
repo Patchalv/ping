@@ -41,6 +41,14 @@ export {
   liveStreamHeaders,
 } from './live';
 export {
+  type MentionCandidate,
+  type MentionCandidateList,
+  type MentionChanges,
+  type MentionNames,
+  mentionChanges,
+  mentionedStaffIds,
+} from './mention';
+export {
   listPingsQuery,
   type PingPage,
   type PingSummary,

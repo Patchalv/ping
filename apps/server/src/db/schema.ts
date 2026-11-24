@@ -347,6 +347,53 @@ export const reaction = pgTable(
 );
 
 /**
+ * A Mention in a Thread or a Thread Response (data-model.md › On Threads and Thread
+ * Responses): one Staff member named with @ in its body. Rebuilt from the body's Mention
+ * nodes on every save, by adding the newly Mentioned and dropping the rest, so `created_at`
+ * is when each person was first Mentioned there; the fan-out Pings the rows created in its
+ * own transaction. Exactly one target is set, and each person is Mentioned once per target.
+ * Deleting a Thread cascades here; deleting a Thread Response keeps its placeholder row, so
+ * the route that deletes it removes its Mentions.
+ */
+export const mention = pgTable(
+  'mention',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id').notNull(),
+    threadId: uuid('thread_id'),
+    threadResponseId: uuid('thread_response_id'),
+    staffId: uuid('staff_id')
+      .notNull()
+      .references(() => staffMember.id),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'mention_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'mention_thread_response_fk',
+      columns: [t.threadResponseId, t.channelId],
+      foreignColumns: [threadResponse.id, threadResponse.channelId],
+    }).onDelete('cascade'),
+    check(
+      'mention_exactly_one_target',
+      sql`(${t.threadId} is not null) <> (${t.threadResponseId} is not null)`,
+    ),
+    uniqueIndex('mention_thread_staff_unique')
+      .on(t.threadId, t.staffId)
+      .where(sql`${t.threadId} is not null`),
+    uniqueIndex('mention_thread_response_staff_unique')
+      .on(t.threadResponseId, t.staffId)
+      .where(sql`${t.threadResponseId} is not null`),
+    // "@You" on Thread rows looks up a Staff member's Mentions.
+    index('mention_staff_id_idx').on(t.staffId),
+  ],
+);
+
+/**
  * A Ping (data-model.md › Attention): one Staff member's open notice of other people's new
  * activity in one Thread, with a count. A row exists only while the Ping is open; the
  * fan-out upserts it and Acknowledging deletes it. Deleting the Thread cascades here, but
