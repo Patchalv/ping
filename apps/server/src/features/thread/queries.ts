@@ -14,7 +14,7 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import { mentionNamesSql } from '../../db/mention';
+import { type MentionPlan, mentionNamesSql, planMentions, saveMentions } from '../../db/mention';
 import type { AuditEventKind } from '../../db/schema';
 import { threadPreviewSql, threadRowColumns, toThreadRow } from '../../db/thread-row';
 import { canReact } from '../../permissions/reaction';
@@ -76,6 +76,29 @@ export async function startThread(
     .returning({ id: thread.id });
   if (!row) throw new Error('A started Thread did not insert');
   return row.id;
+}
+
+/**
+ * Who saving this description newly Mentions, checked against the Thread's Mention rows
+ * (none while it's being started).
+ */
+export function planThreadMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadId: string | undefined,
+  body: RichTextDoc,
+): Promise<MentionPlan> {
+  return planMentions(tx, channelId, threadId === undefined ? undefined : { threadId }, body);
+}
+
+/** Rebuilds the Thread's Mention rows from a save, after the Thread itself is written. */
+export function saveThreadMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadId: string,
+  plan: MentionPlan,
+): Promise<void> {
+  return saveMentions(tx, { threadId }, channelId, plan.changes);
 }
 
 /** The column each sort orders by, with its name for the cursor's subquery. */

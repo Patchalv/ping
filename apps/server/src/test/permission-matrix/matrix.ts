@@ -1173,6 +1173,27 @@ export const MATRIX: MatrixRow[] = [
   ...(['public', 'private'] as const).flatMap((channel) =>
     rowsFor(
       {
+        route: 'PATCH /api/channels/:channelId/threads/:threadId/responses/:threadResponseId',
+        action: `edit a Thread Response to Mention a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        thread: true,
+        response: true,
+        request: (ctx) => ({
+          path: `${threadPath(ctx)}/responses/${ctx.response?.id}`,
+          method: 'PATCH',
+          body: { body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      (actor) => {
+        const edit = contentChange(channel, 'edit', 200)(actor);
+        return channel === 'private' && edit.allow ? { allow: false, status: 403 } : edit;
+      },
+    ),
+  ),
+  ...(['public', 'private'] as const).flatMap((channel) =>
+    rowsFor(
+      {
         route: 'PATCH /api/channels/:channelId/threads/:threadId',
         action: `edit a Thread to Mention a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
         channel,

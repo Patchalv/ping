@@ -2,7 +2,14 @@
 // On Threads and Thread Responses). Features don't share code, but both may use db/, like
 // reaction-summary.ts. Every query runs in the request's transaction as ping_app, so
 // row-level security applies: it refuses a Mention of someone who can't read the Thread.
-import type { MentionChanges, MentionNames, StaffState } from '@ping/shared';
+import {
+  type MentionChanges,
+  type MentionNames,
+  mentionChanges,
+  mentionedStaffIds,
+  type RichTextDoc,
+  type StaffState,
+} from '@ping/shared';
 import { and, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type { AnyPgColumn } from 'drizzle-orm/pg-core';
 import type { Tx } from './index';
@@ -16,25 +23,30 @@ const onPost = (post: MentionPost) =>
     ? eq(mention.threadId, post.threadId)
     : eq(mention.threadResponseId, post.threadResponseId);
 
-/** Who is Mentioned in a post now, before a save rebuilds its rows. */
-export async function findMentionedStaffIds(tx: Tx, post: MentionPost): Promise<string[]> {
-  const rows = await tx.select({ staffId: mention.staffId }).from(mention).where(onPost(post));
-  return rows.map((row) => row.staffId);
-}
+/** Each newly Mentioned person, as the permissions module needs them, by Staff ID. */
+type MentionedPeople = Map<string, { state: StaffState; isMember: boolean }>;
 
-/** Who a body Mentions, as the permissions module needs each one, by Staff ID. */
-export type MentionTargets = Map<string, { state: StaffState; isMember: boolean }>;
+/** What a save will change, and who it newly Mentions, for the permissions module. */
+export type MentionPlan = { changes: MentionChanges; people: MentionedPeople };
 
 /**
- * The state of each Staff member in `staffIds` and whether they're in the Channel. Someone
- * who isn't a Staff member is left out.
+ * Compares the body's Mention nodes with the post's Mention rows (none for a new post) and
+ * looks up everyone it newly Mentions: their state and whether they're in the Channel. A
+ * Staff ID with no Staff member behind it is left out of `people`.
  */
-export async function findMentionTargets(
+export async function planMentions(
   tx: Tx,
   channelId: string,
-  staffIds: readonly string[],
-): Promise<MentionTargets> {
-  if (staffIds.length === 0) return new Map();
+  post: MentionPost | undefined,
+  body: RichTextDoc,
+): Promise<MentionPlan> {
+  const before = post
+    ? (await tx.select({ staffId: mention.staffId }).from(mention).where(onPost(post))).map(
+        (row) => row.staffId,
+      )
+    : [];
+  const changes = mentionChanges(before, mentionedStaffIds(body));
+  if (changes.added.length === 0) return { changes, people: new Map() };
   const rows = await tx
     .select({
       staffId: staffMember.id,
@@ -49,8 +61,8 @@ export async function findMentionTargets(
       channelMember,
       and(eq(channelMember.staffId, staffMember.id), eq(channelMember.channelId, channelId)),
     )
-    .where(inArray(staffMember.id, [...staffIds]));
-  return new Map(rows.map(({ staffId, ...rest }) => [staffId, rest]));
+    .where(inArray(staffMember.id, changes.added));
+  return { changes, people: new Map(rows.map(({ staffId, ...rest }) => [staffId, rest])) };
 }
 
 /**
@@ -79,10 +91,13 @@ export async function removeMentions(tx: Tx, post: MentionPost): Promise<void> {
   await tx.delete(mention).where(onPost(post));
 }
 
-type MentionTarget = typeof mention.threadId | typeof mention.threadResponseId;
+type MentionPostColumn = typeof mention.threadId | typeof mention.threadResponseId;
 
-/** The current name of everyone Mentioned in the target whose ID is `id`, as JSON. */
-export function mentionNamesSql(target: MentionTarget, id: SQL | AnyPgColumn): SQL<MentionNames> {
+/** The current name of everyone Mentioned in the post whose ID is `id`, as JSON. */
+export function mentionNamesSql(
+  target: MentionPostColumn,
+  id: SQL | AnyPgColumn,
+): SQL<MentionNames> {
   return sql<MentionNames>`coalesce((
     select jsonb_object_agg(${mention.staffId}, ${user.name})
       from ${mention} join ${user} on ${user.id} = ${mention.staffId}

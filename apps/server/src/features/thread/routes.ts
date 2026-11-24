@@ -5,8 +5,6 @@ import {
   channelParams,
   editThreadBody,
   listThreadsQuery,
-  mentionChanges,
-  mentionedStaffIds,
   startThreadBody,
   type ThreadView,
   threadParams,
@@ -15,7 +13,6 @@ import { Hono } from 'hono';
 import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
-import { findMentionedStaffIds, findMentionTargets, saveMentions } from '../../db/mention';
 import { NotFoundError } from '../../lib/errors';
 import { publish } from '../../lib/sse/publish';
 import { validate } from '../../lib/validate';
@@ -36,6 +33,8 @@ import {
   findThreadAuthorship,
   findThreadChannel,
   listThreads,
+  planThreadMentions,
+  saveThreadMentions,
   setThreadResolved,
   startThread,
 } from './queries';
@@ -104,11 +103,10 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             const found = await findThreadChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             requireCanStartThread(ctx.actor, found);
-            const mentions = mentionChanges([], mentionedStaffIds(input.body));
-            const targets = await findMentionTargets(ctx.tx, channelId, mentions.added);
-            requireCanMentionEach(ctx.actor, found, mentions.added, targets);
+            const mentions = await planThreadMentions(ctx, channelId, undefined, input.body);
+            requireCanMentionEach(ctx.actor, found, mentions);
             const id = await startThread(ctx, channelId, input);
-            await saveMentions(ctx.tx, { threadId: id }, channelId, mentions);
+            await saveThreadMentions(ctx, channelId, id, mentions);
             // Every other member, and everyone Mentioned.
             await fanOutPings(ctx.tx, { threadId: id });
             return findThread(ctx, found, channelId, id);
@@ -152,17 +150,12 @@ export function threadRoutes({ auth, database }: { auth: Auth; database: Databas
             const authorship = await findThreadAuthorship(ctx, channelId, threadId);
             if (!authorship) throw new NotFoundError();
             requireCanEditThread(ctx.actor, channel, authorship);
-            const post = { threadId };
-            const mentions = mentionChanges(
-              await findMentionedStaffIds(ctx.tx, post),
-              mentionedStaffIds(input.body),
-            );
-            const targets = await findMentionTargets(ctx.tx, channelId, mentions.added);
-            requireCanMentionEach(ctx.actor, channel, mentions.added, targets);
+            const mentions = await planThreadMentions(ctx, channelId, threadId, input.body);
+            requireCanMentionEach(ctx.actor, channel, mentions);
             await editThread(ctx, threadId, input);
-            await saveMentions(ctx.tx, post, channelId, mentions);
+            await saveThreadMentions(ctx, channelId, threadId, mentions);
             // An edit Pings only the newly Mentioned.
-            const pinged = await fanOutPings(ctx.tx, post);
+            const pinged = await fanOutPings(ctx.tx, { threadId });
             await auditAdminChange(ctx, 'admin_edited_thread', {
               channelId,
               authorId: authorship.authorId,

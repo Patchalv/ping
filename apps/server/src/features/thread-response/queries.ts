@@ -11,7 +11,13 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import { mentionNamesSql, removeMentions } from '../../db/mention';
+import {
+  type MentionPlan,
+  mentionNamesSql,
+  planMentions,
+  removeMentions,
+  saveMentions,
+} from '../../db/mention';
 import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
 import { canReact } from '../../permissions/reaction';
@@ -101,6 +107,30 @@ export async function sendThreadResponse(
     .set({ latestActivityAt: sql`greatest(${thread.latestActivityAt}, ${row.createdAt})` })
     .where(eq(thread.id, where.threadId));
   return row.id;
+}
+
+/**
+ * Who saving this body newly Mentions, checked against the Thread Response's Mention rows
+ * (none while it's being sent).
+ */
+export function planResponseMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadResponseId: string | undefined,
+  body: RichTextDoc,
+): Promise<MentionPlan> {
+  const post = threadResponseId === undefined ? undefined : { threadResponseId };
+  return planMentions(tx, channelId, post, body);
+}
+
+/** Rebuilds the Thread Response's Mention rows from a save, after it's written. */
+export function saveResponseMentions(
+  { tx }: ActorTx,
+  channelId: string,
+  threadResponseId: string,
+  plan: MentionPlan,
+): Promise<void> {
+  return saveMentions(tx, { threadResponseId }, channelId, plan.changes);
 }
 
 /**

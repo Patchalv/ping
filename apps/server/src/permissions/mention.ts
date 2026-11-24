@@ -44,10 +44,14 @@ function requireCanMention(
 export function requireCanMentionEach(
   actor: Actor,
   channel: { visibility: ChannelVisibility },
-  added: readonly string[],
-  targets: ReadonlyMap<string, NonNullable<MentionTarget>>,
+  plan: {
+    changes: { added: readonly string[] };
+    people: ReadonlyMap<string, NonNullable<MentionTarget>>;
+  },
 ): void {
-  for (const staffId of added) requireCanMention(actor, channel, targets.get(staffId));
+  for (const staffId of plan.changes.added) {
+    requireCanMention(actor, channel, plan.people.get(staffId));
+  }
 }
 
 /** The @ picker's list follows reading: anyone who can read the Channel may write in it. */
