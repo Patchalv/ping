@@ -89,4 +89,12 @@ CREATE TRIGGER attachment_keep_target BEFORE UPDATE ON "attachment"
 -- Channel yet) only. Attached ones stay out of its reach.
 GRANT SELECT, DELETE ON "attachment" TO ping_system;--> statement-breakpoint
 CREATE POLICY attachment_system_sweep ON "attachment" FOR ALL TO ping_system
-  USING (channel_id IS NULL);
+  USING (channel_id IS NULL);--> statement-breakpoint
+
+-- Thread Responses deleted before this migration kept their Attachments' files (#50 left
+-- deleting them to this slice): queue them now, so the sweeper takes them down.
+INSERT INTO "pending_file_deletion" ("object_key")
+SELECT a.object_key FROM "attachment" a
+  JOIN "thread_response" r ON r.id = a.thread_response_id
+ WHERE r.deleted_at IS NOT NULL AND a.removed_at IS NULL
+ON CONFLICT DO NOTHING

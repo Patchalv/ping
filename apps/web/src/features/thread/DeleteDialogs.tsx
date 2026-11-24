@@ -23,7 +23,8 @@ function ConfirmDelete({
   error,
   onConfirm,
   onClose,
-  verb = 'Delete',
+  confirmLabel = 'Delete',
+  pendingLabel = 'Deleting…',
 }: {
   title: string;
   children: ReactNode;
@@ -33,8 +34,9 @@ function ConfirmDelete({
   error: string | null;
   onConfirm(): void;
   onClose(): void;
-  /** The confirming button's word: Delete, or Remove for an Attachment. */
-  verb?: 'Delete' | 'Remove';
+  /** The confirming button, and what it says while that runs. */
+  confirmLabel?: string;
+  pendingLabel?: string;
 }) {
   return (
     <Dialog
@@ -52,7 +54,7 @@ function ConfirmDelete({
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button variant="destructive" disabled={pending || waiting} onClick={onConfirm}>
-            {pending ? `${verb === 'Delete' ? 'Deleting' : 'Removing'}…` : verb}
+            {pending ? pendingLabel : confirmLabel}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -146,7 +148,8 @@ export function RemoveAttachmentDialog({
   return (
     <ConfirmDelete
       title={`Remove ${attachment.filename}?`}
-      verb="Remove"
+      confirmLabel="Remove"
+      pendingLabel="Removing…"
       pending={remove.isPending}
       error={remove.isError ? remove.error.message : null}
       onConfirm={() => remove.mutate(attachment.id, { onSuccess: onClose })}

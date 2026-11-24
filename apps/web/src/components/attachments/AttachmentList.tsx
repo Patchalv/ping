@@ -9,6 +9,7 @@ import {
   type RemovedAttachmentView,
 } from '@ping/shared';
 import { FileTextIcon, ImageIcon, XIcon } from 'lucide-react';
+import { Button } from '#/components/ui/button';
 
 const href = (attachment: AttachmentView) =>
   `/api/attachments/${encodeURIComponent(attachment.id)}`;
@@ -16,15 +17,16 @@ const href = (attachment: AttachmentView) =>
 /** The small button that asks to remove an Attachment. */
 function RemoveButton({ attachment, onRemove }: { attachment: AttachmentView; onRemove(): void }) {
   return (
-    <button
-      type="button"
+    <Button
+      variant="ghost"
+      size="icon-sm"
       aria-label={`Remove ${attachment.filename}`}
       title="Remove"
       onClick={onRemove}
-      className="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
+      className="shrink-0 text-muted-foreground"
     >
-      <XIcon aria-hidden="true" className="size-4" />
-    </button>
+      <XIcon aria-hidden="true" />
+    </Button>
   );
 }
 

@@ -14,7 +14,7 @@ import { schema } from '../db';
 import type { Storage } from '../lib/storage/storage';
 import type { SystemActions } from './index';
 
-const { pendingFileDeletion } = schema;
+const { attachment, pendingFileDeletion } = schema;
 
 /** How many queued files one sweep takes. */
 const FILE_BATCH = 50;
@@ -72,11 +72,11 @@ export async function sweepPendingUploads(deps: {
 }): Promise<{ swept: number }> {
   const result = await deps.systemActions.db.execute(sql`
     with swept as (
-      delete from attachment
-       where channel_id is null
-         and created_at < now() - make_interval(hours => ${PENDING_HOURS})
-      returning object_key)
-    insert into pending_file_deletion (object_key)
+      delete from ${attachment}
+       where ${attachment.channelId} is null
+         and ${attachment.createdAt} < now() - make_interval(hours => ${PENDING_HOURS})
+      returning ${attachment.objectKey} as object_key)
+    insert into ${pendingFileDeletion} (object_key)
     select object_key from swept
     on conflict do nothing`);
   return { swept: result.rowCount ?? 0 };
