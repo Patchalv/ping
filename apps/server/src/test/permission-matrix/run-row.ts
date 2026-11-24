@@ -25,7 +25,8 @@ type ChannelFixtures = (
 
 /**
  * The standard Channel fixtures. Every Channel has a Channel admin: the actor, when they
- * are the Channel admin, or else a fresh Staff member. An Archived channel is Public.
+ * are the Channel admin, or else a fresh Staff member. `archived` is Public;
+ * `archivedPrivate` is Private.
  */
 const channelFixtures: ChannelFixtures = async (kind, { actor }, resolvePolicy) => {
   const role = CHANNEL_ROLE[actor.kind];
@@ -37,8 +38,8 @@ const channelFixtures: ChannelFixtures = async (kind, { actor }, resolvePolicy) 
           ...(role === 'member' ? [{ staffId: actor.staff.id }] : []),
         ];
   return insertChannel({
-    visibility: kind === 'private' ? 'private' : 'public',
-    archived: kind === 'archived',
+    visibility: kind === 'private' || kind === 'archivedPrivate' ? 'private' : 'public',
+    archived: kind === 'archived' || kind === 'archivedPrivate',
     ...(resolvePolicy ? { resolvePolicy } : {}),
     members,
   });

@@ -99,7 +99,7 @@ Sources: [Who can do what in a Channel?](https://github.com/Patchalv/ping/issues
 - Archiving Pings nobody, apart from its System thread. Open Pings stay until they're Acknowledged.
 - In an Archived channel:
   - **Blocked:** new Threads, Thread Responses and reactions; edits; deletes by authors; Resolve and reopen; changing settings; adding, removing or promoting members; joining.
-  - **Still allowed:** reading and search; Acknowledging (mark read); Save; Mute; leaving; company Admins deleting Threads and Thread Responses; removing Attachments, so personal data can always come down; unarchiving.
+  - **Still allowed:** reading and search; Acknowledging (mark read); Save; Mute; putting it in your Sections; leaving; company Admins deleting Threads and Thread Responses; removing Attachments, so personal data can always come down; unarchiving.
 
 Source: decided while writing this spec.
 

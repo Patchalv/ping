@@ -18,6 +18,7 @@
 import { createSystemPool, type SystemDb } from '../db/system-pool';
 
 export { adminSetChannelAdmin } from './admin-set-channel-admin';
+export { archiveChannel, unarchiveChannel } from './archive-channel';
 export { cleanUpLostAccess } from './clean-up-lost-access';
 export { createChannel } from './create-channel';
 export { deactivateStaffMember } from './deactivate-staff-member';

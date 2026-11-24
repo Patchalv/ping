@@ -85,7 +85,7 @@ Table-driven actor × Channel × action rows, run through the real Hono app in-p
 - The standard actors are in `actors.ts`. Each is a real Staff member signed in through Better Auth. The Deactivated actor replays a cookie from before their Deactivation.
 - Deny rows assert the status and that the database is unchanged: every table's rows are checksummed before and after.
 - A row with `attachment` gets an Attachment row (no file): the actor's own pending one, someone else's pending one, or one attached to the row's Thread. A row's `request` may return `form` instead of `body` to send multipart form data with one file.
-- Rows with a Channel use the Channel fixtures in `run-row.ts`. Each row gets a fresh Channel of its `channel` kind (`public`, `private`, or `archived`, which is Public), and `CHANNEL_ROLE` in `actors.ts` sets each actor's place in it: Channel admin, member, or not a member.
+- Rows with a Channel use the Channel fixtures in `run-row.ts`. Each row gets a fresh Channel of its `channel` kind (`public`, `private`, `archived`, which is Public, or `archivedPrivate`, used by the archive and unarchive rows), and `CHANNEL_ROLE` in `actors.ts` sets each actor's place in it: Channel admin, member, or not a member.
 - A row with `thread: true` also gets a Thread in its Channel, started by the `author` actor (or, for any other actor, by another member), passed to `request` as `ctx.thread`.
 - Every new or changed endpoint needs at least one allow row, plus a deny row for every standard actor who shouldn't pass.
 
