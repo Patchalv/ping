@@ -112,12 +112,8 @@
           "name": "account_user_id_user_id_fk",
           "tableFrom": "account",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -266,12 +262,8 @@
           "name": "attachment_uploader_id_staff_member_id_fk",
           "tableFrom": "attachment",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "uploader_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["uploader_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -279,12 +271,8 @@
           "name": "attachment_removed_by_staff_member_id_fk",
           "tableFrom": "attachment",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "removed_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["removed_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -292,14 +280,8 @@
           "name": "attachment_thread_fk",
           "tableFrom": "attachment",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -307,14 +289,8 @@
           "name": "attachment_thread_response_fk",
           "tableFrom": "attachment",
           "tableTo": "thread_response",
-          "columnsFrom": [
-            "thread_response_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_response_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -324,9 +300,7 @@
         "attachment_object_key_unique": {
           "name": "attachment_object_key_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "object_key"
-          ]
+          "columns": ["object_key"]
         }
       },
       "policies": {},
@@ -417,12 +391,8 @@
           "name": "audit_event_actor_id_staff_member_id_fk",
           "tableFrom": "audit_event",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "actor_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["actor_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -530,12 +500,8 @@
           "name": "channel_created_by_staff_member_id_fk",
           "tableFrom": "channel",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -543,12 +509,8 @@
           "name": "channel_archived_by_staff_member_id_fk",
           "tableFrom": "channel",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "archived_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["archived_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -617,12 +579,8 @@
           "name": "channel_member_channel_id_channel_id_fk",
           "tableFrom": "channel_member",
           "tableTo": "channel",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -630,12 +588,8 @@
           "name": "channel_member_staff_id_staff_member_id_fk",
           "tableFrom": "channel_member",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -643,10 +597,7 @@
       "compositePrimaryKeys": {
         "channel_member_channel_id_staff_id_pk": {
           "name": "channel_member_channel_id_staff_id_pk",
-          "columns": [
-            "channel_id",
-            "staff_id"
-          ]
+          "columns": ["channel_id", "staff_id"]
         }
       },
       "uniqueConstraints": {},
@@ -763,12 +714,8 @@
           "name": "mention_staff_id_staff_member_id_fk",
           "tableFrom": "mention",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -776,14 +723,8 @@
           "name": "mention_thread_fk",
           "tableFrom": "mention",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -791,14 +732,8 @@
           "name": "mention_thread_response_fk",
           "tableFrom": "mention",
           "tableTo": "thread_response",
-          "columnsFrom": [
-            "thread_response_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_response_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -843,12 +778,8 @@
           "name": "mute_staff_id_staff_member_id_fk",
           "tableFrom": "mute",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -856,12 +787,8 @@
           "name": "mute_channel_id_channel_id_fk",
           "tableFrom": "mute",
           "tableTo": "channel",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -869,14 +796,8 @@
           "name": "mute_thread_fk",
           "tableFrom": "mute",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -886,11 +807,7 @@
         "mute_staff_id_channel_id_thread_id_unique": {
           "name": "mute_staff_id_channel_id_thread_id_unique",
           "nullsNotDistinct": true,
-          "columns": [
-            "staff_id",
-            "channel_id",
-            "thread_id"
-          ]
+          "columns": ["staff_id", "channel_id", "thread_id"]
         }
       },
       "policies": {},
@@ -969,12 +886,8 @@
           "name": "ping_staff_id_staff_member_id_fk",
           "tableFrom": "ping",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -982,14 +895,8 @@
           "name": "ping_thread_fk",
           "tableFrom": "ping",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -997,10 +904,7 @@
       "compositePrimaryKeys": {
         "ping_staff_id_thread_id_pk": {
           "name": "ping_staff_id_thread_id_pk",
-          "columns": [
-            "staff_id",
-            "thread_id"
-          ]
+          "columns": ["staff_id", "thread_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1125,12 +1029,8 @@
           "name": "reaction_staff_id_staff_member_id_fk",
           "tableFrom": "reaction",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1138,14 +1038,8 @@
           "name": "reaction_thread_fk",
           "tableFrom": "reaction",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1153,14 +1047,8 @@
           "name": "reaction_thread_response_fk",
           "tableFrom": "reaction",
           "tableTo": "thread_response",
-          "columnsFrom": [
-            "thread_response_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_response_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1234,12 +1122,8 @@
           "name": "saved_thread_staff_id_staff_member_id_fk",
           "tableFrom": "saved_thread",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1247,14 +1131,8 @@
           "name": "saved_thread_thread_fk",
           "tableFrom": "saved_thread",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1262,10 +1140,7 @@
       "compositePrimaryKeys": {
         "saved_thread_staff_id_thread_id_pk": {
           "name": "saved_thread_staff_id_thread_id_pk",
-          "columns": [
-            "staff_id",
-            "thread_id"
-          ]
+          "columns": ["staff_id", "thread_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1345,12 +1220,8 @@
           "name": "section_staff_id_staff_member_id_fk",
           "tableFrom": "section",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1360,10 +1231,7 @@
         "section_id_staff_id_unique": {
           "name": "section_id_staff_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "staff_id"
-          ]
+          "columns": ["id", "staff_id"]
         }
       },
       "policies": {},
@@ -1421,12 +1289,8 @@
           "name": "section_channel_staff_id_staff_member_id_fk",
           "tableFrom": "section_channel",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1434,12 +1298,8 @@
           "name": "section_channel_channel_id_channel_id_fk",
           "tableFrom": "section_channel",
           "tableTo": "channel",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1447,14 +1307,8 @@
           "name": "section_channel_section_fk",
           "tableFrom": "section_channel",
           "tableTo": "section",
-          "columnsFrom": [
-            "section_id",
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id",
-            "staff_id"
-          ],
+          "columnsFrom": ["section_id", "staff_id"],
+          "columnsTo": ["id", "staff_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1462,10 +1316,7 @@
       "compositePrimaryKeys": {
         "section_channel_staff_id_channel_id_pk": {
           "name": "section_channel_staff_id_channel_id_pk",
-          "columns": [
-            "staff_id",
-            "channel_id"
-          ]
+          "columns": ["staff_id", "channel_id"]
         }
       },
       "uniqueConstraints": {},
@@ -1551,12 +1402,8 @@
           "name": "session_user_id_user_id_fk",
           "tableFrom": "session",
           "tableTo": "user",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["user_id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -1566,9 +1413,7 @@
         "session_token_unique": {
           "name": "session_token_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token"
-          ]
+          "columns": ["token"]
         }
       },
       "policies": {},
@@ -1623,12 +1468,8 @@
           "name": "staff_invite_staff_id_staff_member_id_fk",
           "tableFrom": "staff_invite",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "staff_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["staff_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1636,12 +1477,8 @@
           "name": "staff_invite_created_by_staff_member_id_fk",
           "tableFrom": "staff_invite",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "created_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["created_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1651,9 +1488,7 @@
         "staff_invite_token_hash_unique": {
           "name": "staff_invite_token_hash_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "token_hash"
-          ]
+          "columns": ["token_hash"]
         }
       },
       "policies": {},
@@ -1716,12 +1551,8 @@
           "name": "staff_member_id_user_id_fk",
           "tableFrom": "staff_member",
           "tableTo": "user",
-          "columnsFrom": [
-            "id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["id"],
+          "columnsTo": ["id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
@@ -1729,12 +1560,8 @@
           "name": "staff_member_invited_by_staff_member_id_fk",
           "tableFrom": "staff_member",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "invited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["invited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1742,12 +1569,8 @@
           "name": "staff_member_deactivated_by_staff_member_id_fk",
           "tableFrom": "staff_member",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "deactivated_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deactivated_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1937,12 +1760,8 @@
           "name": "thread_channel_id_channel_id_fk",
           "tableFrom": "thread",
           "tableTo": "channel",
-          "columnsFrom": [
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["channel_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1950,12 +1769,8 @@
           "name": "thread_author_id_staff_member_id_fk",
           "tableFrom": "thread",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1963,12 +1778,8 @@
           "name": "thread_edited_by_staff_member_id_fk",
           "tableFrom": "thread",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "edited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["edited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -1976,12 +1787,8 @@
           "name": "thread_resolved_by_staff_member_id_fk",
           "tableFrom": "thread",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "resolved_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["resolved_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         }
@@ -1991,10 +1798,7 @@
         "thread_id_channel_id_unique": {
           "name": "thread_id_channel_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "channel_id"
-          ]
+          "columns": ["id", "channel_id"]
         }
       },
       "policies": {},
@@ -2140,12 +1944,8 @@
           "name": "thread_response_author_id_staff_member_id_fk",
           "tableFrom": "thread_response",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "author_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["author_id"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2153,12 +1953,8 @@
           "name": "thread_response_edited_by_staff_member_id_fk",
           "tableFrom": "thread_response",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "edited_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["edited_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2166,12 +1962,8 @@
           "name": "thread_response_deleted_by_staff_member_id_fk",
           "tableFrom": "thread_response",
           "tableTo": "staff_member",
-          "columnsFrom": [
-            "deleted_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
+          "columnsFrom": ["deleted_by"],
+          "columnsTo": ["id"],
           "onDelete": "no action",
           "onUpdate": "no action"
         },
@@ -2179,14 +1971,8 @@
           "name": "thread_response_thread_fk",
           "tableFrom": "thread_response",
           "tableTo": "thread",
-          "columnsFrom": [
-            "thread_id",
-            "channel_id"
-          ],
-          "columnsTo": [
-            "id",
-            "channel_id"
-          ],
+          "columnsFrom": ["thread_id", "channel_id"],
+          "columnsTo": ["id", "channel_id"],
           "onDelete": "cascade",
           "onUpdate": "no action"
         }
@@ -2196,10 +1982,7 @@
         "thread_response_id_channel_id_unique": {
           "name": "thread_response_id_channel_id_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "id",
-            "channel_id"
-          ]
+          "columns": ["id", "channel_id"]
         }
       },
       "policies": {},
@@ -2277,9 +2060,7 @@
         "user_email_unique": {
           "name": "user_email_unique",
           "nullsNotDistinct": false,
-          "columns": [
-            "email"
-          ]
+          "columns": ["email"]
         }
       },
       "policies": {},
@@ -2359,35 +2140,22 @@
     "public.channel_visibility": {
       "name": "channel_visibility",
       "schema": "public",
-      "values": [
-        "public",
-        "private"
-      ]
+      "values": ["public", "private"]
     },
     "public.resolve_policy": {
       "name": "resolve_policy",
       "schema": "public",
-      "values": [
-        "any_member",
-        "author_and_channel_admins"
-      ]
+      "values": ["any_member", "author_and_channel_admins"]
     },
     "public.staff_role": {
       "name": "staff_role",
       "schema": "public",
-      "values": [
-        "admin",
-        "member"
-      ]
+      "values": ["admin", "member"]
     },
     "public.system_thread_kind": {
       "name": "system_thread_kind",
       "schema": "public",
-      "values": [
-        "channel_made_private",
-        "channel_archived",
-        "channel_admin_replaced"
-      ]
+      "values": ["channel_made_private", "channel_archived", "channel_admin_replaced"]
     }
   },
   "schemas": {},

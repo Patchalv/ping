@@ -10,6 +10,7 @@ import {
   XIcon,
 } from 'lucide-react';
 import { useState } from 'react';
+import { AttachmentList } from '#/components/attachments/AttachmentList';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
 import { Button, buttonVariants } from '#/components/ui/button';
@@ -176,6 +177,7 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
           </div>
           <h2 className="mt-2 text-lg font-bold [overflow-wrap:anywhere]">{thread.title}</h2>
           <RichTextView doc={thread.body} mentionNames={thread.mentionNames} className="mt-2" />
+          <AttachmentList attachments={thread.attachments} />
           <Reactions
             channelId={thread.channelId}
             threadId={thread.id}

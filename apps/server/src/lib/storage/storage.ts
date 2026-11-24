@@ -64,7 +64,9 @@ export function createStorage(settings: StorageSettings): Storage {
         headers: { 'Content-Type': contentType, 'Content-Length': String(content.length) },
       });
       if (!response.ok) {
-        throw new Error(`Storing an Attachment failed: ${response.status} ${await response.text()}`);
+        throw new Error(
+          `Storing an Attachment failed: ${response.status} ${await response.text()}`,
+        );
       }
     },
 

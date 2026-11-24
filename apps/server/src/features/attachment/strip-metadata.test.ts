@@ -179,9 +179,11 @@ describe('stripImageMetadata', () => {
     ['image/jpeg', Buffer.from([0xff, 0xd8, 0xff, 0xe1, 0x40, 0x00, 0x01])],
     ['image/png', Buffer.concat([fixture('png').subarray(0, 8), Buffer.from([0, 0, 1, 0, 0x49])])],
     ['image/gif', Buffer.from('GIF89a\x02\x00')],
-    ['image/webp', Buffer.concat([Buffer.from('RIFF'), Buffer.from([90, 0, 0, 0]), Buffer.from('WEBPVP8X')])],
+    [
+      'image/webp',
+      Buffer.concat([Buffer.from('RIFF'), Buffer.from([90, 0, 0, 0]), Buffer.from('WEBPVP8X')]),
+    ],
   ])('refuses a truncated %s instead of storing it half-stripped', (contentType, broken) => {
     expect(() => stripImageMetadata(broken, contentType)).toThrow(DamagedImageError);
   });
 });
-

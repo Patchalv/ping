@@ -4,7 +4,9 @@ import { detectAttachmentType } from './file-type';
 
 const bytes = (...parts: (string | number[])[]) =>
   Buffer.concat(
-    parts.map((part) => (typeof part === 'string' ? Buffer.from(part, 'latin1') : Buffer.from(part))),
+    parts.map((part) =>
+      typeof part === 'string' ? Buffer.from(part, 'latin1') : Buffer.from(part),
+    ),
   );
 
 const JPEG = bytes([0xff, 0xd8, 0xff, 0xe0], 'rest of a JPEG');
@@ -94,7 +96,11 @@ describe('detectAttachmentType', () => {
     ['HTML named .gif', 'wave.gif', Buffer.from('<script>alert(1)</script>')],
     ['a PDF named .docx', 'letter.docx', PDF],
     ['a plain zip named .odt', 'letter.odt', ZIP],
-    ['a spreadsheet named .odt', 'letter.odt', odf('application/vnd.oasis.opendocument.spreadsheet')],
+    [
+      'a spreadsheet named .odt',
+      'letter.odt',
+      odf('application/vnd.oasis.opendocument.spreadsheet'),
+    ],
     ['a RIFF that isn’t WebP named .webp', 'sticker.webp', bytes('RIFF', [0, 0, 0, 0], 'WAVEfmt ')],
     ['binary named .txt', 'notes.txt', bytes([0x4d, 0x5a, 0x00, 0x01])],
     ['invalid UTF-8 named .csv', 'list.csv', bytes([0x61, 0xff, 0xfe, 0x62])],

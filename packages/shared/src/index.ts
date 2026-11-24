@@ -5,6 +5,20 @@ export type HealthzResponse = {
 };
 
 export {
+  ALLOWED_ATTACHMENT_TYPES,
+  ATTACHMENT_ACCEPT,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MESSAGES,
+  ATTACHMENTS_PER_POST_MAX,
+  type AttachmentView,
+  addAttachmentForm,
+  attachmentParams,
+  fileExtension,
+  formatFileSize,
+  IMAGE_MAX_EDGE,
+  shortenFilename,
+} from './attachment';
+export {
   type ForgotPasswordBody,
   forgotPasswordBody,
   type NewPasswordBody,
@@ -14,21 +28,6 @@ export {
   type SignInBody,
   signInBody,
 } from './auth';
-export {
-  ALLOWED_ATTACHMENT_TYPES,
-  ATTACHMENT_ACCEPT,
-  ATTACHMENT_MAX_BYTES,
-  ATTACHMENT_MESSAGES,
-  ATTACHMENTS_PER_POST_MAX,
-  type AttachmentView,
-  addAttachmentForm,
-  attachmentIds,
-  attachmentParams,
-  fileExtension,
-  formatFileSize,
-  IMAGE_MAX_EDGE,
-  shortenFilename,
-} from './attachment';
 export {
   addChannelMemberBody,
   type BrowseChannel,

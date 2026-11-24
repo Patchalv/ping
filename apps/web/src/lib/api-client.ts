@@ -59,3 +59,37 @@ async function toApiError(res: { status: number; json(): Promise<unknown> }): Pr
   }
   return new ApiError(res.status, FALLBACK_MESSAGE);
 }
+
+/**
+ * Sends a multipart form with upload progress, which fetch (and so the hc client) can't
+ * report: the one place the SPA uses XMLHttpRequest. Answers like call(): the body, or an
+ * ApiError. `onProgress` gets the fraction sent, from 0 to 1.
+ */
+export function sendFormWithProgress<T>(
+  path: string,
+  form: FormData,
+  onProgress: (fraction: number) => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open('POST', path);
+    request.responseType = 'text';
+    request.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable) onProgress(event.loaded / event.total);
+    });
+    request.addEventListener('load', () => {
+      const response = {
+        ok: request.status >= 200 && request.status < 300,
+        status: request.status,
+        json: async () => JSON.parse(request.responseText) as T,
+      };
+      if (response.ok) {
+        response.json().then(resolve, () => reject(new ApiError(request.status, FALLBACK_MESSAGE)));
+      } else {
+        void toApiError(response).then(reject);
+      }
+    });
+    request.addEventListener('error', () => reject(new ApiError(0, OFFLINE_MESSAGE)));
+    request.send(form);
+  });
+}

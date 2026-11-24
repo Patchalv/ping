@@ -49,10 +49,7 @@ async function channelWithPosts(visibility: 'public' | 'private', memberIds: str
 }
 
 /** Attachments by the author on the Thread and on the Thread Response. */
-async function channelWithAttachments(
-  visibility: 'public' | 'private',
-  memberIds: string[] = [],
-) {
+async function channelWithAttachments(visibility: 'public' | 'private', memberIds: string[] = []) {
   const posts = await channelWithPosts(visibility, memberIds);
   const onThread = await insertAttachment({
     uploaderId: posts.author.id,

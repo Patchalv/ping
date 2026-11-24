@@ -115,9 +115,7 @@ export function threadResponseRoutes({ auth, database }: { auth: Auth; database:
             requireCanEditThreadResponse(ctx.actor, access, response);
             const mentions = await planResponseMentions(ctx, channelId, threadResponseId, body);
             requireCanMentionEach(ctx.actor, access, mentions);
-            requireCanAttach(
-              await planResponseAttachments(ctx, threadResponseId, attachmentIds),
-            );
+            requireCanAttach(await planResponseAttachments(ctx, threadResponseId, attachmentIds));
             await editThreadResponse(ctx, threadResponseId, body);
             await saveResponseMentions(ctx, channelId, threadResponseId, mentions);
             await attachToResponse(ctx, channelId, threadResponseId, attachmentIds);

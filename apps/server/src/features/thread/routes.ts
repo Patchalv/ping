@@ -27,8 +27,8 @@ import {
 } from '../../permissions/thread';
 import { fanOutPings } from '../../system-actions';
 import {
-  auditAdminChange,
   attachToThread,
+  auditAdminChange,
   deleteThread,
   editThread,
   findThread,

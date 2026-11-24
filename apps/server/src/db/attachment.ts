@@ -108,7 +108,10 @@ export function attachmentsSql(
 }
 
 /** How many Attachments the post whose ID is `id` has. */
-export function attachmentCountSql(target: AttachmentPostColumn, id: SQL | AnyPgColumn): SQL<number> {
+export function attachmentCountSql(
+  target: AttachmentPostColumn,
+  id: SQL | AnyPgColumn,
+): SQL<number> {
   return sql<number>`(
     select count(*)::int from ${attachment}
      where ${target} = ${id} and ${attachment.removedAt} is null)`;

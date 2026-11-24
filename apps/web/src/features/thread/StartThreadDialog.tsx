@@ -25,7 +25,7 @@ import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
-import { useMentionCandidates, useStartThread } from './api';
+import { useAddAttachment, useMentionCandidates, useStartThread } from './api';
 
 /**
  * + New Thread in the Channel bar. Only shown to Channel members, outside Archived
@@ -61,6 +61,9 @@ type Draft = { title: string; body: RichTextDoc };
 
 const EMPTY: Draft = { title: '', body: EMPTY_RICH_TEXT };
 
+/** Shown when the Staff member saves while files are still being sent. */
+export const STILL_ATTACHING = 'Wait for your files to finish attaching, then try again.';
+
 /**
  * A saved draft, if it still has the composer's shape and its description passes the
  * allowlist. A damaged or out-of-date one is dropped rather than crashing the editor.
@@ -91,6 +94,10 @@ function StartThreadDialog({
 }) {
   const start = useStartThread(channelId);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
+  const addAttachment = useAddAttachment(channelId);
+  // Files still being sent. Attachments aren't kept in the draft: they're pending on the
+  // server, and swept if never posted.
+  const adding = useRef(0);
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
   const staffMemberId = authClient.useSession().data?.user.id;
@@ -109,12 +116,16 @@ function StartThreadDialog({
       onChangeDebounceMs: 400,
       onChange: ({ formApi }) => {
         if (!key || sent.current) return;
-        const value = formApi.state.values;
-        saveDraft(key, isEmpty(value) ? null : value);
+        const { title, body } = formApi.state.values;
+        saveDraft(key, isEmpty({ title, body }) ? null : { title, body });
       },
     },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
+      if (adding.current > 0) {
+        setFormError(STILL_ATTACHING);
+        return;
+      }
       try {
         const thread = await start.mutateAsync(startThreadBody.parse(value));
         sent.current = true;
@@ -148,6 +159,16 @@ function StartThreadDialog({
             <form.AppField name="body">
               {(field) => (
                 <field.RichTextField label="Description" mentionCandidates={mentionCandidates} />
+              )}
+            </form.AppField>
+            <form.AppField name="attachmentIds">
+              {(field) => (
+                <field.AttachmentsField
+                  add={addAttachment}
+                  onAddingChange={(count) => {
+                    adding.current = count;
+                  }}
+                />
               )}
             </form.AppField>
             {formError ? <FormError>{formError}</FormError> : null}

@@ -9,17 +9,24 @@ import {
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
+import { AttachmentList } from '#/components/attachments/AttachmentList';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { Button } from '#/components/ui/button';
 import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
-import { useEditThreadResponse, useMentionCandidates, useSendThreadResponse } from './api';
+import {
+  useAddAttachment,
+  useEditThreadResponse,
+  useMentionCandidates,
+  useSendThreadResponse,
+} from './api';
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadResponseDialog } from './DeleteDialogs';
 import { Reactions } from './Reactions';
+import { STILL_ATTACHING } from './StartThreadDialog';
 
 /** A Thread's Thread Responses, oldest first, with deleted ones as placeholders. */
 export function ThreadResponseList({
@@ -101,6 +108,7 @@ function ThreadResponseItem({
       ) : (
         <>
           <RichTextView doc={response.body} mentionNames={response.mentionNames} className="mt-1" />
+          <AttachmentList attachments={response.attachments} />
           <Reactions
             channelId={channelId}
             threadId={response.threadId}
@@ -224,6 +232,9 @@ function ComposerForm({
 }) {
   const send = useSendThreadResponse(channelId, threadId);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
+  const addAttachment = useAddAttachment(channelId);
+  // Files still being sent; Attachments aren't kept in the draft.
+  const adding = useRef(0);
   const [formError, setFormError] = useState<string | null>(null);
   // Restored once, when the composer opens.
   const [defaultValues] = useState<ThreadResponseBody>(() => ({ body: restoreDraft(draft) }));
@@ -245,6 +256,10 @@ function ComposerForm({
     },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
+      if (adding.current > 0) {
+        setFormError(STILL_ATTACHING);
+        return;
+      }
       try {
         await send.mutateAsync(threadResponseBody.parse(value));
         sent.current = true;
@@ -262,6 +277,16 @@ function ComposerForm({
         <form.AppField name="body">
           {(field) => (
             <field.RichTextField label="Thread Response" mentionCandidates={mentionCandidates} />
+          )}
+        </form.AppField>
+        <form.AppField name="attachmentIds">
+          {(field) => (
+            <field.AttachmentsField
+              add={addAttachment}
+              onAddingChange={(count) => {
+                adding.current = count;
+              }}
+            />
           )}
         </form.AppField>
         {formError ? <FormError>{formError}</FormError> : null}

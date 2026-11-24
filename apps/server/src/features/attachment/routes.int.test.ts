@@ -111,7 +111,9 @@ describe('Attachments', () => {
   it('stores a file under a random key, never its filename, and downloads it as an attachment', async () => {
     const { author, channel } = await channelWith('public');
     const { add, request } = await as(author);
-    const added = (await (await add(channel.id, 'Rota juny.csv', 'name,room\n')).json()) as AttachmentView;
+    const added = (await (
+      await add(channel.id, 'Rota juny.csv', 'name,room\n')
+    ).json()) as AttachmentView;
 
     const stored = await asOwner((query) =>
       query<{ object_key: string; original_filename: string }>(
@@ -127,13 +129,20 @@ describe('Attachments', () => {
     );
     const file = await download(res);
     expect(file.headers.get('content-type')).toBe('text/csv');
-    expect(file.headers.get('content-disposition')).toMatch(/^attachment; filename="Rota juny.csv"/);
+    expect(file.headers.get('content-disposition')).toMatch(
+      /^attachment; filename="Rota juny.csv"/,
+    );
   });
 
   it.each([
     ['a HEIC photo', 'IMG_0001.HEIC', 'ftypheic', ATTACHMENT_MESSAGES.heic],
     ['a type that isn’t allowed', 'setup.exe', 'MZ', ATTACHMENT_MESSAGES.notAllowed],
-    ['HTML named as an image', 'cat.png', '<script>alert(1)</script>', ATTACHMENT_MESSAGES.mismatch],
+    [
+      'HTML named as an image',
+      'cat.png',
+      '<script>alert(1)</script>',
+      ATTACHMENT_MESSAGES.mismatch,
+    ],
     [
       'a broken image',
       'desk.jpg',
@@ -182,13 +191,18 @@ describe('Attachments', () => {
     // A reader opens them; the Thread row shows the first three and the count.
     const readerApi = (await as(reader)).request;
     expect((await readerApi(`/api/attachments/${ids[0]}`)).status).toBe(302);
-    const page = (await (await readerApi(`/api/channels/${channel.id}/threads`)).json()) as ThreadPage;
+    const page = (await (
+      await readerApi(`/api/channels/${channel.id}/threads`)
+    ).json()) as ThreadPage;
     const row = page.threads.find((t) => t.id === thread.id);
     expect(row?.attachments.map((a) => a.filename)).toEqual(['a.txt', 'b.txt', 'c.txt']);
     expect(row?.attachmentCount).toBe(4);
 
     // A non-member, Admin or not, gets 404 for a Private channel’s Attachment.
-    for (const outsider of [await createStaffMember(), await createStaffMember({ role: 'admin' })]) {
+    for (const outsider of [
+      await createStaffMember(),
+      await createStaffMember({ role: 'admin' }),
+    ]) {
       expect((await (await as(outsider)).request(`/api/attachments/${ids[0]}`)).status).toBe(404);
     }
 
@@ -203,7 +217,9 @@ describe('Attachments', () => {
   it('refuses attaching someone else’s pending file, changing nothing', async () => {
     const other = await createStaffMember();
     const { author, channel } = await channelWith('public', other);
-    const theirs = (await (await (await as(other)).add(channel.id, 'x.txt', 'x')).json()) as AttachmentView;
+    const theirs = (await (
+      await (await as(other)).add(channel.id, 'x.txt', 'x')
+    ).json()) as AttachmentView;
 
     const { request } = await as(author);
     const before = await databaseSnapshot();
