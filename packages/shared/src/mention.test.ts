@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { mentionChanges, mentionedStaffIds } from './mention';
-import type { RichTextDoc } from './rich-text';
+import { mentionChanges, mentionedStaffIds, withCurrentMentionNames } from './mention';
+import { extractBodyText, type RichTextDoc } from './rich-text';
 
 const JORDI = '00000000-0000-4000-8000-000000000001';
 const LAURA = '00000000-0000-4000-8000-000000000002';
@@ -62,5 +62,84 @@ describe('mentionChanges', () => {
 
   it('finds no one new when an edit keeps the same Mentions', () => {
     expect(mentionChanges([JORDI, LAURA], [LAURA, JORDI])).toEqual({ added: [], removed: [] });
+  });
+});
+
+describe('withCurrentMentionNames', () => {
+  it('shows each Mentioned person’s current name, wherever the Mention sits', () => {
+    const doc: RichTextDoc = {
+      type: 'doc',
+      content: [
+        { type: 'paragraph', content: [{ type: 'text', text: 'Ask ' }, mention(LAURA, 'Laura')] },
+        {
+          type: 'orderedList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'blockquote',
+                  content: [{ type: 'paragraph', content: [mention(JORDI, 'Jordi')] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+    const current = withCurrentMentionNames(doc, {
+      [LAURA]: 'Laura Gómez-Puig',
+      [JORDI]: 'Jordi Puig i Vidal',
+    });
+    expect(current).toEqual({
+      type: 'doc',
+      content: [
+        {
+          type: 'paragraph',
+          content: [{ type: 'text', text: 'Ask ' }, mention(LAURA, 'Laura Gómez-Puig')],
+        },
+        {
+          type: 'orderedList',
+          content: [
+            {
+              type: 'listItem',
+              content: [
+                {
+                  type: 'blockquote',
+                  content: [{ type: 'paragraph', content: [mention(JORDI, 'Jordi Puig i Vidal')] }],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('keeps the name a Mention was made with when there is no current name for it', () => {
+    const doc: RichTextDoc = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [mention(PABLO, 'Pablo')] }],
+    };
+    expect(withCurrentMentionNames(doc, { [LAURA]: 'Laura Gómez-Puig' })).toEqual(doc);
+  });
+
+  it('finds the current name whatever the letter case of the stored ID', () => {
+    const doc: RichTextDoc = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [mention(LAURA.toUpperCase(), 'Laura')] }],
+    };
+    expect(extractBodyText(withCurrentMentionNames(doc, { [LAURA]: 'Laura Gómez-Puig' }))).toBe(
+      '@Laura Gómez-Puig',
+    );
+  });
+
+  it('leaves the saved body as it was', () => {
+    const doc: RichTextDoc = {
+      type: 'doc',
+      content: [{ type: 'paragraph', content: [mention(LAURA, 'Laura')] }],
+    };
+    withCurrentMentionNames(doc, { [LAURA]: 'Laura Gómez-Puig' });
+    expect(doc.content?.[0]).toEqual({ type: 'paragraph', content: [mention(LAURA, 'Laura')] });
   });
 });

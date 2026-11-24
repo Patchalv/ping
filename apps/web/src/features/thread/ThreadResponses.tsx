@@ -6,6 +6,7 @@ import {
   type ThreadResponseView,
   threadResponseBody,
   threadResponseCount,
+  withCurrentMentionNames,
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
@@ -137,7 +138,10 @@ function EditThreadResponseForm({
   const edit = useEditThreadResponse(channelId, response.threadId, response.id);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
   const [formError, setFormError] = useState<string | null>(null);
-  const defaultValues: ThreadResponseBody = { body };
+  // Start from each Mentioned person's current name, so saving writes it into the preview.
+  const [defaultValues] = useState<ThreadResponseBody>(() => ({
+    body: withCurrentMentionNames(body, response.mentionNames),
+  }));
   const form = useAppForm({
     formId: `edit-thread-response-${response.id}`,
     defaultValues,
