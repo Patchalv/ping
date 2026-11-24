@@ -113,6 +113,13 @@
       "when": 1795508662765,
       "tag": "0015_channel_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1795524418102,
+      "tag": "0016_archive_channel",
+      "breakpoints": true
     }
   ]
 }

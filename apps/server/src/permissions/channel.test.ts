@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { ForbiddenError, NotFoundError } from '../lib/errors';
 import type { Actor } from './actor';
 import {
+  ARCHIVE_REFUSED_MESSAGE,
   canAddChannelMember,
+  canArchiveChannel,
   canBrowseChannels,
   canChangeChannelSettings,
   canCreateChannel,
@@ -12,6 +14,7 @@ import {
   canReadChannel,
   canRemoveChannelMember,
   canSetChannelAdmin,
+  canUnarchiveChannel,
   channelMemberActions,
   LAST_CHANNEL_ADMIN_MESSAGE,
   needsCompanyAdminPower,
@@ -549,5 +552,81 @@ describe('canChangeChannelSettings', () => {
         message: 'This Channel is archived, so its settings can’t change. Unarchive it first.',
       }),
     );
+  });
+});
+
+// Archive and unarchive (#43).
+describe.each([
+  ['canArchiveChannel', canArchiveChannel, false],
+  ['canUnarchiveChannel', canUnarchiveChannel, true],
+] as const)('%s', (_fn, decide, isArchived) => {
+  const channel = (overrides: Partial<Parameters<typeof canArchiveChannel>[1]> = {}) => ({
+    visibility: 'public' as const,
+    isMember: true,
+    isChannelAdmin: false,
+    isArchived,
+    ...overrides,
+  });
+
+  it.each([
+    ['a Channel admin of a Public channel', member, channel({ isChannelAdmin: true })],
+    [
+      'a Channel admin of a Private channel',
+      member,
+      channel({ visibility: 'private', isChannelAdmin: true }),
+    ],
+    ['a company Admin who is a member of a Public channel', admin, channel()],
+    [
+      'a company Admin who isn’t a member of a Public channel',
+      admin,
+      channel({ isMember: false }),
+    ],
+    [
+      'a company Admin who is a member of a Private channel',
+      admin,
+      channel({ visibility: 'private' }),
+    ],
+  ])('allows %s', (_name, actor, access) => {
+    expect(decide(actor, access)).toEqual(allow());
+  });
+
+  it.each([
+    ['a Member', member],
+    ['a company Admin', admin],
+  ])('hides a Private channel from %s who isn’t in it', (_name, actor) => {
+    expect(decide(actor, channel({ visibility: 'private', isMember: false }))).toEqual(
+      deny({ kind: 'hidden' }),
+    );
+  });
+
+  it.each([
+    ['a plain member', member, channel()],
+    ['a non-member of a Public channel', member, channel({ isMember: false })],
+    ['a plain member of a Private channel', member, channel({ visibility: 'private' })],
+  ])('refuses %s', (_name, actor, access) => {
+    expect(decide(actor, access)).toEqual(
+      deny({ kind: 'refused', message: ARCHIVE_REFUSED_MESSAGE }),
+    );
+  });
+});
+
+describe('archiving an Archived channel', () => {
+  it('is refused, even for its Channel admin: only unarchiving works there', () => {
+    const archived = {
+      visibility: 'public' as const,
+      isMember: true,
+      isChannelAdmin: true,
+      isArchived: true,
+    };
+    expect(canArchiveChannel(member, archived)).toEqual(
+      deny({ kind: 'refused', message: 'This Channel is already archived.' }),
+    );
+  });
+});
+
+describe('unarchiving a Channel that isn’t Archived', () => {
+  it('is allowed and changes nothing, like reopening an open Thread', () => {
+    const open = { visibility: 'public' as const, isMember: true, isChannelAdmin: true, isArchived: false };
+    expect(canUnarchiveChannel(member, open)).toEqual(allow());
   });
 });

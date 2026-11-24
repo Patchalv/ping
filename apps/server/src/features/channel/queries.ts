@@ -13,7 +13,11 @@ import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 import type { AuditEventKind } from '../../db/schema';
-import type { ChannelAdminTarget } from '../../permissions/channel';
+import {
+  type ChannelAdminTarget,
+  canArchiveChannel,
+  canUnarchiveChannel,
+} from '../../permissions/channel';
 
 const { auditEvent, channel, channelMember, mute, staffMember, user } = schema;
 
@@ -56,7 +60,18 @@ export async function findChannel(
   if (!row) return undefined;
   const { isChannelAdmin, ...rest } = row;
   // The left join finds the actor's own channel_member row, or nothing.
-  return { ...rest, isMember: isChannelAdmin !== null, isChannelAdmin: isChannelAdmin ?? false };
+  const access = {
+    ...rest,
+    isMember: isChannelAdmin !== null,
+    isChannelAdmin: isChannelAdmin ?? false,
+  };
+  return {
+    ...access,
+    can: {
+      archive: canArchiveChannel(actor, access).allow,
+      unarchive: canUnarchiveChannel(actor, access).allow,
+    },
+  };
 }
 
 /**

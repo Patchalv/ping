@@ -11,7 +11,12 @@ import { randomUUID } from 'node:crypto';
 import type { ResolvePolicy } from '@ping/shared';
 import { type Actor, type ActorKind, CHANNEL_ROLE, STANDARD_ACTORS } from './actors';
 
-export type ChannelKind = 'public' | 'private' | 'archived';
+/**
+ * The row's Channel. `archived` is an Archived Public channel, the Archived column every
+ * action is checked in; `archivedPrivate` is an Archived Private one, for the archive and
+ * unarchive rows only.
+ */
+export type ChannelKind = 'public' | 'private' | 'archived' | 'archivedPrivate';
 
 /** A route as Hono registers it, e.g. `POST /api/channels`. */
 export type RouteKey = `${'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'} ${string}`;
@@ -95,6 +100,7 @@ const CHANNEL_KIND_NAME: Record<ChannelKind, string> = {
   public: 'Public',
   private: 'Private',
   archived: 'Archived Public',
+  archivedPrivate: 'Archived Private',
 };
 
 /**
@@ -159,6 +165,19 @@ const resolveChange =
       return { allow: true, status: 200 };
     }
     return { allow: false, status: 403 };
+  };
+
+/** Archive or unarchive: who may, by the Channel's kind (see the rows). */
+const setsArchived =
+  (channel: ChannelKind, change: 'archive' | 'unarchive') =>
+  (actor: ActorKind): MatrixRow['expect'] => {
+    const isPrivate = channel === 'private' || channel === 'archivedPrivate';
+    const isArchived = channel === 'archived' || channel === 'archivedPrivate';
+    if (isPrivate && !CHANNEL_ROLE[actor]) return { allow: false, status: 404 };
+    if (change === 'archive' && isArchived) return { allow: false, status: 403 };
+    return CHANNEL_ROLE[actor] === 'channelAdmin' || ADMINS.has(actor)
+      ? { allow: true, status: 200 }
+      : { allow: false, status: 403 };
   };
 
 /** Another Staff member's Section: row-level security hides it from everyone (404). */
@@ -369,21 +388,23 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
-  // Add an Invited or Deactivated person: nobody.
+  // Add an Invited or Deactivated person: nobody, Archived channel or not.
   ...(['invited', 'deactivated'] as const).flatMap((target) =>
-    rowsFor(
-      {
-        route: 'POST /api/channels/:channelId/members',
-        action: `add ${target === 'invited' ? 'an Invited' : 'a Deactivated'} person to a Public channel`,
-        channel: 'public',
-        target,
-        request: (ctx) => ({
-          path: `/api/channels/${ctx.channel?.id}/members`,
-          method: 'POST',
-          body: { staffId: ctx.target?.id },
-        }),
-      },
-      refused,
+    (['public', 'archived'] as const).flatMap((channel) =>
+      rowsFor(
+        {
+          route: 'POST /api/channels/:channelId/members',
+          action: `add ${target === 'invited' ? 'an Invited' : 'a Deactivated'} person to a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          target,
+          request: (ctx) => ({
+            path: `/api/channels/${ctx.channel?.id}/members`,
+            method: 'POST',
+            body: { staffId: ctx.target?.id },
+          }),
+        },
+        refused,
+      ),
     ),
   ),
 
@@ -504,20 +525,47 @@ export const MATRIX: MatrixRow[] = [
     ),
   ),
 
-  // Make a Private channel Public: refused for every actor, its Channel admins included.
-  // Anyone not in it can't see it at all.
-  ...rowsFor(
-    {
-      route: 'PATCH /api/channels/:channelId',
-      action: 'make a Private channel Public',
-      channel: 'private',
-      request: (ctx) => ({
-        path: `/api/channels/${ctx.channel?.id}`,
-        method: 'PATCH',
-        body: { visibility: 'public' },
-      }),
-    },
-    membershipChange('private', 200, () => false),
+  // Make a Private channel Public: refused for every actor, its Channel admins included,
+  // Archived or not. Anyone not in it can't see it at all.
+  ...(['private', 'archivedPrivate'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'PATCH /api/channels/:channelId',
+        action: `make a ${CHANNEL_KIND_NAME[channel]} channel Public`,
+        channel,
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}`,
+          method: 'PATCH',
+          body: { visibility: 'public' },
+        }),
+      },
+      membershipChange('private', 200, () => false),
+    ),
+  ),
+
+  // Archive and unarchive. From "Archive and unarchive Channels" (#43).
+
+  // Channel admins, and company Admins on a Public channel or a Private one they're in.
+  // A Private channel the actor isn't in is hidden (404), company Admins included. An
+  // Archived channel can only be unarchived; unarchiving one that isn't changes nothing.
+  ...(['public', 'private', 'archived', 'archivedPrivate'] as const).flatMap((channel) =>
+    (['archive', 'unarchive'] as const).flatMap((change) =>
+      rowsFor(
+        {
+          route:
+            change === 'archive'
+              ? 'PUT /api/channels/:channelId/archived'
+              : 'DELETE /api/channels/:channelId/archived',
+          action: `${change} a ${CHANNEL_KIND_NAME[channel]} channel`,
+          channel,
+          request: (ctx) => ({
+            path: `/api/channels/${ctx.channel?.id}/archived`,
+            method: change === 'archive' ? 'PUT' : 'DELETE',
+          }),
+        },
+        setsArchived(channel, change),
+      ),
+    ),
   ),
 
   // Threads. From "Start and read Threads" (#38).
@@ -1206,19 +1254,21 @@ export const MATRIX: MatrixRow[] = [
 
   // Mention validation: only Staff members who can read the Thread can be Mentioned. In a
   // Public channel that's a non-member too; in a Private one, only its members.
-  ...rowsFor(
-    {
-      route: 'POST /api/channels/:channelId/threads',
-      action: 'start a Thread Mentioning a non-member of a Public channel',
-      channel: 'public',
-      target: 'active',
-      request: (ctx) => ({
-        path: `/api/channels/${ctx.channel?.id}/threads`,
-        method: 'POST',
-        body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
-      }),
-    },
-    membershipChange('public', 201, (actor) => CHANNEL_ROLE[actor] !== null),
+  ...(['public', 'archived'] as const).flatMap((channel) =>
+    rowsFor(
+      {
+        route: 'POST /api/channels/:channelId/threads',
+        action: `start a Thread Mentioning a non-member of a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        target: 'active',
+        request: (ctx) => ({
+          path: `/api/channels/${ctx.channel?.id}/threads`,
+          method: 'POST',
+          body: { title: 'Heater broken in room 2', body: mentionDoc(ctx.target?.id) },
+        }),
+      },
+      membershipChange(channel, 201, (actor) => CHANNEL_ROLE[actor] !== null),
+    ),
   ),
   ...rowsFor(
     {
@@ -1264,7 +1314,7 @@ export const MATRIX: MatrixRow[] = [
       membershipChange('public', 201, () => false),
     ),
   ),
-  ...(['public', 'private'] as const).flatMap((channel) =>
+  ...CHANNEL_KINDS.flatMap((channel) =>
     rowsFor(
       {
         route: 'POST /api/channels/:channelId/threads/:threadId/responses',
@@ -1285,7 +1335,7 @@ export const MATRIX: MatrixRow[] = [
       ),
     ),
   ),
-  ...(['public', 'private'] as const).flatMap((channel) =>
+  ...CHANNEL_KINDS.flatMap((channel) =>
     rowsFor(
       {
         route: 'PATCH /api/channels/:channelId/threads/:threadId/responses/:threadResponseId',
@@ -1306,7 +1356,7 @@ export const MATRIX: MatrixRow[] = [
       },
     ),
   ),
-  ...(['public', 'private'] as const).flatMap((channel) =>
+  ...CHANNEL_KINDS.flatMap((channel) =>
     rowsFor(
       {
         route: 'PATCH /api/channels/:channelId/threads/:threadId',

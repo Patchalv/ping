@@ -32,6 +32,11 @@ const SECURITY_DEFINER_FUNCTIONS = [
   // System function: a Channel admin turns a Public channel Private, which starts its
   // System thread and Pings its members (#42).
   'make_channel_private',
+  // System functions: a Channel admin, or a company Admin on a Public channel or a Private
+  // one they're in, archives a Channel (starting its System thread and Pinging its
+  // members) or unarchives it (#43).
+  'archive_channel',
+  'unarchive_channel',
   // System function: the Ping fan-out for a new Thread or Thread Response (#46), and for
   // Mentions, including those an edit adds (#49).
   'fan_out_pings',

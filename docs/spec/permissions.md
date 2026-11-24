@@ -103,6 +103,7 @@ Some ordinary requests must touch rows the acting Staff member can't. Those step
 - **`deactivate_staff_member`** runs the Deactivation clean-up, promotes a replacement sole Channel admin, archives Channels left with no active members and starts their System threads, including in Private channels the Admin can't see.
 - **`create_channel`** inserts a Channel and its first Channel admin together.
 - **`make_channel_private`** turns a Public channel Private for one of its Channel admins, starts its System thread and Pings the Channel's other active members for it. Nothing makes a Channel Public.
+- **`archive_channel`** archives a Channel for one of its Channel admins, or for a company Admin on a Public channel or a Private channel they're a member of, starts its System thread and Pings the Channel's other active members for it. **`unarchive_channel`** clears `archived_at/by` for the same people, and starts no System thread.
 - **`admin_set_channel_admin`** lets a company Admin appoint anyone, themself included, as Channel admin of a Public channel (adding them if they aren't a member), or remove the role, never leaving the Channel without an active Channel admin.
 
 Rules for every system function:

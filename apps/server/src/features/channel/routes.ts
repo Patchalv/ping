@@ -21,6 +21,7 @@ import {
   channelMemberActions,
   needsCompanyAdminPower,
   requireCanAddChannelMember,
+  requireCanArchiveChannel,
   requireCanAddMembers,
   requireCanBrowseChannels,
   requireCanChangeChannelSettings,
@@ -31,12 +32,15 @@ import {
   requireCanReadChannel,
   requireCanRemoveChannelMember,
   requireCanSetChannelAdmin,
+  requireCanUnarchiveChannel,
 } from '../../permissions/channel';
 import {
   adminSetChannelAdmin,
+  archiveChannel,
   cleanUpLostAccess,
   createChannel,
   makeChannelPrivate,
+  unarchiveChannel,
 } from '../../system-actions';
 import {
   addChannelMember,
@@ -147,6 +151,53 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
             publish({ kind: 'thread.created', channelId, threadId });
             publish({ kind: 'ping.changed', channelId, threadId });
           }
+          return c.json(result.channel);
+        },
+      )
+
+      // Archive a Channel: its Channel admins, and company Admins on a Public channel or a
+      // Private one they're in. It starts a System thread, which Pings the other active
+      // members; nobody else is Pinged and open Pings stay. The membership lock comes
+      // first, so a join or add racing it waits, then finds the Channel Archived.
+      .put('/:channelId/archived', signedIn(auth), validate('param', channelParams), async (c) => {
+        const { channelId } = c.req.valid('param');
+        const result = await withActorTx(c, async (ctx) => {
+          await lockChannelMembership(ctx, channelId);
+          const found = await findChannel(ctx, channelId);
+          if (!found) throw new NotFoundError();
+          requireCanArchiveChannel(ctx.actor, found);
+          const systemThreadId = await archiveChannel(ctx.tx, channelId);
+          return { channel: await findChannel(ctx, channelId), systemThreadId };
+        });
+        // The actor could read it a moment ago, and archiving hides it from nobody.
+        if (!result.channel) throw new Error('An archived Channel did not read back');
+        publish({ kind: 'channel.changed', channelId });
+        if (result.systemThreadId) {
+          const threadId = result.systemThreadId;
+          publish({ kind: 'thread.created', channelId, threadId });
+          publish({ kind: 'ping.changed', channelId, threadId });
+        }
+        return c.json(result.channel);
+      })
+
+      // Unarchive a Channel: the same people as archiving. Unarchiving one that isn't
+      // Archived changes nothing.
+      .delete(
+        '/:channelId/archived',
+        signedIn(auth),
+        validate('param', channelParams),
+        async (c) => {
+          const { channelId } = c.req.valid('param');
+          const result = await withActorTx(c, async (ctx) => {
+            await lockChannelMembership(ctx, channelId);
+            const found = await findChannel(ctx, channelId);
+            if (!found) throw new NotFoundError();
+            requireCanUnarchiveChannel(ctx.actor, found);
+            const changed = await unarchiveChannel(ctx.tx, channelId);
+            return { channel: await findChannel(ctx, channelId), changed };
+          });
+          if (!result.channel) throw new Error('An unarchived Channel did not read back');
+          if (result.changed) publish({ kind: 'channel.changed', channelId });
           return c.json(result.channel);
         },
       )

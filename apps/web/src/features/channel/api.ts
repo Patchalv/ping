@@ -219,3 +219,26 @@ export function useUpdateChannel(channelId: string) {
     },
   });
 }
+
+/**
+ * Archives or unarchives a Channel (Channel admins, and company Admins on a Public channel
+ * or a Private one they're in). The answer is the Channel as it now is. Its Threads, and
+ * archiving's System thread, refetch over live updates.
+ */
+export function useSetChannelArchived(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (archived: boolean): Promise<ChannelView> => {
+      const route = channels[':channelId'].archived;
+      const param = { channelId };
+      return call(() => (archived ? route.$put({ param }) : route.$delete({ param })));
+    },
+    onSuccess: (channel) => {
+      queryClient.setQueryData(channelKeys.detail(channel.id), channel);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
+        queryClient.invalidateQueries({ queryKey: channelKeys.browse() }),
+      ]);
+    },
+  });
+}

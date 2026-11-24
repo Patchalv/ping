@@ -6,10 +6,13 @@
 type SystemThreadStaff = { staffId: string; name: string } | null;
 
 /**
- * What a System thread announces. Archiving and replacing a Deactivated sole Channel admin
- * arrive with their slices.
+ * What a System thread announces, with whoever made the change. Replacing a Deactivated
+ * sole Channel admin arrives with its slice.
  */
-export type SystemThreadEvent = { kind: 'channel_made_private'; staff: SystemThreadStaff };
+export type SystemThreadEvent = {
+  kind: 'channel_made_private' | 'channel_archived';
+  staff: SystemThreadStaff;
+};
 
 /** The title a System thread shows, with the current names of the people involved. */
 export function systemThreadTitle(event: SystemThreadEvent): string {
@@ -18,5 +21,7 @@ export function systemThreadTitle(event: SystemThreadEvent): string {
       return event.staff
         ? `${event.staff.name} made this Channel Private`
         : 'This Channel was made Private';
+    case 'channel_archived':
+      return event.staff ? `${event.staff.name} archived this Channel` : 'This Channel was archived';
   }
 }

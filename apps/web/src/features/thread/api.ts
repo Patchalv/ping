@@ -36,8 +36,12 @@ export const threadKeys = {
     [...threadKeys.list(channelId), view] as const,
   detail: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'detail', channelId, threadId] as const,
+  /** Every open Thread view in a Channel: invalidating this refetches them all. */
+  detailsIn: (channelId: string) => [...threadKeys.all, 'detail', channelId] as const,
   responses: (channelId: string, threadId: string) =>
     [...threadKeys.all, 'responses', channelId, threadId] as const,
+  /** Every Thread's Thread Responses in a Channel. */
+  responsesIn: (channelId: string) => [...threadKeys.all, 'responses', channelId] as const,
   /** Who the @ picker offers in a Channel. */
   mentionCandidates: (channelId: string) =>
     [...threadKeys.all, 'mention-candidates', channelId] as const,

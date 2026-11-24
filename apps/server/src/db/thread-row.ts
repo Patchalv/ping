@@ -107,15 +107,15 @@ export function toThreadRow(
 }
 
 /**
- * What a System thread announces, from its kind and its payload's Staff member. Archiving
- * and replacing a Deactivated sole Channel admin aren't written yet, so their rows show
- * as stored, with no event.
+ * What a System thread announces, from its kind and its payload's Staff member. Replacing
+ * a Deactivated sole Channel admin isn't written yet, so its rows show as stored, with no
+ * event.
  */
 function toSystemThreadEvent(
   kind: ThreadRowColumns['systemKind'],
   staffId: string | null,
   name: string | null,
 ): SystemThreadEvent | null {
-  if (kind !== 'channel_made_private') return null;
+  if (kind !== 'channel_made_private' && kind !== 'channel_archived') return null;
   return { kind, staff: staffId && name !== null ? { staffId, name } : null };
 }
