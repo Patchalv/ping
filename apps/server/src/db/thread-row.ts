@@ -3,15 +3,27 @@
 // but both may use db/, like reaction-summary.ts. Row-level security applies to every
 // subquery, so the viewer's own Ping and Saved row are the only ones it can see.
 import {
+  type AttachmentView,
   type ReactionSummary,
   type SystemThreadEvent,
   systemThreadTitle,
+  THREAD_ROW_ATTACHMENTS,
   type ThreadAuthor,
 } from '@ping/shared';
 import { sql } from 'drizzle-orm';
+import { attachmentCountSql, attachmentsSql } from './attachment';
 import { mentionsYouSql } from './mention';
 import { reactionSummarySql } from './reaction-summary';
-import { ping, reaction, savedThread, staffMember, thread, threadResponse, user } from './schema';
+import {
+  attachment,
+  ping,
+  reaction,
+  savedThread,
+  staffMember,
+  thread,
+  threadResponse,
+  user,
+} from './schema';
 
 export const threadRowColumns = (actorId: string) => ({
   id: thread.id,
@@ -41,6 +53,9 @@ export const threadRowColumns = (actorId: string) => ({
     select ${ping.count} from ${ping}
      where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actorId}::uuid), 0)::int`,
   mentionsYou: mentionsYouSql(thread.id, actorId),
+  // The Thread's own first Attachments, and how many it has.
+  attachments: attachmentsSql(attachment.threadId, thread.id, THREAD_ROW_ATTACHMENTS),
+  attachmentCount: attachmentCountSql(attachment.threadId, thread.id),
   // Whether the Thread is on the viewer's Saved list.
   isSaved: sql<boolean>`exists (
     select 1 from ${savedThread}
@@ -73,6 +88,8 @@ export type ThreadRowColumns = {
   pingCount: number;
   mentionsYou: boolean;
   isSaved: boolean;
+  attachments: AttachmentView[];
+  attachmentCount: number;
 };
 
 /** The row as the API answers it: the author folded into one object, times as ISO strings. */

@@ -11,6 +11,7 @@ import { revalidateLogic } from '@tanstack/react-form';
 import { useNavigate } from '@tanstack/react-router';
 import { PlusIcon } from 'lucide-react';
 import { useRef, useState } from 'react';
+import { STILL_ATTACHING, useAttachingCount } from '#/components/attachments/AttachmentPicker';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { Button } from '#/components/ui/button';
 import {
@@ -25,7 +26,7 @@ import { FormError } from '../../components/FormError';
 import { ApiError } from '../../lib/api-client';
 import { authClient } from '../../lib/auth-client';
 import { draftKey, readDraft, saveDraft } from '../../lib/drafts';
-import { useMentionCandidates, useStartThread } from './api';
+import { useAddAttachment, useMentionCandidates, useStartThread } from './api';
 
 /**
  * + New Thread in the Channel bar. Only shown to Channel members, outside Archived
@@ -91,6 +92,10 @@ function StartThreadDialog({
 }) {
   const start = useStartThread(channelId);
   const mentionCandidates = useMentionCandidates(channelId).data ?? [];
+  const addAttachment = useAddAttachment(channelId);
+  // Attachments aren't kept in the draft: they're pending on the server, and swept if
+  // never posted.
+  const attaching = useAttachingCount();
   // A failure no field explains: the network, or a refusal.
   const [formError, setFormError] = useState<string | null>(null);
   const staffMemberId = authClient.useSession().data?.user.id;
@@ -109,12 +114,16 @@ function StartThreadDialog({
       onChangeDebounceMs: 400,
       onChange: ({ formApi }) => {
         if (!key || sent.current) return;
-        const value = formApi.state.values;
-        saveDraft(key, isEmpty(value) ? null : value);
+        const { title, body } = formApi.state.values;
+        saveDraft(key, isEmpty({ title, body }) ? null : { title, body });
       },
     },
     onSubmit: async ({ value, formApi }) => {
       setFormError(null);
+      if (attaching.isAttaching()) {
+        setFormError(STILL_ATTACHING);
+        return;
+      }
       try {
         const thread = await start.mutateAsync(startThreadBody.parse(value));
         sent.current = true;
@@ -148,6 +157,14 @@ function StartThreadDialog({
             <form.AppField name="body">
               {(field) => (
                 <field.RichTextField label="Description" mentionCandidates={mentionCandidates} />
+              )}
+            </form.AppField>
+            <form.AppField name="attachmentIds">
+              {(field) => (
+                <field.AttachmentsField
+                  add={addAttachment}
+                  onAddingChange={attaching.onAddingChange}
+                />
               )}
             </form.AppField>
             {formError ? <FormError>{formError}</FormError> : null}

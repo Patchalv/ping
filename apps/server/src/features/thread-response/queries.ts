@@ -11,6 +11,7 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
+import { attachmentsSql, attachPending, planAttach } from '../../db/attachment';
 import {
   type MentionPlan,
   mentionNamesSql,
@@ -20,11 +21,13 @@ import {
 } from '../../db/mention';
 import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
+import type { AttachRequest } from '../../permissions/attachment';
 import { canReact } from '../../permissions/reaction';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 import { canDeleteThreadResponse, canEditThreadResponse } from '../../permissions/thread-response';
 
 const {
+  attachment,
   auditEvent,
   channel,
   channelMember,
@@ -134,6 +137,29 @@ export function saveResponseMentions(
 }
 
 /**
+ * What attaching these pending Attachments to the Thread Response would mean: how many
+ * are the actor's own pending ones, and how many it already has (none while it's sent).
+ */
+export function planResponseAttachments(
+  { tx, actor }: ActorTx,
+  threadResponseId: string | undefined,
+  ids: readonly string[],
+): Promise<AttachRequest> {
+  const post = threadResponseId === undefined ? undefined : { threadResponseId };
+  return planAttach(tx, actor.staffId, post, ids);
+}
+
+/** Attaches the actor's pending Attachments to the Thread Response, after it's written. */
+export function attachToResponse(
+  { tx, actor }: ActorTx,
+  channelId: string,
+  threadResponseId: string,
+  ids: readonly string[],
+): Promise<void> {
+  return attachPending(tx, actor.staffId, { threadResponseId }, channelId, ids);
+}
+
+/**
  * Acknowledges the actor's Ping on the Thread by deleting it, if they have one. Row-level
  * security limits the delete to their own.
  */
@@ -160,8 +186,8 @@ export async function editThreadResponse(
 
 /**
  * Deletes a Thread Response's content for real, keeping the row as the "Thread Response
- * deleted" placeholder. Its reactions and Mentions go with it; Attachments will, as their
- * slice adds them.
+ * deleted" placeholder. Its reactions and Mentions go with it. Its Attachments stop
+ * showing and opening at once; deleting their files arrives with Attachment removal (#51).
  */
 export async function deleteThreadResponse(
   { tx, actor }: ActorTx,
@@ -223,6 +249,7 @@ export async function listThreadResponses(
       deletedAt: threadResponse.deletedAt,
       reactions: reactionSummarySql(reaction.threadResponseId, threadResponse.id, actor.staffId),
       mentionNames: mentionNamesSql(mention.threadResponseId, threadResponse.id),
+      attachments: attachmentsSql(attachment.threadResponseId, threadResponse.id),
     })
     .from(threadResponse)
     .innerJoin(staffMember, eq(staffMember.id, threadResponse.authorId))
@@ -249,6 +276,8 @@ export async function listThreadResponses(
       mentionNames: isDeleted ? {} : row.mentionNames,
       isDeleted,
       reactions: isDeleted ? [] : row.reactions,
+      // A deleted Thread Response's Attachments go with its content.
+      attachments: isDeleted ? [] : row.attachments,
       canReact: !isDeleted && canReact(actor, access).allow,
       canEdit: !isDeleted && canEditThreadResponse(actor, access, response).allow,
       canDelete: !isDeleted && canDeleteThreadResponse(actor, access, response).allow,

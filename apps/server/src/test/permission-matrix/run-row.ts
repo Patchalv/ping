@@ -4,11 +4,12 @@ import {
   createInvitedStaffMember,
   createStaffMember,
   databaseSnapshot,
+  insertAttachment,
   insertChannel,
   insertThread,
   insertThreadResponse,
 } from '../../db/test-support';
-import { jsonHeaders, type TestApp } from '../test-app';
+import { formHeaders, jsonHeaders, type TestApp } from '../test-app';
 import { CHANNEL_ROLE, createActor } from './actors';
 import type { ChannelKind, MatrixRow, RowContext } from './matrix';
 
@@ -120,6 +121,44 @@ async function sectionFixture(
 }
 
 /**
+ * The row's Attachment row (no file is stored): the actor's own pending one, a fresh Staff
+ * member's pending one, or one a fresh member attached to the row's Thread.
+ */
+async function attachmentFixture(
+  kind: NonNullable<MatrixRow['attachment']>,
+  { actor, channel, thread }: Pick<RowContext, 'actor' | 'channel' | 'thread'>,
+) {
+  switch (kind) {
+    case 'ownPending':
+      return insertAttachment({ uploaderId: actor.staff.id });
+    case 'otherPending':
+      return insertAttachment({ uploaderId: (await createStaffMember()).id });
+    case 'onThread': {
+      if (!channel || !thread) throw new Error('An attached Attachment needs a row with a Thread');
+      const uploader = await joinedTarget(channel, false);
+      return insertAttachment({
+        uploaderId: uploader.id,
+        channelId: channel.id,
+        threadId: thread.id,
+      });
+    }
+  }
+}
+
+/** The request's body and headers: JSON, or multipart form data carrying one file. */
+function requestInit(request: ReturnType<MatrixRow['request']>, cookie: string): RequestInit {
+  if (request.form) {
+    const form = new FormData();
+    form.set('file', new File([request.form.content], request.form.filename));
+    return { headers: formHeaders({ cookie }), body: form };
+  }
+  return {
+    headers: jsonHeaders({ cookie }),
+    ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+  };
+}
+
+/**
  * Runs one matrix row through the real app. An allow row asserts the status. A deny row
  * asserts the status and that the database is unchanged.
  */
@@ -133,13 +172,15 @@ export async function runRow(testApp: TestApp, row: MatrixRow): Promise<void> {
   const thread = row.thread ? await threadFixture({ actor, channel }, row.thread) : undefined;
   const response = row.response ? await responseFixture({ actor, channel, thread }) : undefined;
   const section = row.section ? await sectionFixture(row.section, { actor }) : undefined;
-  const request = row.request({ actor, channel, target, thread, response, section });
+  const attachment = row.attachment
+    ? await attachmentFixture(row.attachment, { actor, channel, thread })
+    : undefined;
+  const request = row.request({ actor, channel, target, thread, response, section, attachment });
 
   const before = row.expect.allow ? undefined : await databaseSnapshot();
   const res = await testApp.app.request(request.path, {
     method: request.method ?? 'GET',
-    headers: jsonHeaders({ cookie: actor.cookie }),
-    ...(request.body === undefined ? {} : { body: JSON.stringify(request.body) }),
+    ...requestInit(request, actor.cookie),
   });
 
   expect(res.status, `${row.route} as ${row.actor}: ${row.action}`).toBe(row.expect.status);

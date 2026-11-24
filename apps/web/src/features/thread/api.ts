@@ -1,6 +1,7 @@
 // The Thread feature's API: a query-key factory and hooks only. Components use these
 // hooks and never call hc or read a response themselves.
 import type {
+  AttachmentView,
   EditThreadBody,
   MentionCandidateList,
   PingPage,
@@ -17,7 +18,7 @@ import type {
 } from '@ping/shared';
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
-import { call, callNoContent } from '../../lib/api-client';
+import { call, callNoContent, sendFormWithProgress } from '../../lib/api-client';
 
 const threads = api.api.channels[':channelId'].threads;
 const pings = api.api.pings;
@@ -42,6 +43,33 @@ export const threadKeys = {
   mentionCandidates: (channelId: string) =>
     [...threadKeys.all, 'mention-candidates', channelId] as const,
 };
+
+/**
+ * Adds a file while writing in the Channel, with upload progress: it's pending until the
+ * Thread or Thread Response is saved with its ID. It goes through XMLHttpRequest, because
+ * fetch can't report upload progress; it's a mutation, so a 401 still returns to sign-in.
+ */
+export function useAddAttachment(channelId: string) {
+  const mutation = useMutation({
+    mutationFn: ({
+      file,
+      onProgress,
+    }: {
+      file: File;
+      onProgress: (fraction: number) => void;
+    }): Promise<AttachmentView> => {
+      const form = new FormData();
+      form.set('file', file);
+      return sendFormWithProgress(
+        `/api/channels/${encodeURIComponent(channelId)}/attachments`,
+        form,
+        onProgress,
+      );
+    },
+  });
+  return (file: File, onProgress: (fraction: number) => void) =>
+    mutation.mutateAsync({ file, onProgress });
+}
 
 /**
  * Who can be Mentioned in a Channel's Threads: the @ picker's list. It changes only as

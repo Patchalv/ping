@@ -83,6 +83,7 @@ describe('Thread Response routes', () => {
         body: doc('On my way'),
         isDeleted: false,
         mentionNames: {},
+        attachments: [],
         reactions: [],
         canReact: true,
         canEdit: true,
