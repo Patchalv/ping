@@ -49,7 +49,7 @@ There are no secrets to set up locally. `.env.example` lists every environment v
 | Command | What it does | Use it when |
 | --- | --- | --- |
 | `pnpm dev` | Starts Vite on 5173 and the Hono server on 3000 together. Vite serves the React app from source and forwards `/healthz` and `/api` to Hono. React updates in the browser as you save, and the server restarts when its files change. | You're building or trying out a feature. This is the everyday command. |
-| `pnpm build` | Builds the React app into `apps/web/dist`. | Before `pnpm start`. |
+| `pnpm build` | Builds the React app into `apps/web/dist` and bundles the server into `apps/server/dist`. | Before `pnpm start`. |
 | `pnpm start` | Starts Hono alone on 3000. It serves the built app, its assets and the API from one process, the way the production container does. Nothing reloads. | You want to check the production shape: the built app loads, a refresh on a deep link like `/channels/123` still loads the app, and `/api/*` never returns the page. |
 
 To add a shadcn/ui component to the web app, run this from `apps/web`, then lint the new file (see `DESIGN.md` and ADR 0007):
@@ -58,7 +58,7 @@ To add a shadcn/ui component to the web app, run this from `apps/web`, then lint
 pnpm dlx shadcn@4.23.0 add <component>
 ```
 
-`pnpm start` without a build serves `/healthz` only. Rebuild after every change you want to see there.
+`pnpm start` runs the bundled server, so it needs a `pnpm build` first. Rebuild after every change you want to see there.
 
 `pnpm start` runs with `NODE_ENV=production`, so it refuses to start without `DATABASE_URL`, `SYSTEM_DATABASE_URL`, `BETTER_AUTH_URL` and `BETTER_AUTH_SECRET`. Locally, copy the values from `.env.example` into `.env.local` and set `BETTER_AUTH_URL=http://localhost:3000`. `pnpm test:e2e` sets its own.
 

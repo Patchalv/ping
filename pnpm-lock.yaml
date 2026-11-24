@@ -27,6 +27,9 @@ importers:
       dependency-cruiser:
         specifier: 18.7.2
         version: 18.7.2
+      esbuild:
+        specifier: 0.28.2
+        version: 0.28.2
       eslint:
         specifier: 10.15.0
         version: 10.15.0(jiti@2.7.0)
@@ -75,9 +78,6 @@ importers:
       pg:
         specifier: 8.23.1
         version: 8.23.1
-      tsx:
-        specifier: 4.23.15
-        version: 4.23.15
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -91,6 +91,9 @@ importers:
       drizzle-kit:
         specifier: 0.31.11
         version: 0.31.11
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
 
   apps/web:
     dependencies:

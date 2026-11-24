@@ -20,10 +20,11 @@ COPY apps/server/package.json apps/server/
 COPY apps/web/package.json apps/web/
 COPY packages/shared/package.json packages/shared/
 
-# Builds the SPA into apps/web/dist.
+# Builds the SPA into apps/web/dist and the server into apps/server/dist.
 FROM manifests AS build
 RUN pnpm install --frozen-lockfile
 COPY tsconfig.base.json tsconfig.json ./
+COPY scripts/build-server.ts scripts/
 COPY apps/web apps/web
 COPY apps/server apps/server
 COPY packages/shared packages/shared
@@ -38,12 +39,12 @@ ENV NODE_ENV=production \
     PORT=8080
 WORKDIR /app
 COPY --from=prod-deps /app ./
-COPY packages/shared/src packages/shared/src
-COPY apps/server/src apps/server/src
+COPY --from=build /app/apps/server/dist apps/server/dist
 COPY --from=build /app/apps/web/dist apps/web/dist
 USER node
 WORKDIR /app/apps/server
 EXPOSE 8080
-# Node directly, with tsx as a loader: no pnpm wrapper and no tsx child process, because
-# prod has 256 MB. index.ts handles SIGINT and SIGTERM, so Node can be PID 1.
-CMD ["node", "--import", "tsx", "src/index.ts"]
+# Plain Node on the prebuilt bundle (scripts/build-server.ts): no pnpm wrapper and no
+# TypeScript compiling at startup, because prod has 256 MB. index.ts handles SIGINT and
+# SIGTERM, so Node can be PID 1.
+CMD ["node", "dist/index.js"]
