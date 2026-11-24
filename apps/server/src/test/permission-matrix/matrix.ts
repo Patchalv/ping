@@ -61,9 +61,9 @@ export type MatrixRow = {
   section?: 'own' | 'other';
   /**
    * An Attachment: the actor's own pending one, another Staff member's pending one, or one
-   * attached to the row's Thread (which needs `thread`).
+   * attached to the row's Thread (which needs `thread`) by a member or by the actor.
    */
-  attachment?: 'ownPending' | 'otherPending' | 'onThread';
+  attachment?: 'ownPending' | 'otherPending' | 'onThread' | 'ownOnThread';
   /**
    * Builds the request. The harness adds the actor's cookie and the app's origin. A `form`
    * goes as multipart form data with one file, in place of a JSON `body`.
@@ -1396,6 +1396,53 @@ export const MATRIX: MatrixRow[] = [
       channel: null,
       attachment: 'otherPending',
       request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}` }),
+    },
+    () => ({ allow: false, status: 404 }),
+  ),
+
+  // Remove an Attachment: its uploader, the Channel's admins and company Admins, in a
+  // Channel they can read, Archived ones included. Anyone else is refused; a Private
+  // channel's answers 404 to non-members, Admins and a departed uploader included.
+  ...(['public', 'private', 'archived'] as const).flatMap((channel) => [
+    ...rowsFor(
+      {
+        route: 'DELETE /api/attachments/:attachmentId',
+        action: `remove someone else’s Attachment in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        attachment: 'onThread',
+        request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}`, method: 'DELETE' }),
+      },
+      (actor): MatrixRow['expect'] => {
+        if (channel === 'private' && !CHANNEL_ROLE[actor]) return { allow: false, status: 404 };
+        return CHANNEL_ROLE[actor] === 'channelAdmin' || ADMINS.has(actor)
+          ? { allow: true, status: 204 }
+          : { allow: false, status: 403 };
+      },
+    ),
+    ...rowsFor(
+      {
+        route: 'DELETE /api/attachments/:attachmentId',
+        action: `remove your own Attachment in a ${CHANNEL_KIND_NAME[channel]} channel`,
+        channel,
+        thread: true,
+        attachment: 'ownOnThread',
+        request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}`, method: 'DELETE' }),
+      },
+      (actor): MatrixRow['expect'] =>
+        channel === 'private' && !CHANNEL_ROLE[actor]
+          ? { allow: false, status: 404 }
+          : { allow: true, status: 204 },
+    ),
+  ]),
+  // A pending Attachment isn't on a post yet, so there's nothing to remove.
+  ...rowsFor(
+    {
+      route: 'DELETE /api/attachments/:attachmentId',
+      action: 'remove your own pending Attachment',
+      channel: null,
+      attachment: 'ownPending',
+      request: (ctx) => ({ path: `/api/attachments/${ctx.attachment?.id}`, method: 'DELETE' }),
     },
     () => ({ allow: false, status: 404 }),
   ),

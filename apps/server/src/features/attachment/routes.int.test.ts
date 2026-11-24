@@ -265,6 +265,187 @@ describe('Attachments', () => {
     expect(((await edited.json()) as ThreadView).attachments).toHaveLength(5);
   });
 
+  /** Starts a Thread by `author` with one file attached, and returns both. */
+  async function threadWithFile(
+    author: StaffFixture,
+    channelId: string,
+    name = 'rota.txt',
+  ): Promise<{ thread: ThreadView; file: AttachmentView }> {
+    const { add, request } = await as(author);
+    const file = (await (await add(channelId, name, name)).json()) as AttachmentView;
+    const thread = (await (
+      await request(`/api/channels/${channelId}/threads`, {
+        method: 'POST',
+        body: { title: 'Rota', body: doc('Attached.'), attachmentIds: [file.id] },
+      })
+    ).json()) as ThreadView;
+    return { thread, file };
+  }
+
+  const queued = (objectKeys: string[]) =>
+    asOwner(async (query) =>
+      (
+        await query<{ object_key: string }>(
+          'select object_key from pending_file_deletion where object_key = any($1) order by 1',
+          [objectKeys],
+        )
+      ).rows.map((r) => r.object_key),
+    );
+
+  const objectKeyOf = async (attachmentId: string) =>
+    asOwner(async (query) => {
+      const result = await query<{ object_key: string }>(
+        'select object_key from attachment where id = $1',
+        [attachmentId],
+      );
+      const key = result.rows[0]?.object_key;
+      if (!key) throw new Error('no Attachment');
+      return key;
+    });
+
+  it('removes an Attachment: a placeholder stays, it stops opening, and its file is queued', async () => {
+    const reader = await createStaffMember();
+    const { author, channel } = await channelWith('public', reader);
+    const { thread, file } = await threadWithFile(author, channel.id);
+    const objectKey = await objectKeyOf(file.id);
+    const { request } = await as(author);
+    expect(thread.attachments).toEqual([expect.objectContaining({ id: file.id, canRemove: true })]);
+
+    const removed = await request(`/api/attachments/${file.id}`, { method: 'DELETE' });
+    expect(removed.status).toBe(204);
+
+    const view = (await (
+      await (await as(reader)).request(`/api/channels/${channel.id}/threads/${thread.id}`)
+    ).json()) as ThreadView;
+    expect(view.attachments).toEqual([]);
+    // The placeholder says who removed it, never what the file was.
+    expect(view.removedAttachments).toEqual([{ id: file.id, removedByName: author.name }]);
+    const page = (await (
+      await request(`/api/channels/${channel.id}/threads`)
+    ).json()) as ThreadPage;
+    const row = page.threads.find((t) => t.id === thread.id);
+    expect(row?.attachments).toEqual([]);
+    expect(row?.attachmentCount).toBe(0);
+
+    expect((await request(`/api/attachments/${file.id}`)).status).toBe(404);
+    expect(await queued([objectKey])).toEqual([objectKey]);
+    // Removing it again: it's gone.
+    expect((await request(`/api/attachments/${file.id}`, { method: 'DELETE' })).status).toBe(404);
+  });
+
+  it('shows who may remove each Attachment, and refuses anyone else, changing nothing', async () => {
+    const member = await createStaffMember();
+    const { author, channel } = await channelWith('public', member);
+    const { thread, file } = await threadWithFile(member, channel.id);
+    const other = await createStaffMember();
+    await asOwner((query) =>
+      query('insert into channel_member (channel_id, staff_id) values ($1, $2)', [
+        channel.id,
+        other.id,
+      ]),
+    );
+    const otherApi = (await as(other)).request;
+    const seen = (await (
+      await otherApi(`/api/channels/${channel.id}/threads/${thread.id}`)
+    ).json()) as ThreadView;
+    expect(seen.attachments[0]?.canRemove).toBe(false);
+
+    const before = await databaseSnapshot();
+    const refused = await otherApi(`/api/attachments/${file.id}`, { method: 'DELETE' });
+    expect(refused.status).toBe(403);
+    expect(await databaseSnapshot()).toEqual(before);
+
+    // The Channel admin (who started the Channel) may, in an Archived channel too.
+    await asOwner((query) =>
+      query('update channel set archived_at = now(), archived_by = $2 where id = $1', [
+        channel.id,
+        author.id,
+      ]),
+    );
+    const adminApi = (await as(author)).request;
+    const asChannelAdmin = (await (
+      await adminApi(`/api/channels/${channel.id}/threads/${thread.id}`)
+    ).json()) as ThreadView;
+    expect(asChannelAdmin.attachments[0]?.canRemove).toBe(true);
+    expect((await adminApi(`/api/attachments/${file.id}`, { method: 'DELETE' })).status).toBe(204);
+  });
+
+  it('records a company Admin removing someone else’s Attachment in the audit log', async () => {
+    const admin = await createStaffMember({ role: 'admin' });
+    const { author, channel } = await channelWith('public');
+    const { file } = await threadWithFile(author, channel.id);
+    const res = await (await as(admin)).request(`/api/attachments/${file.id}`, {
+      method: 'DELETE',
+    });
+    expect(res.status).toBe(204);
+    const events = await asOwner((query) =>
+      query<{ kind: string; target_staff_id: string; channel_id: string }>(
+        `select kind, target_staff_id, channel_id from audit_event
+          where actor_id = $1 and kind like 'admin_%'`,
+        [admin.id],
+      ),
+    );
+    expect(events.rows).toEqual([
+      { kind: 'admin_removed_attachment', target_staff_id: author.id, channel_id: channel.id },
+    ]);
+  });
+
+  it('removes an Attachment on a Thread Response, which shows the placeholder', async () => {
+    const { author, channel } = await channelWith('public');
+    const { request, add } = await as(author);
+    const { thread } = await threadWithFile(author, channel.id);
+    const file = (await (await add(channel.id, 'r.txt', 'r')).json()) as AttachmentView;
+    const responses = `/api/channels/${channel.id}/threads/${thread.id}/responses`;
+    await request(responses, {
+      method: 'POST',
+      body: { body: doc('Here.'), attachmentIds: [file.id] },
+    });
+    expect((await request(`/api/attachments/${file.id}`, { method: 'DELETE' })).status).toBe(204);
+    const list = (await (await request(responses)).json()) as ThreadResponseList;
+    expect(list.responses[0]?.attachments).toEqual([]);
+    expect(list.responses[0]?.removedAttachments).toEqual([
+      { id: file.id, removedByName: author.name },
+    ]);
+  });
+
+  it('queues the files of a deleted Thread Response, then of a deleted Thread, once each', async () => {
+    const { author, channel } = await channelWith('public');
+    const { request, add } = await as(author);
+    const { thread, file: onThread } = await threadWithFile(author, channel.id);
+    const responses = `/api/channels/${channel.id}/threads/${thread.id}/responses`;
+    const send = async (name: string) => {
+      const file = (await (await add(channel.id, name, name)).json()) as AttachmentView;
+      const sent = await request(responses, {
+        method: 'POST',
+        body: { body: doc(name), attachmentIds: [file.id] },
+      });
+      return { file, responseId: ((await sent.json()) as { id: string }).id };
+    };
+    const removedOne = await send('removed.txt');
+    const deletedOne = await send('deleted.txt');
+    const keptOne = await send('kept.txt');
+    const keys = {
+      onThread: await objectKeyOf(onThread.id),
+      removed: await objectKeyOf(removedOne.file.id),
+      deleted: await objectKeyOf(deletedOne.file.id),
+      kept: await objectKeyOf(keptOne.file.id),
+    };
+
+    expect(
+      (await request(`/api/attachments/${removedOne.file.id}`, { method: 'DELETE' })).status,
+    ).toBe(204);
+    expect(
+      (await request(`${responses}/${deletedOne.responseId}`, { method: 'DELETE' })).status,
+    ).toBe(204);
+    expect(await queued(Object.values(keys))).toEqual([keys.removed, keys.deleted].sort());
+
+    const deleted = await request(`/api/channels/${channel.id}/threads/${thread.id}`, {
+      method: 'DELETE',
+    });
+    expect(deleted.status).toBe(204);
+    expect(await queued(Object.values(keys))).toEqual(Object.values(keys).sort());
+  });
+
   it('deleting a Thread takes its Attachment rows with it', async () => {
     const { author, channel } = await channelWith('public');
     const { add, request } = await as(author);

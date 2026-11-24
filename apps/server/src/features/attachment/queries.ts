@@ -2,13 +2,14 @@
 // row-level security applies to every one: a pending Attachment is visible only to its
 // uploader, and an attached one only to those who can read its Channel.
 import { type AttachmentView, isImageType } from '@ping/shared';
-import { and, eq, sql } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import type { DownloadAccess } from '../../permissions/attachment';
+import { queueFile } from '../../db/attachment';
+import type { DownloadAccess, RemoveAccess } from '../../permissions/attachment';
 import type { ThreadChannelAccess } from '../../permissions/thread';
 
-const { attachment, channel, channelMember, threadResponse } = schema;
+const { attachment, auditEvent, channel, channelMember, threadResponse } = schema;
 
 /**
  * The Channel, as the permissions module needs it, or undefined when it's missing or
@@ -108,4 +109,92 @@ export async function findDownloadTarget(
     ...target,
     channel: { visibility: row.visibility, isMember: row.isMember, isArchived: row.isArchived },
   };
+}
+
+/** What a removal needs: who may remove it, and the post it's on, for the live update. */
+export type RemoveTarget = RemoveAccess & {
+  channelId: string;
+  threadId: string;
+  threadResponseId: string | null;
+};
+
+/**
+ * An attached Attachment that's still showing, or undefined when it's missing, hidden,
+ * pending, already removed, or on a deleted Thread Response (its file is already queued).
+ */
+export async function findRemoveTarget(
+  { tx, actor }: ActorTx,
+  attachmentId: string,
+): Promise<RemoveTarget | undefined> {
+  const [row] = await tx
+    .select({
+      channelId: attachment.channelId,
+      threadId: sql<string | null>`coalesce(${attachment.threadId}, ${threadResponse.threadId})`,
+      threadResponseId: attachment.threadResponseId,
+      uploaderId: attachment.uploaderId,
+      visibility: channel.visibility,
+      isMember: sql<boolean>`${channelMember.staffId} is not null`,
+      isChannelAdmin: sql<boolean>`coalesce(${channelMember.isChannelAdmin}, false)`,
+      isArchived: sql<boolean>`${channel.archivedAt} is not null`,
+      responseDeleted: sql<boolean>`${threadResponse.deletedAt} is not null`,
+    })
+    .from(attachment)
+    .innerJoin(channel, eq(channel.id, attachment.channelId))
+    .leftJoin(
+      channelMember,
+      and(eq(channelMember.channelId, channel.id), eq(channelMember.staffId, actor.staffId)),
+    )
+    .leftJoin(threadResponse, eq(threadResponse.id, attachment.threadResponseId))
+    .where(and(eq(attachment.id, attachmentId), isNull(attachment.removedAt)));
+  if (!row || row.responseDeleted || row.channelId === null || row.threadId === null) {
+    return undefined;
+  }
+  return {
+    channelId: row.channelId,
+    threadId: row.threadId,
+    threadResponseId: row.threadResponseId,
+    uploaderId: row.uploaderId,
+    channel: {
+      visibility: row.visibility,
+      isMember: row.isMember,
+      isChannelAdmin: row.isChannelAdmin,
+      isArchived: row.isArchived,
+    },
+  };
+}
+
+/**
+ * Marks the Attachment removed by the actor, keeping the row as the placeholder, and
+ * queues its file for deletion in the same transaction. False when someone else removed
+ * it first.
+ */
+export async function removeAttachment(
+  { tx, actor }: ActorTx,
+  attachmentId: string,
+): Promise<boolean> {
+  const [row] = await tx
+    .update(attachment)
+    .set({ removedAt: sql`now()`, removedBy: actor.staffId })
+    .where(and(eq(attachment.id, attachmentId), isNull(attachment.removedAt)))
+    .returning({ objectKey: attachment.objectKey });
+  if (!row) return false;
+  await queueFile(tx, row.objectKey);
+  return true;
+}
+
+/**
+ * Records a company Admin removing someone else's Attachment (product.md › Audit log). Its
+ * uploader and Channel admins removing one isn't an Admin changing other people's content.
+ */
+export async function auditAdminRemoval(
+  { tx, actor }: ActorTx,
+  target: Pick<RemoveTarget, 'channelId' | 'uploaderId'>,
+): Promise<void> {
+  if (actor.role !== 'admin' || target.uploaderId === actor.staffId) return;
+  await tx.insert(auditEvent).values({
+    actorId: actor.staffId,
+    kind: 'admin_removed_attachment',
+    channelId: target.channelId,
+    targetStaffId: target.uploaderId,
+  });
 }

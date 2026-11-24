@@ -10,7 +10,6 @@ import {
   XIcon,
 } from 'lucide-react';
 import { useState } from 'react';
-import { AttachmentList } from '#/components/attachments/AttachmentList';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
 import { Button, buttonVariants } from '#/components/ui/button';
@@ -24,6 +23,7 @@ import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadDialog } from './DeleteDialogs';
 import { EditThreadDialog } from './EditThreadDialog';
+import { PostAttachments } from './PostAttachments';
 import { Reactions } from './Reactions';
 import { SaveButton } from './SaveButton';
 import { ResolvedBadge } from './ThreadList';
@@ -177,7 +177,12 @@ function ThreadBody({ thread }: { thread: ThreadView }) {
           </div>
           <h2 className="mt-2 text-lg font-bold [overflow-wrap:anywhere]">{thread.title}</h2>
           <RichTextView doc={thread.body} mentionNames={thread.mentionNames} className="mt-2" />
-          <AttachmentList attachments={thread.attachments} />
+          <PostAttachments
+            channelId={thread.channelId}
+            threadId={thread.id}
+            attachments={thread.attachments}
+            removed={thread.removedAttachments}
+          />
           <Reactions
             channelId={thread.channelId}
             threadId={thread.id}

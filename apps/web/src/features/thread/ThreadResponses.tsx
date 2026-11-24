@@ -10,7 +10,6 @@ import {
 } from '@ping/shared';
 import { revalidateLogic } from '@tanstack/react-form';
 import { useRef, useState } from 'react';
-import { AttachmentList } from '#/components/attachments/AttachmentList';
 import { STILL_ATTACHING, useAttachingCount } from '#/components/attachments/AttachmentPicker';
 import { showServerIssues, useAppForm } from '#/components/form';
 import { RichTextView } from '#/components/rich-text/RichTextView';
@@ -27,6 +26,7 @@ import {
 import { Byline } from './Byline';
 import { ContentMenu, ContentMenuDelete, ContentMenuEdit, EditedMark } from './ContentMenu';
 import { DeleteThreadResponseDialog } from './DeleteDialogs';
+import { PostAttachments } from './PostAttachments';
 import { Reactions } from './Reactions';
 
 /** A Thread's Thread Responses, oldest first, with deleted ones as placeholders. */
@@ -109,7 +109,12 @@ function ThreadResponseItem({
       ) : (
         <>
           <RichTextView doc={response.body} mentionNames={response.mentionNames} className="mt-1" />
-          <AttachmentList attachments={response.attachments} />
+          <PostAttachments
+            channelId={channelId}
+            threadId={response.threadId}
+            attachments={response.attachments}
+            removed={response.removedAttachments}
+          />
           <Reactions
             channelId={channelId}
             threadId={response.threadId}

@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from '#/components/ui/dialog';
 import { FormError } from '../../components/FormError';
-import { useDeleteThread, useDeleteThreadResponse } from './api';
+import { useDeleteThread, useDeleteThreadResponse, useRemoveAttachment } from './api';
 
 /** A confirmation before something is deleted for good. */
 function ConfirmDelete({
@@ -23,6 +23,7 @@ function ConfirmDelete({
   error,
   onConfirm,
   onClose,
+  verb = 'Delete',
 }: {
   title: string;
   children: ReactNode;
@@ -32,6 +33,8 @@ function ConfirmDelete({
   error: string | null;
   onConfirm(): void;
   onClose(): void;
+  /** The confirming button's word: Delete, or Remove for an Attachment. */
+  verb?: 'Delete' | 'Remove';
 }) {
   return (
     <Dialog
@@ -49,7 +52,7 @@ function ConfirmDelete({
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
           <Button variant="destructive" disabled={pending || waiting} onClick={onConfirm}>
-            {pending ? 'Deleting…' : 'Delete'}
+            {pending ? `${verb === 'Delete' ? 'Deleting' : 'Removing'}…` : verb}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -120,6 +123,37 @@ export function DeleteThreadResponseDialog({
     >
       Its text goes for everyone, and “Thread Response deleted” shows in its place. It can’t be
       undone.
+    </ConfirmDelete>
+  );
+}
+
+/**
+ * Remove an Attachment, after asking. Its file is deleted for real, and “Attachment removed
+ * by <name>” shows in its place.
+ */
+export function RemoveAttachmentDialog({
+  channelId,
+  threadId,
+  attachment,
+  onClose,
+}: {
+  channelId: string;
+  threadId: string;
+  attachment: { id: string; filename: string };
+  onClose(): void;
+}) {
+  const remove = useRemoveAttachment(channelId, threadId);
+  return (
+    <ConfirmDelete
+      title={`Remove ${attachment.filename}?`}
+      verb="Remove"
+      pending={remove.isPending}
+      error={remove.isError ? remove.error.message : null}
+      onConfirm={() => remove.mutate(attachment.id, { onSuccess: onClose })}
+      onClose={onClose}
+    >
+      The file is deleted for everyone, and a note that you removed it shows in its place. It can’t
+      be undone.
     </ConfirmDelete>
   );
 }

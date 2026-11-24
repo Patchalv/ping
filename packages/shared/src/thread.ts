@@ -1,6 +1,11 @@
 // Threads: the request schemas both apps use, and the shapes the server answers with.
 import { z } from 'zod';
-import { type AttachmentView, attachmentIds } from './attachment';
+import {
+  type AttachmentView,
+  attachmentIds,
+  type PostedAttachmentView,
+  type RemovedAttachmentView,
+} from './attachment';
 import { channelParams } from './channel';
 import type { ContentActions, EditedMark } from './edited';
 import type { MentionNames } from './mention';
@@ -133,7 +138,9 @@ export type ThreadPage = {
  */
 export type ThreadView = Omit<ThreadRow, 'preview'> & {
   /** Every Attachment on the Thread, oldest first. */
-  attachments: AttachmentView[];
+  attachments: PostedAttachmentView[];
+  /** The placeholders of removed Attachments, oldest first. */
+  removedAttachments: RemovedAttachmentView[];
   body: RichTextDoc;
   /** The current name of everyone Mentioned in the body. */
   mentionNames: MentionNames;

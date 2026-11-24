@@ -17,6 +17,8 @@ export {
   formatFileSize,
   IMAGE_MAX_EDGE,
   isImageType,
+  type PostedAttachmentView,
+  type RemovedAttachmentView,
   shortenFilename,
 } from './attachment';
 export {

@@ -1,7 +1,7 @@
 // Thread Responses: the request schemas both apps use, and the shapes the server answers
 // with.
 import { z } from 'zod';
-import { type AttachmentView, attachmentIds } from './attachment';
+import { attachmentIds, type PostedAttachmentView, type RemovedAttachmentView } from './attachment';
 import type { ContentActions, EditedMark } from './edited';
 import type { MentionNames } from './mention';
 import type { ReactionSummary } from './reaction';
@@ -44,7 +44,9 @@ export type ThreadResponseView = {
   reactions: ReactionSummary[];
   canReact: boolean;
   /** Every Attachment, oldest first. Empty once deleted. */
-  attachments: AttachmentView[];
+  attachments: PostedAttachmentView[];
+  /** The placeholders of removed Attachments, oldest first. Empty once deleted. */
+  removedAttachments: RemovedAttachmentView[];
 } & ContentActions;
 
 /** GET …/threads/:threadId/responses: all of a Thread's Thread Responses, oldest first. */

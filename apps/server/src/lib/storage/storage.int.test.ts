@@ -59,4 +59,13 @@ describe('storage', () => {
     tampered.searchParams.set('response-content-type', 'text/html');
     expect((await fetch(tampered)).status).toBe(403);
   });
+
+  it('deletes a file for real, and deleting it again still succeeds', async () => {
+    const key = randomUUID();
+    const delivery = { filename: 'rota.pdf', contentType: 'application/pdf', inline: false };
+    await storage.put(key, new Uint8Array([1, 2, 3]), delivery);
+    await storage.delete(key);
+    expect((await fetch(await storage.signedDownloadUrl(key, delivery))).status).toBe(404);
+    await expect(storage.delete(key)).resolves.toBeUndefined();
+  });
 });

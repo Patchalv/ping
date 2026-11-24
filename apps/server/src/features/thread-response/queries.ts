@@ -11,7 +11,13 @@ import { and, asc, eq, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import { attachmentsSql, attachPending, planAttach } from '../../db/attachment';
+import {
+  attachPending,
+  planAttach,
+  postedAttachmentsSql,
+  queueThreadResponseFiles,
+  removedAttachmentsSql,
+} from '../../db/attachment';
 import {
   type MentionPlan,
   mentionNamesSql,
@@ -21,9 +27,12 @@ import {
 } from '../../db/mention';
 import { reactionSummarySql } from '../../db/reaction-summary';
 import type { AuditEventKind } from '../../db/schema';
-import type { AttachRequest } from '../../permissions/attachment';
+import {
+  type AttachRequest,
+  type RemovalChannelAccess,
+  withRemoveActions,
+} from '../../permissions/attachment';
 import { canReact } from '../../permissions/reaction';
-import type { ThreadChannelAccess } from '../../permissions/thread';
 import { canDeleteThreadResponse, canEditThreadResponse } from '../../permissions/thread-response';
 
 const {
@@ -49,11 +58,12 @@ export async function findResponseChannel(
   { tx, actor }: ActorTx,
   channelId: string,
   threadId: string,
-): Promise<ThreadChannelAccess | undefined> {
+): Promise<RemovalChannelAccess | undefined> {
   const [row] = await tx
     .select({
       visibility: channel.visibility,
       isMember: sql<boolean>`${channelMember.staffId} is not null`,
+      isChannelAdmin: sql<boolean>`coalesce(${channelMember.isChannelAdmin}, false)`,
       isArchived: sql<boolean>`${channel.archivedAt} is not null`,
     })
     .from(thread)
@@ -187,7 +197,8 @@ export async function editThreadResponse(
 /**
  * Deletes a Thread Response's content for real, keeping the row as the "Thread Response
  * deleted" placeholder. Its reactions and Mentions go with it. Its Attachments stop
- * showing and opening at once; deleting their files arrives with Attachment removal (#51).
+ * showing and opening at once, and their files are queued for deletion in the same
+ * transaction.
  */
 export async function deleteThreadResponse(
   { tx, actor }: ActorTx,
@@ -201,6 +212,7 @@ export async function deleteThreadResponse(
   // the Thread Response is marked deleted, which the update above has just done.
   await tx.delete(reaction).where(eq(reaction.threadResponseId, threadResponseId));
   await removeMentions(tx, { threadResponseId });
+  await queueThreadResponseFiles(tx, threadResponseId);
 }
 
 /**
@@ -230,7 +242,7 @@ const editor = alias(user, 'editor');
  */
 export async function listThreadResponses(
   { tx, actor }: ActorTx,
-  access: ThreadChannelAccess,
+  access: RemovalChannelAccess,
   threadId: string,
   threadResponseId?: string,
 ): Promise<ThreadResponseView[]> {
@@ -249,7 +261,8 @@ export async function listThreadResponses(
       deletedAt: threadResponse.deletedAt,
       reactions: reactionSummarySql(reaction.threadResponseId, threadResponse.id, actor.staffId),
       mentionNames: mentionNamesSql(mention.threadResponseId, threadResponse.id),
-      attachments: attachmentsSql(attachment.threadResponseId, threadResponse.id),
+      attachments: postedAttachmentsSql(attachment.threadResponseId, threadResponse.id),
+      removedAttachments: removedAttachmentsSql(attachment.threadResponseId, threadResponse.id),
     })
     .from(threadResponse)
     .innerJoin(staffMember, eq(staffMember.id, threadResponse.authorId))
@@ -277,7 +290,8 @@ export async function listThreadResponses(
       isDeleted,
       reactions: isDeleted ? [] : row.reactions,
       // A deleted Thread Response's Attachments go with its content.
-      attachments: isDeleted ? [] : row.attachments,
+      attachments: isDeleted ? [] : withRemoveActions(actor, access, row.attachments),
+      removedAttachments: isDeleted ? [] : row.removedAttachments,
       canReact: !isDeleted && canReact(actor, access).allow,
       canEdit: !isDeleted && canEditThreadResponse(actor, access, response).allow,
       canDelete: !isDeleted && canDeleteThreadResponse(actor, access, response).allow,
