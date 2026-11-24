@@ -15,6 +15,9 @@ export type QuickRow =
   | { kind: 'channel'; channel: ChannelSearchResult }
   | { kind: 'thread'; thread: ThreadSearchResult };
 
+/** All results or Only in: the rows that hand off to the search screen. */
+export const isActionRow = (row: QuickRow) => row.kind === 'all' || row.kind === 'only';
+
 /**
  * The rows, in order: All results, Only in (when opened from a Channel), then the top
  * Channels and Threads. While Only in is chosen, `threads` are that Channel's and the

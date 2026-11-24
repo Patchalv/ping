@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   FRESH_HIGHLIGHT,
   type Highlight,
+  isActionRow,
   markTitle,
   moveHighlight,
   type QuickRow,
@@ -101,6 +102,11 @@ describe('quickRows', () => {
       'all',
       'only',
     ]);
+  });
+
+  it('marks All results and Only in as the rows that open the search screen', () => {
+    const rows = quickRows({ scope: SCOPE, scoped: false, channels, threads });
+    expect(rows.filter(isActionRow).map((row) => row.kind)).toEqual(['all', 'only']);
   });
 
   it('shows only Threads while Only in is chosen', () => {

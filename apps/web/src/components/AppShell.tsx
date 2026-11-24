@@ -27,7 +27,7 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
-import { TopBarSearch } from '../features/search/SearchField';
+import { TopBarSearch } from '../features/search/TopBarSearch';
 import { useSections } from '../features/section/api';
 import { NewSectionButton, SidebarSections } from '../features/section/SidebarSections';
 import { useCurrentStaffMember } from '../features/staff/api';

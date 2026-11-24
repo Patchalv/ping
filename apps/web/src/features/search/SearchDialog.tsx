@@ -11,14 +11,15 @@ import { HashIcon, Loader2Icon, LockIcon, SearchIcon } from 'lucide-react';
 import { type KeyboardEvent, type ReactNode, type RefObject, useId, useRef, useState } from 'react';
 import { Button } from '#/components/ui/button';
 import { Dialog, DialogClose, DialogContent, DialogTitle } from '#/components/ui/dialog';
+import { Kbd } from '#/components/ui/kbd';
 import { cn } from '#/lib/utils';
 import { useChipChannel, useQuickChannelSearch, useQuickThreadSearch } from './api';
 import {
   FRESH_HIGHLIGHT,
   type Highlight,
+  isActionRow,
   markTitle,
   moveHighlight,
-  QUICK_THREADS,
   type QuickRow,
   type QuickScope,
   quickRows,
@@ -103,7 +104,7 @@ function SearchBox({
     channelId && scopeChannel.data ? { channelId, channelName: scopeChannel.data.name } : undefined;
   const scoped = scope !== undefined && highlight.scoped;
   const channels = useQuickChannelSearch(q);
-  const threads = useQuickThreadSearch(q, scoped ? scope.channelId : undefined, QUICK_THREADS);
+  const threads = useQuickThreadSearch(q, scoped ? scope.channelId : undefined);
 
   const rows = quickRows({
     scope,
@@ -114,7 +115,7 @@ function SearchBox({
   const active = Math.min(highlight.index, rows.length - 1);
   const fetching = channels.isFetching || threads.isFetching;
   const settled = channels.data !== undefined && threads.data !== undefined && !fetching;
-  const nothingMatches = settled && rows.every((row) => row.kind === 'all' || row.kind === 'only');
+  const nothingMatches = settled && rows.every(isActionRow);
 
   const choose = (row: QuickRow) => {
     onClose();
@@ -181,7 +182,7 @@ function SearchBox({
       <RowContent row={row} q={q} />
     </QuickOption>
   );
-  const actions = indexed.filter(({ row }) => row.kind === 'all' || row.kind === 'only');
+  const actions = indexed.filter(({ row }) => isActionRow(row));
   const channelRows = indexed.filter(({ row }) => row.kind === 'channel');
   const threadRows = indexed.filter(({ row }) => row.kind === 'thread');
 
@@ -245,11 +246,6 @@ function SearchBox({
         <span>
           <Kbd>↵</Kbd> all results
         </span>
-        {scope ? (
-          <span>
-            <Kbd>⇧↵</Kbd> only in #{scope.channelName}
-          </span>
-        ) : null}
         <DialogClose className="ml-auto cursor-pointer hover:text-foreground">
           <Kbd>esc</Kbd> close
         </DialogClose>
@@ -279,7 +275,6 @@ function QuickOption({
       role="option"
       aria-selected={selected}
       tabIndex={-1}
-      // Keeps focus in the input, where the keys are read.
       onMouseDown={(event) => event.preventDefault()}
       onMouseMove={onHover}
       onClick={onChoose}
@@ -304,7 +299,7 @@ function QuickGroup({ label, children }: { label: string; children: ReactNode })
   );
 }
 
-/** What a row shows. Matched words are marked in titles and names only. */
+/** What a row shows. Matched words are marked in Thread titles only. */
 function RowContent({ row, q }: { row: QuickRow; q: string }) {
   switch (row.kind) {
     case 'all':
@@ -314,7 +309,7 @@ function RowContent({ row, q }: { row: QuickRow; q: string }) {
           <span className="min-w-0 flex-1 truncate">
             All results for “<span className="font-semibold">{q}</span>”
           </span>
-          <Kbd>↵</Kbd>
+          <Kbd className="max-md:hidden">↵</Kbd>
         </>
       );
     case 'only':
@@ -324,16 +319,14 @@ function RowContent({ row, q }: { row: QuickRow; q: string }) {
           <span className="min-w-0 flex-1 truncate">
             Only in <span className="font-semibold">#{row.channelName}</span>
           </span>
-          <Kbd>⇧↵</Kbd>
+          <Kbd className="max-md:hidden">⇧↵</Kbd>
         </>
       );
     case 'channel':
       return (
         <>
           <HashIcon aria-hidden="true" className="size-4 text-muted-foreground" />
-          <span className="min-w-0 truncate">
-            <Snippet parts={markTitle(row.channel.name, q)} />
-          </span>
+          <span className="min-w-0 truncate">{row.channel.name}</span>
           {row.channel.visibility === 'private' ? (
             <LockIcon aria-label="Private" className="size-3.5 shrink-0 text-muted-foreground" />
           ) : null}
@@ -353,12 +346,4 @@ function RowContent({ row, q }: { row: QuickRow; q: string }) {
         </>
       );
   }
-}
-
-function Kbd({ children }: { children: ReactNode }) {
-  return (
-    <kbd className="rounded border bg-muted max-md:hidden px-1 font-sans text-xs text-muted-foreground">
-      {children}
-    </kbd>
-  );
 }
