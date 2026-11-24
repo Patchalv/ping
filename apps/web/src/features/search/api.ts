@@ -10,8 +10,16 @@ import type {
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
 import { api } from '../../lib/api';
 import { call } from '../../lib/api-client';
+import { delay } from '../../lib/delay';
 
 const search = api.api.search;
+
+/**
+ * How long a search waits for typing to pause. The text is in the URL on every key, so each
+ * key starts a query; a query whose text has since changed is aborted during this wait and
+ * never reaches the server.
+ */
+const TYPING_PAUSE_MS = 250;
 
 /** What the Threads tab searches for: the text and the chips. */
 type ThreadSearch = Omit<SearchThreadsQuery, 'after'>;
@@ -29,8 +37,10 @@ const searchKeys = {
 export function useChannelSearch(q: string) {
   return useQuery({
     queryKey: searchKeys.channels(q),
-    queryFn: (): Promise<ChannelSearchResults> =>
-      call(() => search.channels.$get({ query: { q } })),
+    queryFn: async ({ signal }): Promise<ChannelSearchResults> => {
+      await delay(TYPING_PAUSE_MS, signal);
+      return call(() => search.channels.$get({ query: { q } }));
+    },
     enabled: q.trim() !== '',
     // Typing changes the text on every key: keep the last results until the next arrive.
     placeholderData: keepPreviousData,
@@ -42,8 +52,10 @@ export function useThreadSearch(threadSearch: ThreadSearch) {
   return useInfiniteQuery({
     queryKey: searchKeys.threads(threadSearch),
     initialPageParam: undefined as string | undefined,
-    queryFn: ({ pageParam }): Promise<ThreadSearchPage> =>
-      call(() =>
+    queryFn: async ({ pageParam, signal }): Promise<ThreadSearchPage> => {
+      // Load more is a click, not typing: it doesn't wait.
+      if (!pageParam) await delay(TYPING_PAUSE_MS, signal);
+      return call(() =>
         search.threads.$get({
           query: {
             q: threadSearch.q,
@@ -53,7 +65,8 @@ export function useThreadSearch(threadSearch: ThreadSearch) {
             ...(pageParam ? { after: pageParam } : {}),
           },
         }),
-      ),
+      );
+    },
     getNextPageParam: (last) => last.nextCursor ?? undefined,
     enabled: threadSearch.q.trim() !== '',
     placeholderData: keepPreviousData,
