@@ -7,6 +7,7 @@ import type {
   ChannelView,
   CreateChannelBody,
   MemberCandidate,
+  UpdateChannelBody,
 } from '@ping/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../lib/api';
@@ -196,5 +197,25 @@ export function useMuteChannel(channelId: string) {
         queryClient.invalidateQueries({ queryKey: channelKeys.detail(channelId) }),
         queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
       ]),
+  });
+}
+
+/**
+ * Changes a Channel's settings (Channel admins only), or turns a Public channel Private.
+ * The answer is the Channel as it now is. Its name shows in the sidebar and Browse
+ * channels too; a new System thread reaches the feed over live updates.
+ */
+export function useUpdateChannel(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (body: UpdateChannelBody): Promise<ChannelView> =>
+      call(() => channels[':channelId'].$patch({ param: { channelId }, json: body })),
+    onSuccess: (channel) => {
+      queryClient.setQueryData(channelKeys.detail(channel.id), channel);
+      return Promise.all([
+        queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
+        queryClient.invalidateQueries({ queryKey: channelKeys.browse() }),
+      ]);
+    },
   });
 }

@@ -6,6 +6,7 @@ import type {
   ChannelMemberView,
   ChannelView,
   MemberCandidate,
+  ResolvePolicy,
   SidebarChannel,
 } from '@ping/shared';
 import { and, asc, desc, eq, isNotNull, isNull, ne, sql } from 'drizzle-orm';
@@ -39,6 +40,7 @@ export async function findChannel(
       name: channel.name,
       description: channel.description,
       visibility: channel.visibility,
+      resolvePolicy: channel.resolvePolicy,
       memberCount,
       isChannelAdmin: channelMember.isChannelAdmin,
       isArchived: sql<boolean>`${channel.archivedAt} is not null`,
@@ -116,6 +118,8 @@ export async function joinChannel({ tx, actor }: ActorTx, channelId: string): Pr
  * could leave a Channel without an active Channel admin (leaving now; removing members
  * and Channel admin roles later) takes it before reading who is Channel admin, so two such
  * changes at once can't both see the other's Channel admin still there.
+ * Joining, adding a member and turning a Channel Private take it too, so nobody joins a
+ * Channel that is turning Private at that moment.
  */
 export async function lockChannelMembership({ tx }: ActorTx, channelId: string): Promise<void> {
   await tx.execute(
@@ -309,4 +313,34 @@ export async function recordMembershipChange(
   targetStaffId: string,
 ): Promise<void> {
   await tx.insert(auditEvent).values({ actorId: actor.staffId, kind, channelId, targetStaffId });
+}
+
+// Channel settings (#42).
+
+/**
+ * Changes a Channel's name, description and "Who can resolve threads?", whichever are
+ * given, as its Channel admin. Never its visibility: makeChannelPrivate does that.
+ */
+export async function updateChannelSettings(
+  { tx }: ActorTx,
+  channelId: string,
+  settings: { name?: string; description?: string; resolvePolicy?: ResolvePolicy },
+): Promise<void> {
+  const { name, description, resolvePolicy } = settings;
+  if (name === undefined && description === undefined && resolvePolicy === undefined) return;
+  // Drizzle leaves out the ones that are undefined.
+  await tx
+    .update(channel)
+    .set({ name, description, resolvePolicy })
+    .where(eq(channel.id, channelId));
+}
+
+/** Records a Channel turning Private in audit_event, as the actor. */
+export async function recordChannelMadePrivate(
+  { tx, actor }: ActorTx,
+  channelId: string,
+): Promise<void> {
+  await tx
+    .insert(auditEvent)
+    .values({ actorId: actor.staffId, kind: 'channel_made_private', channelId });
 }

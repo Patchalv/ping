@@ -22,6 +22,7 @@ export { cleanUpLostAccess } from './clean-up-lost-access';
 export { createChannel } from './create-channel';
 export { deactivateStaffMember } from './deactivate-staff-member';
 export { fanOutPings } from './fan-out-pings';
+export { makeChannelPrivate } from './make-channel-private';
 
 export type SystemActions = {
   /** The ping_system handle. Jobs in this module only. */

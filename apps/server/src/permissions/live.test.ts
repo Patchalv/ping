@@ -70,6 +70,13 @@ describe('canReceiveLiveEvent', () => {
     expect(canReceiveLiveEvent(admin, mine, undefined)).toEqual(deny({ kind: 'hidden' }));
   });
 
+  it('tells everyone a Channel turned Private, so non-members drop it at once', () => {
+    // It was Public a moment ago, so its ID is no secret.
+    const madePrivate: LiveEvent = { kind: 'channel.made_private', channelId };
+    expect(canReceiveLiveEvent(member, madePrivate, undefined)).toEqual(allow());
+    expect(canReceiveLiveEvent(admin, madePrivate, privateChannel)).toEqual(allow());
+  });
+
   it('sends changes to Staff members to everyone, since everyone can read them', () => {
     const changed: LiveEvent = { kind: 'staff.changed', staffId: admin.staffId };
     expect(canReceiveLiveEvent(member, changed, undefined)).toEqual(allow());

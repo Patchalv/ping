@@ -13,26 +13,49 @@ export type ChannelVisibility = z.infer<typeof channelVisibility>;
  * "Who can resolve threads?": any Channel member (the default), or only the Thread's
  * author and Channel admins. The same rule decides who can reopen.
  */
-export type ResolvePolicy = 'any_member' | 'author_and_channel_admins';
+const resolvePolicy = z.enum(['any_member', 'author_and_channel_admins'], {
+  error: 'Choose who can resolve threads.',
+});
+export type ResolvePolicy = z.infer<typeof resolvePolicy>;
+
+const channelName = z
+  .string({ error: 'Give the Channel a name.' })
+  .trim()
+  .min(1, 'Give the Channel a name.')
+  .max(CHANNEL_NAME_MAX, `Keep the name to ${CHANNEL_NAME_MAX} characters or fewer.`);
+
+const channelDescription = z
+  .string({ error: 'The description must be text.' })
+  .trim()
+  .max(
+    CHANNEL_DESCRIPTION_MAX,
+    `Keep the description to ${CHANNEL_DESCRIPTION_MAX} characters or fewer.`,
+  );
 
 /** POST /api/channels. */
 export const createChannelBody = z.object({
-  name: z
-    .string({ error: 'Give the Channel a name.' })
-    .trim()
-    .min(1, 'Give the Channel a name.')
-    .max(CHANNEL_NAME_MAX, `Keep the name to ${CHANNEL_NAME_MAX} characters or fewer.`),
-  description: z
-    .string({ error: 'The description must be text.' })
-    .trim()
-    .max(
-      CHANNEL_DESCRIPTION_MAX,
-      `Keep the description to ${CHANNEL_DESCRIPTION_MAX} characters or fewer.`,
-    )
-    .default(''),
+  name: channelName,
+  description: channelDescription.default(''),
   visibility: channelVisibility,
 });
 export type CreateChannelBody = z.input<typeof createChannelBody>;
+
+/**
+ * PATCH /api/channels/:channelId: change a Channel's settings, any of them. Visibility
+ * takes Public too, so asking to make a Private channel Public reaches the server, which
+ * refuses it for everyone.
+ */
+export const updateChannelBody = z
+  .object({
+    name: channelName.optional(),
+    description: channelDescription.optional(),
+    resolvePolicy: resolvePolicy.optional(),
+    visibility: channelVisibility.optional(),
+  })
+  .refine((body) => Object.values(body).some((value) => value !== undefined), {
+    message: 'Change at least one setting.',
+  });
+export type UpdateChannelBody = z.input<typeof updateChannelBody>;
 
 /** Routes under /api/channels/:channelId, and the SPA's Channel route. */
 export const channelParams = z.object({
@@ -82,6 +105,7 @@ export type ChannelView = {
   name: string;
   description: string;
   visibility: ChannelVisibility;
+  resolvePolicy: ResolvePolicy;
   memberCount: number;
   isMember: boolean;
   isChannelAdmin: boolean;

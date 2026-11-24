@@ -44,6 +44,7 @@ describe('Channel routes', () => {
         name: 'Owners',
         description: 'Owners only',
         visibility: 'private',
+        resolvePolicy: 'any_member',
         memberCount: 1,
         isMember: true,
         isChannelAdmin: true,

@@ -258,6 +258,53 @@ export function canSetChannelAdmin(
   return allow();
 }
 
+// Channel settings and visibility (product.md › Channels). From #42.
+
+/** Why a Private channel can't be made Public, by anyone. */
+export const PRIVATE_STAYS_PRIVATE_MESSAGE =
+  'A Private channel can’t be made Public. Its members wrote in it expecting privacy. Create a new Public channel instead.';
+
+/** A change to a Channel's settings: only a visibility change needs deciding on its own. */
+type SettingsChange = { visibility?: ChannelVisibility };
+
+/**
+ * Only Channel admins change a Channel's name, description, "Who can resolve threads?" and
+ * visibility; company Admins get no exception (they make themselves Channel admin first).
+ * Nothing changes in an Archived channel, and nobody makes a Private channel Public.
+ */
+export function canChangeChannelSettings(
+  actor: Actor,
+  channel: MembershipAccess,
+  change: SettingsChange,
+): Decision {
+  const read = canReadChannel(actor, channel);
+  if (!read.allow) return read;
+  if (channel.isArchived) {
+    return deny({
+      kind: 'refused',
+      message: 'This Channel is archived, so its settings can’t change. Unarchive it first.',
+    });
+  }
+  if (channel.visibility === 'private' && change.visibility === 'public') {
+    return deny({ kind: 'refused', message: PRIVATE_STAYS_PRIVATE_MESSAGE });
+  }
+  if (!channel.isChannelAdmin) {
+    return deny({
+      kind: 'refused',
+      message: 'Only Channel admins change this Channel’s settings.',
+    });
+  }
+  return allow();
+}
+
+export function requireCanChangeChannelSettings(
+  actor: Actor,
+  channel: MembershipAccess,
+  change: SettingsChange,
+): void {
+  requireAllowed(canChangeChannelSettings(actor, channel, change));
+}
+
 /**
  * Which member controls the Members tab shows, so the SPA hides the ones the server would
  * refuse. The server still decides each change, about its target.

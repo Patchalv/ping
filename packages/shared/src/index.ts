@@ -31,6 +31,8 @@ export {
   type ResolvePolicy,
   type SidebarChannel,
   setChannelAdminBody,
+  type UpdateChannelBody,
+  updateChannelBody,
 } from './channel';
 export { type EditedMark, toEditedMark } from './edited';
 export {
@@ -112,6 +114,7 @@ export {
   type StaffState,
   staffParams,
 } from './staff';
+export { type SystemThreadEvent, systemThreadTitle } from './system-thread';
 export {
   DEFAULT_THREAD_LIST_VIEW,
   type EditThreadBody,
