@@ -4,9 +4,9 @@ import type { SearchRouteSearch, SearchTab } from '@ping/shared';
 import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { Button } from '#/components/ui/button';
 import { useChannelSearch, useThreadSearch } from './api';
-import { ChannelResult, ThreadResult } from './results';
 import { SearchChips } from './SearchChips';
 import { SearchField } from './SearchField';
+import { ChannelResult, ThreadResult } from './SearchResults';
 
 /** How many Channels the All tab shows above the Threads. */
 const ALL_TAB_CHANNELS = 3;
@@ -68,38 +68,32 @@ function Results({ search }: { search: SearchRouteSearch }) {
   const showThreads = search.tab !== 'channels';
   return (
     <div className="mt-4 grid gap-6">
-      {showChannels ? (
-        <ChannelResults
-          search={search}
-          limit={search.tab === 'all' ? ALL_TAB_CHANNELS : undefined}
-        />
-      ) : null}
-      {showThreads ? <ThreadResults search={search} heading={search.tab === 'all'} /> : null}
+      {showChannels ? <ChannelResults search={search} /> : null}
+      {showThreads ? <ThreadResults search={search} /> : null}
     </div>
   );
 }
 
-function ChannelResults({
-  search,
-  limit,
-}: {
-  search: SearchRouteSearch;
-  limit: number | undefined;
-}) {
+/**
+ * The Channels that match: all of them on the Channels tab; on the All tab, the top few
+ * under a heading, with a link to the rest.
+ */
+function ChannelResults({ search }: { search: SearchRouteSearch }) {
+  const onAllTab = search.tab === 'all';
   const channels = useChannelSearch(search.q);
   if (channels.isPending) return <Loading />;
   if (channels.isError) return <Failure message={channels.error.message} />;
   const all = channels.data.channels;
   // The All tab skips an empty Channels list: the Threads below say if nothing matched.
   if (all.length === 0) {
-    return limit === undefined ? <Empty title="No Channels match" /> : null;
+    return onAllTab ? null : <Empty title="No Channels match" />;
   }
-  const shown = limit === undefined ? all : all.slice(0, limit);
+  const shown = onAllTab ? all.slice(0, ALL_TAB_CHANNELS) : all;
   return (
     <section aria-label="Channels">
-      {limit === undefined ? null : (
+      {onAllTab ? (
         <h2 className="mb-2 text-small font-semibold text-muted-foreground">Channels</h2>
-      )}
+      ) : null}
       <ul className="grid gap-2">
         {shown.map((channel) => (
           <li key={channel.id}>
@@ -121,7 +115,8 @@ function ChannelResults({
   );
 }
 
-function ThreadResults({ search, heading }: { search: SearchRouteSearch; heading: boolean }) {
+/** The Threads that match, 50 at a time; on the All tab, under a heading. */
+function ThreadResults({ search }: { search: SearchRouteSearch }) {
   const threads = useThreadSearch({
     q: search.q,
     in: search.in,
@@ -136,7 +131,7 @@ function ThreadResults({ search, heading }: { search: SearchRouteSearch; heading
       <Empty
         title="No Threads match"
         note={
-          search.in || search.from || search.status !== 'all'
+          isFiltered(search)
             ? 'Try removing a filter.'
             : 'Every word must match. Try fewer or different words.'
         }
@@ -145,7 +140,7 @@ function ThreadResults({ search, heading }: { search: SearchRouteSearch; heading
   }
   return (
     <section aria-label="Threads">
-      {heading ? (
+      {search.tab === 'all' ? (
         <h2 className="mb-2 text-small font-semibold text-muted-foreground">Threads</h2>
       ) : null}
       <ul className="grid gap-2">
@@ -168,6 +163,11 @@ function ThreadResults({ search, heading }: { search: SearchRouteSearch; heading
       ) : null}
     </section>
   );
+}
+
+/** Whether a chip narrows the Threads. */
+function isFiltered(search: SearchRouteSearch) {
+  return search.in !== undefined || search.from !== undefined || search.status !== 'all';
 }
 
 function Loading() {

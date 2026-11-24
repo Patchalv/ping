@@ -1,34 +1,37 @@
 import { describe, expect, it } from 'vitest';
-import { toPrefixTsquery } from './search-terms';
+import { toSearchTerms } from './search-terms';
 
-describe('toPrefixTsquery', () => {
-  it('requires every word, and matches the last one as a prefix', () => {
-    expect(toPrefixTsquery('front desk rota')).toBe('front & desk & rota:*');
+describe('toSearchTerms', () => {
+  it('requires every word, and keeps the last one apart to match as a prefix', () => {
+    expect(toSearchTerms('front desk rota')).toEqual({ words: 'front & desk', last: 'rota:*' });
   });
 
   it('matches a single word as a prefix while it is typed', () => {
-    expect(toPrefixTsquery('book')).toBe('book:*');
+    expect(toSearchTerms('book')).toEqual({ words: '', last: 'book:*' });
   });
 
   it('lowercases and ignores extra spacing', () => {
-    expect(toPrefixTsquery('  Front   DESK ')).toBe('front & desk:*');
+    expect(toSearchTerms('  Front   DESK ')).toEqual({ words: 'front', last: 'desk:*' });
   });
 
   it('drops tsquery operators and punctuation, so typed text never changes the query', () => {
-    expect(toPrefixTsquery("rota & !(friday | 'late'):* <-> x")).toBe('rota & friday & late & x:*');
+    expect(toSearchTerms("rota & !(friday | 'late'):* <-> x")).toEqual({
+      words: 'rota & friday & late',
+      last: 'x:*',
+    });
   });
 
   it('splits words on punctuation, like the text it is matched against', () => {
-    expect(toPrefixTsquery('check-in, e.mail')).toBe('check & in & e & mail:*');
+    expect(toSearchTerms('check-in, e.mail')).toEqual({ words: 'check & in & e', last: 'mail:*' });
   });
 
   it('keeps accented letters and digits', () => {
-    expect(toPrefixTsquery('Café 2026')).toBe('café & 2026:*');
+    expect(toSearchTerms('Café 2026')).toEqual({ words: 'café', last: '2026:*' });
   });
 
   it('is null when nothing searchable is left', () => {
-    expect(toPrefixTsquery('')).toBeNull();
-    expect(toPrefixTsquery('   ')).toBeNull();
-    expect(toPrefixTsquery('&|!():*')).toBeNull();
+    expect(toSearchTerms('')).toBeNull();
+    expect(toSearchTerms('   ')).toBeNull();
+    expect(toSearchTerms('&|!():*')).toBeNull();
   });
 });

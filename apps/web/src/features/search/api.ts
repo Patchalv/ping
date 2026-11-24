@@ -4,7 +4,7 @@ import type {
   ChannelSearchResults,
   ChannelView,
   SearchPeople,
-  SearchStatus,
+  SearchThreadsQuery,
   ThreadSearchPage,
 } from '@ping/shared';
 import { keepPreviousData, useInfiniteQuery, useQuery } from '@tanstack/react-query';
@@ -14,12 +14,7 @@ import { call } from '../../lib/api-client';
 const search = api.api.search;
 
 /** What the Threads tab searches for: the text and the chips. */
-export type ThreadSearch = {
-  q: string;
-  in?: string | undefined;
-  from?: string | undefined;
-  status: SearchStatus;
-};
+type ThreadSearch = Omit<SearchThreadsQuery, 'after'>;
 
 const searchKeys = {
   all: ['search'] as const,

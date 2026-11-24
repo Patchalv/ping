@@ -8,6 +8,7 @@ import type {
   ChannelSearchResult,
   SearchPerson,
   SearchStatus,
+  SearchThreadsQuery,
   ThreadAuthor,
   ThreadSearchPage,
 } from '@ping/shared';
@@ -17,6 +18,7 @@ import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
 import { threadRowColumns, toThreadRow } from '../../db/thread-row';
 import type { ChannelAccess } from '../../permissions/channel';
+import type { SearchTerms } from './search-terms';
 import { MATCH_START, MATCH_STOP, toSnippet } from './snippet';
 
 const { channel, channelMember, staffMember, thread, threadResponse, user } = schema;
@@ -30,10 +32,15 @@ const CHANNEL_RESULTS_MAX = 50;
  */
 const HEADLINE_OPTIONS = `MaxWords=35, MinWords=25, ShortWord=2, StartSel=${MATCH_START}, StopSel=${MATCH_STOP}`;
 
-const tsquery = (query: string) => sql`to_tsquery('english', ${query})`;
+/**
+ * The tsquery for the typed terms: every word stemmed, and the last as a prefix, stemmed
+ * or as typed ('simple' keeps stop words and doesn't stem). An empty part drops out.
+ */
+const tsquery = ({ words, last }: SearchTerms) =>
+  sql`(to_tsquery('english', ${words}) && (to_tsquery('english', ${last}) || to_tsquery('simple', ${last})))`;
 
 /** A ts_headline of `text`, with the marker characters taken out of the text first. */
-const headlineSql = (text: SQL | typeof thread.bodyText, query: string) =>
+const headlineSql = (text: SQL | typeof thread.bodyText, query: SearchTerms) =>
   sql<string>`ts_headline('english', translate(${text}, ${MATCH_START + MATCH_STOP}, ''), ${tsquery(query)}, ${HEADLINE_OPTIONS})`;
 
 /**
@@ -61,7 +68,7 @@ export async function findSearchChannel(
 /** Channels whose name or description match, by Latest activity, newest first. */
 export async function searchChannels(
   { tx, actor }: ActorTx,
-  query: string,
+  query: SearchTerms,
 ): Promise<ChannelSearchResult[]> {
   const latestActivityAt = sql<Date>`coalesce((
     select max(${thread.latestActivityAt}) from ${thread} where ${thread.channelId} = ${channel.id}),
@@ -93,14 +100,8 @@ const STATUS: Record<SearchStatus, SQL | undefined> = {
   resolved: isNotNull(thread.resolvedAt),
 };
 
-type ThreadSearch = {
-  /** The tsquery text, from toPrefixTsquery. */
-  query: string;
-  in?: string | undefined;
-  from?: string | undefined;
-  status: SearchStatus;
-  after?: string | undefined;
-};
+/** The chips and page, as the route validated them, with the typed text from toSearchTerms. */
+type ThreadSearch = Omit<SearchThreadsQuery, 'q'> & { query: SearchTerms };
 
 /** The matched Thread Response, as the query reads it. */
 type ResponseHit = {
@@ -174,7 +175,9 @@ export async function searchThreads(
   const page = rows.slice(0, THREAD_PAGE_SIZE);
   return {
     threads: page.map(({ channelName, channelIsArchived, response, headline, ...columns }) => {
-      // Reactions aren't shown on a search result, so whether the actor may react is moot.
+      // toThreadRow writes a System thread's title and folds the author as every Thread
+      // list does. Reactions aren't shown on a search result, so whether the actor may react
+      // is moot.
       const row = toThreadRow(columns, false);
       return {
         id: row.id,

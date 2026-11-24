@@ -10,12 +10,8 @@ import { Input } from '#/components/ui/input';
 import { cn } from '#/lib/utils';
 
 /** Where a fresh search starts: nothing typed, and In suggested for the Channel it's opened from. */
-const freshSearch = (near: string | undefined): SearchRouteSearch => ({
-  q: '',
-  tab: 'all',
-  status: 'all',
-  ...(near ? { near } : {}),
-});
+const freshSearch = (near: string | undefined): SearchRouteSearch =>
+  searchRouteSearch.parse(near ? { near } : {});
 
 export function SearchField({
   tone,

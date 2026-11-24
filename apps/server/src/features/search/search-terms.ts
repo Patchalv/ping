@@ -1,13 +1,18 @@
-// Turning what a Staff member typed into a Postgres tsquery (product.md › Search ›
+// Turning what a Staff member typed into Postgres tsquery text (product.md › Search ›
 // Matching): every word must match, and the last one matches as a prefix while they type.
 // Only letters and digits survive, so nothing typed can add a tsquery operator.
 
+export type SearchTerms = { words: string; last: string };
+
 /**
- * The tsquery text for `to_tsquery('english', …)`, or null when nothing searchable is
- * left. The words still go through English stemming in Postgres.
+ * `words`: every word but the last, all required, for `to_tsquery('english', …)` (empty
+ * when there's one word). `last`: the last word as a prefix, which the query matches both
+ * stemmed and as typed, so a word cut short ("of" on the way to "office") narrows the
+ * results instead of being dropped as a stop word. Null when nothing searchable is left.
  */
-export function toPrefixTsquery(text: string): string | null {
+export function toSearchTerms(text: string): SearchTerms | null {
   const words = text.toLowerCase().match(/[\p{L}\p{N}]+/gu);
-  if (!words) return null;
-  return `${words.join(' & ')}:*`;
+  const last = words?.pop();
+  if (!words || last === undefined) return null;
+  return { words: words.join(' & '), last: `${last}:*` };
 }

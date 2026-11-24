@@ -125,11 +125,32 @@ describe('Search', () => {
       );
     });
 
-    it('finds nothing, without failing, when only stop words or punctuation are typed', async () => {
-      const { threads, channels } = await as(await createStaffMember());
-      expect((await threads({ q: 'the and' })).threads).toEqual([]);
-      expect((await threads({ q: '&|!' })).threads).toEqual([]);
-      expect((await channels('of the')).channels).toEqual([]);
+    it('matches a last word typed so far that is a stop word as a prefix, not as nothing', async () => {
+      const word = unique();
+      const { author, channel } = await publicChannel();
+      const office = await insertThread({
+        channelId: channel.id,
+        authorId: author.id,
+        title: `${word} office`,
+      });
+      await insertThread({ channelId: channel.id, authorId: author.id, title: `${word} rota` });
+      const { threads } = await as(await createStaffMember());
+      // "of" on the way to "office" narrows the results; it isn't dropped as a stop word.
+      expect(idsOf(await threads({ q: `${word} of` }))).toEqual([office.id]);
+    });
+
+    it('answers, without failing, when only stop words or punctuation are typed', async () => {
+      const { request } = await as(await createStaffMember());
+      for (const q of ['the and', 'of the']) {
+        expect((await request(`/api/search/threads?${new URLSearchParams({ q })}`)).status).toBe(
+          200,
+        );
+        expect((await request(`/api/search/channels?${new URLSearchParams({ q })}`)).status).toBe(
+          200,
+        );
+      }
+      const punctuation = await request(`/api/search/threads?${new URLSearchParams({ q: '&|!' })}`);
+      expect(await punctuation.json()).toEqual({ threads: [], nextCursor: null });
     });
   });
 

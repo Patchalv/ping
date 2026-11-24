@@ -100,6 +100,7 @@ export {
   type SearchRouteSearch,
   type SearchStatus,
   type SearchTab,
+  type SearchThreadsQuery,
   type SnippetPart,
   searchChannelsQuery,
   searchRouteSearch,

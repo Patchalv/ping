@@ -36,6 +36,8 @@ export const searchThreadsQuery = z.object({
   after: z.uuid({ error: 'That isn’t a Thread.' }).optional(),
 });
 
+export type SearchThreadsQuery = z.infer<typeof searchThreadsQuery>;
+
 const searchTab = z.enum(['all', 'channels', 'threads']);
 export type SearchTab = z.infer<typeof searchTab>;
 

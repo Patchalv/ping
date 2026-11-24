@@ -13,7 +13,7 @@ import { NotFoundError } from '../../lib/errors';
 import { validate } from '../../lib/validate';
 import { requireCanSearch, requireCanSearchInChannel } from '../../permissions/search';
 import { findSearchChannel, listSearchPeople, searchChannels, searchThreads } from './queries';
-import { toPrefixTsquery } from './search-terms';
+import { toSearchTerms } from './search-terms';
 
 type Options = { auth: Auth; database: Database };
 
@@ -25,7 +25,7 @@ export function searchRoutes({ auth, database }: Options) {
       // Channels whose name or description match. The chips narrow Threads only.
       .get('/channels', signedIn(auth), validate('query', searchChannelsQuery), async (c) => {
         const { q } = c.req.valid('query');
-        const query = toPrefixTsquery(q);
+        const query = toSearchTerms(q);
         const channels = await withActorTx(c, async (ctx) => {
           requireCanSearch(ctx.actor);
           return query ? searchChannels(ctx, query) : [];
@@ -36,7 +36,7 @@ export function searchRoutes({ auth, database }: Options) {
       // Threads that match, one result each, narrowed by In, From and Status.
       .get('/threads', signedIn(auth), validate('query', searchThreadsQuery), async (c) => {
         const { q, ...chips } = c.req.valid('query');
-        const query = toPrefixTsquery(q);
+        const query = toSearchTerms(q);
         const page = await withActorTx(c, async (ctx) => {
           requireCanSearch(ctx.actor);
           if (chips.in) {
