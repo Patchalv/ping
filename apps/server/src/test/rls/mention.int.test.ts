@@ -26,6 +26,14 @@ const visibleIds = async (query: Query, ids: string[]) =>
     .map((r) => r.id)
     .sort();
 
+type PlanNode = {
+  'Parent Relationship'?: string;
+  'Actual Loops': number;
+  'Actual Rows': number;
+  Plans?: PlanNode[];
+};
+const planNodes = (node: PlanNode): PlanNode[] => [node, ...(node.Plans ?? []).flatMap(planNodes)];
+
 /** A Channel of the given kind with a Thread and a Thread Response by `author`. */
 async function channelWithPosts(visibility: 'public' | 'private', memberIds: string[] = []) {
   const author = await createStaffMember();
@@ -141,6 +149,33 @@ describe('mention SELECT', () => {
     const { onThread } = await channelWithMentions('public');
     await asPingApp(null, async (query) => {
       expect(await visibleIds(query, [onThread])).toEqual([]);
+    });
+  });
+
+  it('evaluates the membership helper once per statement, not once per row', async () => {
+    const member = await createStaffMember();
+    for (let i = 0; i < 5; i++) {
+      await channelWithMentions(i % 2 === 0 ? 'public' : 'private', [member.id]);
+    }
+    await asPingApp(member.id, async (query) => {
+      const result = await query<{ 'QUERY PLAN': { Plan: PlanNode }[] }>(
+        'explain (analyze, verbose, format json) select id from mention',
+      );
+      const root = result.rows[0]?.['QUERY PLAN'][0]?.Plan;
+      if (!root) throw new Error('no plan');
+      expect(root['Actual Rows']).toBeGreaterThan(1);
+      const mentionsHelper = (node: PlanNode) =>
+        JSON.stringify({ ...node, Plans: undefined }).includes('current_staff_channel_ids');
+      const initPlans = planNodes(root).filter((n) => n['Parent Relationship'] === 'InitPlan');
+      const helperPlans = initPlans.filter((n) => planNodes(n).some(mentionsHelper));
+      expect(helperPlans.length).toBeGreaterThan(0);
+      for (const node of helperPlans.flatMap(planNodes)) {
+        expect(node['Actual Loops']).toBe(1);
+      }
+      const outside = planNodes(root).filter(
+        (n) => !initPlans.some((p) => planNodes(p).includes(n)),
+      );
+      expect(outside.some(mentionsHelper)).toBe(false);
     });
   });
 });
