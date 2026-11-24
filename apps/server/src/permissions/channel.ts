@@ -1,6 +1,6 @@
 // Channels (permissions.md › Channels). "Can read a Channel" means the Channel is Public,
 // or the actor is a member of it. This is the same for everyone, Admins included.
-import type { ChannelMembers, ChannelVisibility } from '@ping/shared';
+import type { ChannelMembers, ChannelView, ChannelVisibility } from '@ping/shared';
 import type { Actor } from './actor';
 import { allow, type Decision, deny, requireAllowed } from './decision';
 
@@ -303,6 +303,65 @@ export function requireCanChangeChannelSettings(
   change: SettingsChange,
 ): void {
   requireAllowed(canChangeChannelSettings(actor, channel, change));
+}
+
+// Archive and unarchive (product.md › Archive, › What company Admins can do to a Channel).
+// From #43.
+
+/** Why someone other than a Channel admin or company Admin can't archive or unarchive. */
+export const ARCHIVE_REFUSED_MESSAGE =
+  'Only Channel admins and company Admins can archive or unarchive this Channel.';
+
+/**
+ * Channel admins of the Channel, and company Admins on a Public channel or a Private one
+ * they're a member of. A Private channel they aren't in stays hidden, company Admins
+ * included.
+ */
+function canSetArchived(actor: Actor, channel: MembershipAccess): Decision {
+  const read = canReadChannel(actor, channel);
+  if (!read.allow) return read;
+  // Reading a Private channel means being in it, so a company Admin who can read one may.
+  if (!channel.isChannelAdmin && actor.role !== 'admin') {
+    return deny({ kind: 'refused', message: ARCHIVE_REFUSED_MESSAGE });
+  }
+  return allow();
+}
+
+/** Archive a Channel. An Archived channel can only be unarchived, so archiving it is refused. */
+export function canArchiveChannel(actor: Actor, channel: MembershipAccess): Decision {
+  const base = canSetArchived(actor, channel);
+  if (!base.allow) return base;
+  if (channel.isArchived) {
+    return deny({ kind: 'refused', message: 'This Channel is already archived.' });
+  }
+  return allow();
+}
+
+/**
+ * Unarchive a Channel: allowed in an Archived channel (permissions.md ✱). Unarchiving one
+ * that isn't Archived changes nothing, like reopening an open Thread.
+ */
+export function canUnarchiveChannel(actor: Actor, channel: MembershipAccess): Decision {
+  return canSetArchived(actor, channel);
+}
+
+/**
+ * Which Channel bar controls the actor gets, so the SPA hides the ones the server would
+ * refuse. The server still decides each request.
+ */
+export function channelActions(actor: Actor, channel: MembershipAccess): ChannelView['can'] {
+  return {
+    archive: canArchiveChannel(actor, channel).allow,
+    unarchive: canUnarchiveChannel(actor, channel).allow,
+  };
+}
+
+export function requireCanArchiveChannel(actor: Actor, channel: MembershipAccess): void {
+  requireAllowed(canArchiveChannel(actor, channel));
+}
+
+export function requireCanUnarchiveChannel(actor: Actor, channel: MembershipAccess): void {
+  requireAllowed(canUnarchiveChannel(actor, channel));
 }
 
 /**

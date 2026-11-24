@@ -50,6 +50,7 @@ describe('Channel routes', () => {
         isChannelAdmin: true,
         isArchived: false,
         isMuted: false,
+        can: { archive: true, unarchive: true },
       });
 
       const read = await request(`/api/channels/${channel.id}`);

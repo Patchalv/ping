@@ -112,6 +112,11 @@ export type ChannelView = {
   isArchived: boolean;
   /** Whether the viewer muted the whole Channel. Only members can. */
   isMuted: boolean;
+  /**
+   * Which Channel bar controls the viewer gets, decided by the server so the SPA only hides
+   * what it would refuse. Unarchiving one that isn't Archived changes nothing.
+   */
+  can: { archive: boolean; unarchive: boolean };
 };
 
 /** A row in the sidebar's Channels section: a Channel the Staff member is a member of. */

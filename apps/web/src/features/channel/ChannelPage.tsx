@@ -1,6 +1,14 @@
 import type { ChannelView } from '@ping/shared';
 import { Link, useNavigate } from '@tanstack/react-router';
-import { BellIcon, BellOffIcon, ChevronLeftIcon, LockIcon, SettingsIcon } from 'lucide-react';
+import {
+  ArchiveIcon,
+  ArchiveRestoreIcon,
+  BellIcon,
+  BellOffIcon,
+  ChevronLeftIcon,
+  LockIcon,
+  SettingsIcon,
+} from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Badge } from '#/components/ui/badge';
 import { Button } from '#/components/ui/button';
@@ -16,7 +24,14 @@ import {
 import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
 import { ApiError } from '../../lib/api-client';
-import { useChannel, useJoinChannel, useLeaveChannel, useMuteChannel } from './api';
+import {
+  useArchiveChannel,
+  useChannel,
+  useJoinChannel,
+  useLeaveChannel,
+  useMuteChannel,
+  useUnarchiveChannel,
+} from './api';
 import { ChannelSettingsDialog } from './ChannelSettingsDialog';
 import { MembersTab } from './MembersTab';
 
@@ -122,6 +137,12 @@ function ChannelBar({
             Private
           </Badge>
         ) : null}
+        {channel.isArchived ? (
+          <Badge variant="tag">
+            <ArchiveIcon aria-hidden="true" />
+            Archived
+          </Badge>
+        ) : null}
         <span className="ml-auto shrink-0 text-small text-muted-foreground">
           {channel.memberCount} {channel.memberCount === 1 ? 'member' : 'members'}
         </span>
@@ -140,10 +161,25 @@ function ChannelBar({
         ) : channel.isArchived ? null : (
           <JoinAction channel={channel} />
         )}
+        {/* Channel admins, and company Admins on a Public channel or a Private one
+            they're in, whether they've joined or not. */}
+        {channel.isArchived ? (
+          channel.can.unarchive ? (
+            <UnarchiveAction channel={channel} />
+          ) : null
+        ) : channel.can.archive ? (
+          <ArchiveAction channel={channel} />
+        ) : null}
       </div>
       {channel.description ? (
         <p className="mt-0.5 text-sm text-muted-foreground [overflow-wrap:anywhere]">
           {channel.description}
+        </p>
+      ) : null}
+      {channel.isArchived ? (
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Archived: you can read it, but nobody can start Threads, respond or react until it’s
+          unarchived.
         </p>
       ) : null}
       {/* The router marks the current tab with aria-current="page". Threads matches its
@@ -239,6 +275,81 @@ function SettingsAction({ channel }: { channel: ChannelView }) {
         <span>Settings</span>
       </Button>
       {open ? <ChannelSettingsDialog channel={channel} onClose={() => setOpen(false)} /> : null}
+    </>
+  );
+}
+
+/** Archive, after asking: it stops new activity, and starts a System thread that Pings members. */
+function ArchiveAction({ channel }: { channel: ChannelView }) {
+  const [confirming, setConfirming] = useState(false);
+  return (
+    <>
+      {/* On a phone the bar is tight, so only the icon shows; the name stays for screen readers. */}
+      <Button
+        variant="outline"
+        className="shrink-0 max-md:[&>span]:sr-only"
+        title="Archive this Channel"
+        onClick={() => setConfirming(true)}
+      >
+        <ArchiveIcon aria-hidden="true" />
+        <span>Archive…</span>
+      </Button>
+      {confirming ? <ArchiveDialog channel={channel} onClose={() => setConfirming(false)} /> : null}
+    </>
+  );
+}
+
+function ArchiveDialog({ channel, onClose }: { channel: ChannelView; onClose(): void }) {
+  const archive = useArchiveChannel(channel.id);
+  return (
+    <Dialog
+      defaultOpen
+      onOpenChange={(open) => {
+        if (!open) onClose();
+      }}
+    >
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Archive {channel.name}?</DialogTitle>
+          <DialogDescription>
+            Everyone who can read it still can. Nobody can start Threads, respond, react, edit,
+            resolve, join or change its members or settings until it’s unarchived. Its members get a
+            Ping for the System thread that announces it.
+          </DialogDescription>
+        </DialogHeader>
+        {archive.isError ? <FormError>{archive.error.message}</FormError> : null}
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>Cancel</DialogClose>
+          <Button
+            disabled={archive.isPending}
+            onClick={() => archive.mutate(undefined, { onSuccess: onClose })}
+          >
+            {archive.isPending ? 'Archiving…' : 'Archive'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Unarchive at once: it only reopens the Channel, and Pings nobody. */
+function UnarchiveAction({ channel }: { channel: ChannelView }) {
+  const unarchive = useUnarchiveChannel(channel.id);
+  return (
+    <>
+      <Button
+        variant="outline"
+        className="shrink-0 max-md:[&>span]:sr-only"
+        title="Unarchive this Channel"
+        disabled={unarchive.isPending}
+        onClick={() => unarchive.mutate()}
+      >
+        <ArchiveRestoreIcon aria-hidden="true" />
+        <span>{unarchive.isPending ? 'Unarchiving…' : 'Unarchive'}</span>
+      </Button>
+      {unarchive.isError ? (
+        <FormError className="basis-full">{unarchive.error.message}</FormError>
+      ) : null}
     </>
   );
 }

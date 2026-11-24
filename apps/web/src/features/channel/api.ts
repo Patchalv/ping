@@ -219,3 +219,35 @@ export function useUpdateChannel(channelId: string) {
     },
   });
 }
+
+/** After archiving or unarchiving: the answer is the Channel as it now is. */
+function afterArchiveChange(queryClient: ReturnType<typeof useQueryClient>, channel: ChannelView) {
+  queryClient.setQueryData(channelKeys.detail(channel.id), channel);
+  return Promise.all([
+    queryClient.invalidateQueries({ queryKey: channelKeys.mine() }),
+    queryClient.invalidateQueries({ queryKey: channelKeys.browse() }),
+  ]);
+}
+
+/**
+ * Archives a Channel (Channel admins, and company Admins on a Public channel or a Private
+ * one they're in). Its Threads, and archiving's System thread, refetch over live updates.
+ */
+export function useArchiveChannel(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (): Promise<ChannelView> =>
+      call(() => channels[':channelId'].archived.$put({ param: { channelId } })),
+    onSuccess: (channel) => afterArchiveChange(queryClient, channel),
+  });
+}
+
+/** Unarchives a Channel: the same people as archiving. */
+export function useUnarchiveChannel(channelId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (): Promise<ChannelView> =>
+      call(() => channels[':channelId'].archived.$delete({ param: { channelId } })),
+    onSuccess: (channel) => afterArchiveChange(queryClient, channel),
+  });
+}
