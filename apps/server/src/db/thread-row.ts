@@ -27,6 +27,8 @@ export const threadRowColumns = (actorId: string) => ({
   // A System thread stores the Staff member involved by ID; their name is read now, so it
   // stays current.
   systemKind: thread.systemKind,
+  // A company Admin may edit a System thread: their title then stands.
+  isEdited: sql<boolean>`${thread.editedAt} is not null`,
   systemStaffId: sql<string | null>`${thread.systemPayload}->>'staffId'`,
   systemStaffName: sql<string | null>`(
     select ${user.name} from ${user} where ${user.id} = (${thread.systemPayload}->>'staffId')::uuid)`,
@@ -63,6 +65,7 @@ export type ThreadRowColumns = {
   authorName: string | null;
   authorDeactivated: boolean;
   systemKind: (typeof thread.systemKind.enumValues)[number] | null;
+  isEdited: boolean;
   systemStaffId: string | null;
   systemStaffName: string | null;
   responseCount: number;
@@ -81,6 +84,7 @@ export function toThreadRow(
     systemKind,
     systemStaffId,
     systemStaffName,
+    isEdited,
     ...row
   }: ThreadRowColumns,
   canReactHere: boolean,
@@ -92,7 +96,7 @@ export function toThreadRow(
   const system = toSystemThreadEvent(systemKind, systemStaffId, systemStaffName);
   return {
     ...row,
-    title: system ? systemThreadTitle(system) : row.title,
+    title: system && !isEdited ? systemThreadTitle(system) : row.title,
     author,
     system,
     canReact: canReactHere,

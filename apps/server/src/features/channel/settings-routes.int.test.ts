@@ -199,6 +199,38 @@ describe('PATCH /api/channels/:channelId', () => {
       });
     });
 
+    it('shows a company Admin’s edit of the System thread’s title instead of its own', async () => {
+      const { channelAdmin, member, channel } = await publicChannelWithAttention();
+      const admin = await createStaffMember({ role: 'admin' });
+      await asOwner((query) =>
+        query('insert into channel_member (channel_id, staff_id) values ($1, $2)', [
+          channel.id,
+          admin.id,
+        ]),
+      );
+      await (await as(channelAdmin))(channelPath(channel.id), {
+        method: 'PATCH',
+        body: { visibility: 'private' },
+      });
+      const threads = async () =>
+        (
+          (await (
+            await (
+              await as(member)
+            )(`${channelPath(channel.id)}/threads`)
+          ).json()) as ThreadPage
+        ).threads;
+      const system = (await threads()).find((t) => t.isSystem);
+      const edit = await (await as(admin))(`${channelPath(channel.id)}/threads/${system?.id}`, {
+        method: 'PATCH',
+        body: { title: 'Now Private: ask Marta to be added' },
+      });
+      expect(edit.status).toBe(200);
+      expect((await threads()).find((t) => t.isSystem)?.title).toBe(
+        'Now Private: ask Marta to be added',
+      );
+    });
+
     it('records the change in the audit log', async () => {
       const { channelAdmin, channel } = await publicChannelWithAttention();
       await (await as(channelAdmin))(channelPath(channel.id), {
@@ -227,6 +259,39 @@ describe('PATCH /api/channels/:channelId', () => {
       });
       const res = await (await as(outsider))(channelPath(channel.id));
       expect(res.status).toBe(404);
+    });
+
+    it('keeps out a join racing the change: it waits, then finds the Channel Private', async () => {
+      const channelAdmin = await createStaffMember();
+      const joiner = await createStaffMember();
+      const channel = await insertChannel({
+        members: [{ staffId: channelAdmin.id, channelAdmin: true }],
+      });
+      const join = await as(joiner);
+      // Turning Private, as the route does it: the membership lock, then the flip, held open.
+      const joined = await asOwner(async (query) => {
+        await query('begin');
+        await query(
+          `select pg_advisory_xact_lock(hashtext('ping.channel_membership'), hashtext($1))`,
+          [channel.id],
+        );
+        await query(`update channel set visibility = 'private' where id = $1`, [channel.id]);
+        const response = join(`${channelPath(channel.id)}/join`, { method: 'POST' });
+        await new Promise((resolve) => setTimeout(resolve, 200));
+        await query('commit');
+        return response;
+      });
+      expect(joined.status).toBe(404);
+      const rows = await asOwner(
+        async (query) =>
+          (
+            await query('select 1 from channel_member where channel_id = $1 and staff_id = $2', [
+              channel.id,
+              joiner.id,
+            ])
+          ).rowCount,
+      );
+      expect(rows).toBe(0);
     });
 
     it('changes nothing more when the Channel is already Private', async () => {
