@@ -121,6 +121,9 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           const { channelId } = c.req.valid('param');
           const { visibility, ...settings } = c.req.valid('json');
           const result = await withActorTx(c, async (ctx) => {
+            // Turning Private changes who may be in it, so it takes the membership lock:
+            // a join or add racing it waits, then finds the Channel Private.
+            if (visibility === 'private') await lockChannelMembership(ctx, channelId);
             const found = await findChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             requireCanChangeChannelSettings(ctx.actor, found, { visibility });
@@ -153,6 +156,9 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
       .post('/:channelId/join', signedIn(auth), validate('param', channelParams), async (c) => {
         const { channelId } = c.req.valid('param');
         const joined = await withActorTx(c, async (ctx) => {
+          // The membership lock first, so a Channel turning Private at the same moment
+          // can't let this join through.
+          await lockChannelMembership(ctx, channelId);
           const found = await findChannel(ctx, channelId);
           if (!found) throw new NotFoundError();
           requireCanJoinChannel(ctx.actor, found);
@@ -236,6 +242,8 @@ export function channelRoutes({ auth, database }: { auth: Auth; database: Databa
           const { channelId } = c.req.valid('param');
           const { staffId } = c.req.valid('json');
           const changed = await withActorTx(c, async (ctx) => {
+            // As for joining: a Channel turning Private can't let this add through.
+            await lockChannelMembership(ctx, channelId);
             const found = await findChannel(ctx, channelId);
             if (!found) throw new NotFoundError();
             const target = await findMemberTarget(ctx, channelId, staffId);

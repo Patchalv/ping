@@ -118,6 +118,8 @@ export async function joinChannel({ tx, actor }: ActorTx, channelId: string): Pr
  * could leave a Channel without an active Channel admin (leaving now; removing members
  * and Channel admin roles later) takes it before reading who is Channel admin, so two such
  * changes at once can't both see the other's Channel admin still there.
+ * Joining, adding a member and turning a Channel Private take it too, so nobody joins a
+ * Channel that is turning Private at that moment.
  */
 export async function lockChannelMembership({ tx }: ActorTx, channelId: string): Promise<void> {
   await tx.execute(
