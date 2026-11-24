@@ -139,7 +139,23 @@ describe('withCurrentMentionNames', () => {
       type: 'doc',
       content: [{ type: 'paragraph', content: [mention(LAURA, 'Laura')] }],
     };
+    const saved = JSON.parse(JSON.stringify(doc));
     withCurrentMentionNames(doc, { [LAURA]: 'Laura Gómez-Puig' });
-    expect(doc.content?.[0]).toEqual({ type: 'paragraph', content: [mention(LAURA, 'Laura')] });
+    expect(doc).toEqual(saved);
+  });
+
+  it('updates Mentions in headings and code blocks, and keeps empty blocks', () => {
+    const doc: RichTextDoc = {
+      type: 'doc',
+      content: [
+        { type: 'heading', attrs: { level: 1 }, content: [mention(LAURA, 'Laura')] },
+        { type: 'codeBlock', content: [mention(LAURA, 'Laura')] },
+        { type: 'paragraph' },
+        { type: 'bulletList' },
+      ],
+    };
+    expect(extractBodyText(withCurrentMentionNames(doc, { [LAURA]: 'Laura Gómez-Puig' }))).toBe(
+      '@Laura Gómez-Puig\n@Laura Gómez-Puig',
+    );
   });
 });
