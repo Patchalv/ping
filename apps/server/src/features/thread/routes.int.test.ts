@@ -84,6 +84,7 @@ describe('Thread routes', () => {
         resolvedAt: null,
         mentionsYou: false,
         attachments: [],
+        removedAttachments: [],
         attachmentCount: 0,
         mentionNames: {},
         edited: null,

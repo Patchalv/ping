@@ -14,11 +14,17 @@ import { and, asc, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
-import { attachmentsSql, attachPending, planAttach } from '../../db/attachment';
+import {
+  attachPending,
+  planAttach,
+  postedAttachmentsSql,
+  queueThreadFiles,
+  removedAttachmentsSql,
+} from '../../db/attachment';
 import { type MentionPlan, mentionNamesSql, planMentions, saveMentions } from '../../db/mention';
 import type { AuditEventKind } from '../../db/schema';
 import { threadPreviewSql, threadRowColumns, toThreadRow } from '../../db/thread-row';
-import type { AttachRequest } from '../../permissions/attachment';
+import { type AttachRequest, withRemoveActions } from '../../permissions/attachment';
 import { canReact } from '../../permissions/reaction';
 import {
   canDeleteThread,
@@ -222,7 +228,8 @@ export async function findThread(
     .select({
       ...threadRowColumns(actor.staffId),
       // Every Attachment, where a Thread row shows the first few.
-      attachments: attachmentsSql(attachment.threadId, thread.id),
+      attachments: postedAttachmentsSql(attachment.threadId, thread.id),
+      removedAttachments: removedAttachmentsSql(attachment.threadId, thread.id),
       body: thread.body,
       mentionNames: mentionNamesSql(mention.threadId, thread.id),
       editedAt: thread.editedAt,
@@ -241,10 +248,23 @@ export async function findThread(
     .leftJoin(editor, eq(editor.id, thread.editedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
-  const { body, mentionNames, editedAt, editedBy, editorName, pingFirstAt, isMuted, ...rest } = row;
+  const {
+    body,
+    mentionNames,
+    editedAt,
+    editedBy,
+    editorName,
+    pingFirstAt,
+    isMuted,
+    attachments,
+    removedAttachments,
+    ...rest
+  } = row;
   const authorship = { authorId: rest.authorId };
   return {
-    ...toThreadRow(rest, canReact(actor, access).allow),
+    ...toThreadRow({ ...rest, attachments }, canReact(actor, access).allow),
+    attachments: withRemoveActions(actor, access, attachments),
+    removedAttachments,
     // Written only through the allowlist, so it reads back as one.
     body: body as RichTextDoc,
     mentionNames,
@@ -320,9 +340,11 @@ export async function setThreadResolved(
 /**
  * Deletes a Thread for real. Its Thread Responses (other people's included) go with it by
  * cascade, and so do all their reactions and Mentions (and the Thread's own); Pings go too
- * (the foreign key cascades); Attachments and Saved entries will, as their slices add them.
+ * (the foreign key cascades), and so do Attachment rows, whose files are queued for
+ * deletion first, in the same transaction.
  */
 export async function deleteThread({ tx }: ActorTx, threadId: string): Promise<void> {
+  await queueThreadFiles(tx, threadId);
   await tx.delete(thread).where(eq(thread.id, threadId));
 }
 

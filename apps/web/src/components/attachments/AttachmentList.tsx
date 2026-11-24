@@ -2,15 +2,48 @@
 // opens through Ping's server, which checks the viewer can read the Thread and then
 // redirects to a short-lived signed link (product.md › Attachments). That's a plain link
 // the browser follows, not an API call.
-import { type AttachmentView, formatFileSize } from '@ping/shared';
-import { FileTextIcon, ImageIcon } from 'lucide-react';
+import {
+  type AttachmentView,
+  formatFileSize,
+  type PostedAttachmentView,
+  type RemovedAttachmentView,
+} from '@ping/shared';
+import { FileTextIcon, ImageIcon, XIcon } from 'lucide-react';
+import { Button } from '#/components/ui/button';
 
 const href = (attachment: AttachmentView) =>
   `/api/attachments/${encodeURIComponent(attachment.id)}`;
 
-/** Every Attachment on a post, under its text. */
-export function AttachmentList({ attachments }: { attachments: readonly AttachmentView[] }) {
-  if (attachments.length === 0) return null;
+/** The small button that asks to remove an Attachment. */
+function RemoveButton({ attachment, onRemove }: { attachment: AttachmentView; onRemove(): void }) {
+  return (
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      aria-label={`Remove ${attachment.filename}`}
+      title="Remove"
+      onClick={onRemove}
+      className="shrink-0 text-muted-foreground"
+    >
+      <XIcon aria-hidden="true" />
+    </Button>
+  );
+}
+
+/**
+ * Every Attachment on a post, under its text, then the placeholders of removed ones. Those
+ * the viewer may remove carry a Remove button, which calls `onRemove`.
+ */
+export function AttachmentList({
+  attachments,
+  removed,
+  onRemove,
+}: {
+  attachments: readonly PostedAttachmentView[];
+  removed: readonly RemovedAttachmentView[];
+  onRemove(attachment: PostedAttachmentView): void;
+}) {
+  if (attachments.length === 0 && removed.length === 0) return null;
   const images = attachments.filter((attachment) => attachment.isImage);
   const files = attachments.filter((attachment) => !attachment.isImage);
   return (
@@ -18,7 +51,7 @@ export function AttachmentList({ attachments }: { attachments: readonly Attachme
       {images.length > 0 ? (
         <ul aria-label="Images" className="flex flex-wrap gap-2">
           {images.map((image) => (
-            <li key={image.id}>
+            <li key={image.id} className="relative">
               <a
                 href={href(image)}
                 target="_blank"
@@ -32,6 +65,11 @@ export function AttachmentList({ attachments }: { attachments: readonly Attachme
                   className="h-40 max-w-full bg-muted object-contain sm:h-48"
                 />
               </a>
+              {image.canRemove ? (
+                <div className="absolute top-1.5 right-1.5 rounded-md bg-card/90 shadow-sm">
+                  <RemoveButton attachment={image} onRemove={() => onRemove(image)} />
+                </div>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -39,7 +77,7 @@ export function AttachmentList({ attachments }: { attachments: readonly Attachme
       {files.length > 0 ? (
         <ul aria-label="Files" className="flex flex-wrap gap-2">
           {files.map((file) => (
-            <li key={file.id}>
+            <li key={file.id} className="flex items-center gap-0.5">
               <a
                 href={href(file)}
                 className="flex max-w-72 items-center gap-2 rounded-lg border bg-card px-2.5 py-1.5 text-sm hover:bg-muted focus-visible:ring-3 focus-visible:ring-ring/30 focus-visible:outline-none"
@@ -53,6 +91,18 @@ export function AttachmentList({ attachments }: { attachments: readonly Attachme
                   {formatFileSize(file.sizeBytes)}
                 </span>
               </a>
+              {file.canRemove ? (
+                <RemoveButton attachment={file} onRemove={() => onRemove(file)} />
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      {removed.length > 0 ? (
+        <ul aria-label="Removed Attachments" className="grid gap-1">
+          {removed.map((placeholder) => (
+            <li key={placeholder.id} className="text-sm text-muted-foreground italic">
+              Attachment removed by {placeholder.removedByName}
             </li>
           ))}
         </ul>

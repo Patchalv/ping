@@ -10,6 +10,7 @@ import { createMailerFromConfig } from './lib/email';
 import { createStorage } from './lib/storage/storage';
 import { captureError, flushSentry, initSentry } from './sentry';
 import { createSystemActions } from './system-actions';
+import { startSweepers } from './system-actions/sweepers';
 
 loadEnvLocal();
 const config = readConfig();
@@ -48,6 +49,13 @@ const app = createApp({
   ...(config.sentry && { sentry: config.sentry, captureError }),
 });
 
+// The pending-upload and file-deletion sweepers (data-model.md › Housekeeping).
+const sweepers = startSweepers({
+  systemActions,
+  storage,
+  reportError: (error) => captureError(error, { method: 'SWEEP', path: 'attachment-sweepers' }),
+});
+
 const server = serve({ fetch: app.fetch, port }, (info) => {
   console.log(`Ping server listening on http://localhost:${info.port}`);
 });
@@ -57,6 +65,7 @@ const server = serve({ fetch: app.fetch, port }, (info) => {
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     server.close();
+    sweepers.stop();
     void Promise.allSettled([database.close(), systemActions.close(), flushSentry()]).then(() =>
       process.exit(0),
     );

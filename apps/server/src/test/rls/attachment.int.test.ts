@@ -3,11 +3,15 @@
 // Pending (no Channel): its uploader only, and ping_app inserts only its own pending rows.
 // Attached: the visibility rule, with no Admin exception. The only update is attaching:
 // the uploader moves their own pending row onto a post they may edit, in a Channel they can
-// read. ping_app never deletes one (removal arrives with #51).
+// read. Removing marks an attached one removed: its uploader, the Channel's admins or a
+// company Admin, in a Channel they can read. An attached one never moves. ping_app never
+// deletes one; ping_system sweeps pending ones only.
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import {
+  asOwner,
   asPingApp,
+  asPingSystem,
   createStaffMember,
   insertAttachment,
   insertChannel,
@@ -289,15 +293,19 @@ describe('attachment UPDATE (attaching)', () => {
     });
   });
 
-  it('changes nothing on an attached Attachment: moving it or rewriting its file', async () => {
+  it('refuses changing an attached Attachment: moving it or rewriting its file', async () => {
     const { author, onThread } = await channelWithAttachments('public');
     const elsewhere = await channelWithPosts('public');
     await asPingApp(author.id, async (query) => {
-      const moved = await query('update attachment set thread_id = $2 where id = $1', [
-        onThread,
-        elsewhere.thread.id,
-      ]);
-      expect(moved.rowCount).toBe(0);
+      // The uploader may update it to remove it, so this is refused, not skipped (#51).
+      await expect(
+        query('update attachment set thread_id = $2 where id = $1', [
+          onThread,
+          elsewhere.thread.id,
+        ]),
+      ).rejects.toThrow(/row-level security|can’t move|can't move/);
+    });
+    await asPingApp(author.id, async (query) => {
       await expect(
         query('update attachment set object_key = $2 where id = $1', [onThread, randomUUID()]),
       ).rejects.toThrow(/permission denied/);
@@ -330,6 +338,111 @@ describe('attachment DELETE', () => {
       await expect(query('delete from attachment where id = $1', [pending.id])).rejects.toThrow(
         /permission denied/,
       );
+    });
+  });
+});
+
+const remove = (query: Query, id: string, removedBy: string) =>
+  query('update attachment set removed_at = now(), removed_by = $2 where id = $1', [id, removedBy]);
+
+describe('attachment UPDATE (removing)', () => {
+  it('lets the uploader remove their Attachment, even after leaving a Public channel', async () => {
+    const { author, onThread } = await channelWithAttachments('public');
+    const { author: leaver, onResponse } = await channelWithAttachments('public');
+    await asOwner((query) => query('delete from channel_member where staff_id = $1', [leaver.id]));
+    await asPingApp(author.id, async (query) => {
+      expect((await remove(query, onThread, author.id)).rowCount).toBe(1);
+    });
+    await asPingApp(leaver.id, async (query) => {
+      expect((await remove(query, onResponse, leaver.id)).rowCount).toBe(1);
+    });
+  });
+
+  it('lets the Channel’s admins and company Admins remove anyone’s Attachment', async () => {
+    const channelAdmin = await createStaffMember();
+    const admin = await createStaffMember({ role: 'admin' });
+    const { channel, onThread, onResponse } = await channelWithAttachments('public');
+    await asOwner((query) =>
+      query(
+        'insert into channel_member (channel_id, staff_id, is_channel_admin) values ($1, $2, true)',
+        [channel.id, channelAdmin.id],
+      ),
+    );
+    await asPingApp(channelAdmin.id, async (query) => {
+      expect((await remove(query, onThread, channelAdmin.id)).rowCount).toBe(1);
+    });
+    await asPingApp(admin.id, async (query) => {
+      expect((await remove(query, onResponse, admin.id)).rowCount).toBe(1);
+    });
+  });
+
+  it('changes nothing for another member, or an Admin outside a Private channel', async () => {
+    const member = await createStaffMember();
+    const admin = await createStaffMember({ role: 'admin' });
+    const open = await channelWithAttachments('public', [member.id]);
+    const closed = await channelWithAttachments('private');
+    await asPingApp(member.id, async (query) => {
+      expect((await remove(query, open.onThread, member.id)).rowCount).toBe(0);
+    });
+    await asPingApp(admin.id, async (query) => {
+      expect((await remove(query, closed.onThread, admin.id)).rowCount).toBe(0);
+    });
+  });
+
+  it('refuses a removal recorded in someone else’s name', async () => {
+    const other = await createStaffMember();
+    const { author, onThread } = await channelWithAttachments('public');
+    await asPingApp(author.id, async (query) => {
+      await expect(remove(query, onThread, other.id)).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('changes nothing on a pending or an already removed Attachment', async () => {
+    const { author, onThread } = await channelWithAttachments('public');
+    const pending = await insertAttachment({ uploaderId: author.id });
+    await asOwner((query) =>
+      query('update attachment set removed_at = now(), removed_by = uploader_id where id = $1', [
+        onThread,
+      ]),
+    );
+    await asPingApp(author.id, async (query) => {
+      expect((await remove(query, onThread, author.id)).rowCount).toBe(0);
+      // A pending one matches only the attaching policy, whose check needs a post.
+      await expect(remove(query, pending.id, author.id)).rejects.toThrow(/row-level security/);
+    });
+  });
+
+  it('changes nothing for a Deactivated uploader, or when app.staff_id is unset', async () => {
+    const { author, onThread } = await channelWithAttachments('public');
+    const admin = await createStaffMember({ role: 'admin' });
+    await asOwner((query) =>
+      query('update staff_member set deactivated_at = now(), deactivated_by = $2 where id = $1', [
+        author.id,
+        admin.id,
+      ]),
+    );
+    await asPingApp(author.id, async (query) => {
+      expect((await remove(query, onThread, author.id)).rowCount).toBe(0);
+    });
+    await asPingApp(null, async (query) => {
+      expect((await remove(query, onThread, author.id)).rowCount).toBe(0);
+    });
+  });
+});
+
+describe('attachment as ping_system (the pending-upload sweeper)', () => {
+  it('reads and deletes pending Attachments only', async () => {
+    const { author, onThread } = await channelWithAttachments('public');
+    const pending = await insertAttachment({ uploaderId: author.id });
+    await asPingSystem(async (query) => {
+      expect(await visibleIds(query, [pending.id, onThread])).toEqual([pending.id]);
+      const deleted = await query('delete from attachment where id = any($1)', [
+        [pending.id, onThread],
+      ]);
+      expect(deleted.rowCount).toBe(1);
+      await expect(
+        query('update attachment set removed_at = now() where id = $1', [pending.id]),
+      ).rejects.toThrow(/permission denied/);
     });
   });
 });

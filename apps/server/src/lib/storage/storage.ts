@@ -31,6 +31,8 @@ export type Storage = {
   put(objectKey: string, content: Uint8Array, delivery: Delivery): Promise<void>;
   /** A GET link that expires in SIGNED_LINK_SECONDS and serves the file as `delivery`. */
   signedDownloadUrl(objectKey: string, delivery: Delivery): Promise<string>;
+  /** Deletes a file for real. A file that's already gone counts as deleted. */
+  delete(objectKey: string): Promise<void>;
 };
 
 /**
@@ -87,6 +89,16 @@ export function createStorage(settings: StorageSettings): Storage {
       url.searchParams.set('response-content-disposition', contentDisposition(delivery));
       const signed = await client.sign(url, { method: 'GET', aws: { signQuery: true } });
       return signed.url;
+    },
+
+    async delete(objectKey) {
+      // S3 answers 204 whether or not the object existed, so a retry is safe.
+      const response = await client.fetch(objectUrl(objectKey), { method: 'DELETE' });
+      if (!response.ok && response.status !== 404) {
+        throw new Error(
+          `Deleting an Attachment's file failed: ${response.status} ${await response.text()}`,
+        );
+      }
     },
   };
 }

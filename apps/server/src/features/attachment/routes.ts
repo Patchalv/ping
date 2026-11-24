@@ -5,7 +5,9 @@
 //   writing a post. It's pending, visible only to its uploader, until the post is saved
 //   (the Thread and Thread Response routes attach it). Nobody else can see it, so it
 //   publishes nothing (test/publish-coverage.ts).
-// - attachmentRoutes, mounted at /api/attachments: open one, through a signed link.
+// - attachmentRoutes, mounted at /api/attachments: open one, through a signed link, or
+//   remove one, which keeps an "Attachment removed by <name>" placeholder and queues its file
+//   for the file-deletion sweeper.
 import { randomUUID } from 'node:crypto';
 import {
   ATTACHMENT_MAX_BYTES,
@@ -21,14 +23,23 @@ import type { Auth } from '../../auth';
 import { createWithActorTx, signedIn } from '../../auth/actor';
 import type { Database } from '../../db';
 import { NotFoundError, ServiceUnavailableError } from '../../lib/errors';
+import { publish } from '../../lib/sse/publish';
 import type { Storage } from '../../lib/storage/storage';
 import { validate } from '../../lib/validate';
 import {
   requireCanAddAttachment,
   requireCanDownloadAttachment,
+  requireCanRemoveAttachment,
 } from '../../permissions/attachment';
 import { fileIssue, prepareFile } from './prepare-file';
-import { findAttachmentChannel, findDownloadTarget, insertPendingAttachment } from './queries';
+import {
+  auditAdminRemoval,
+  findAttachmentChannel,
+  findDownloadTarget,
+  findRemoveTarget,
+  insertPendingAttachment,
+  removeAttachment,
+} from './queries';
 
 type Options = { auth: Auth; database: Database; storage?: Storage };
 
@@ -115,6 +126,28 @@ export function attachmentRoutes({ auth, database, storage }: Options) {
         });
         c.header('X-Content-Type-Options', 'nosniff');
         return c.redirect(link, 302);
+      })
+
+      // Remove an Attachment: its uploader, the Channel's admins, or a company Admin, in a
+      // Channel they can read, Archived ones included. The file is deleted for real by the
+      // sweeper; the placeholder stays.
+      .delete('/:attachmentId', signedIn(auth), validate('param', attachmentParams), async (c) => {
+        const { attachmentId } = c.req.valid('param');
+        const target = await withActorTx(c, async (ctx) => {
+          const found = await findRemoveTarget(ctx, attachmentId);
+          if (!found) throw new NotFoundError();
+          requireCanRemoveAttachment(ctx.actor, found);
+          if (!(await removeAttachment(ctx, attachmentId))) throw new NotFoundError();
+          await auditAdminRemoval(ctx, found);
+          return found;
+        });
+        const { channelId, threadId, threadResponseId } = target;
+        publish(
+          threadResponseId
+            ? { kind: 'thread_response.changed', channelId, threadId, threadResponseId }
+            : { kind: 'thread.changed', channelId, threadId },
+        );
+        return c.body(null, 204);
       })
   );
 }

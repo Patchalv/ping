@@ -608,7 +608,9 @@ export type AuditEventKind =
   | 'admin_edited_thread'
   | 'admin_deleted_thread'
   | 'admin_edited_thread_response'
-  | 'admin_deleted_thread_response';
+  | 'admin_deleted_thread_response'
+  // A company Admin removed someone else's Attachment. target_staff_id is its uploader.
+  | 'admin_removed_attachment';
 
 /**
  * Security-relevant actions, kept for one year. Never holds message bodies or email
@@ -628,4 +630,22 @@ export const auditEvent = pgTable(
     ipAddress: text('ip_address'),
   },
   (t) => [index('audit_event_created_at_idx').on(t.createdAt)],
+);
+
+/**
+ * Files waiting to be deleted from object storage (data-model.md › Housekeeping). Queued in
+ * the same transaction as an Attachment removal, a Thread or Thread Response delete and the
+ * pending-upload sweep, because a database transaction can't include object storage. The
+ * file-deletion sweeper deletes each object, then its row; a failure counts an attempt and
+ * keeps the error, and the next sweep tries again.
+ */
+export const pendingFileDeletion = pgTable(
+  'pending_file_deletion',
+  {
+    objectKey: uuid('object_key').primaryKey(),
+    requestedAt: timestamp('requested_at', { withTimezone: true }).defaultNow().notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    lastError: text('last_error'),
+  },
+  (t) => [index('pending_file_deletion_requested_at_idx').on(t.requestedAt)],
 );

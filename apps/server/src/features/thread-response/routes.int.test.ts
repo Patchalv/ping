@@ -84,6 +84,7 @@ describe('Thread Response routes', () => {
         isDeleted: false,
         mentionNames: {},
         attachments: [],
+        removedAttachments: [],
         reactions: [],
         canReact: true,
         canEdit: true,

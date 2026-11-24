@@ -25,6 +25,7 @@ const pings = api.api.pings;
 const saved = api.api.saved;
 const responses = threads[':threadId'].responses;
 const mentionCandidates = api.api.channels[':channelId']['mention-candidates'];
+const attachments = api.api.attachments;
 
 /**
  * The query keys. Exported so live updates can refetch a Channel's Threads.
@@ -362,6 +363,19 @@ export function useDeleteThreadResponse(
           param: { channelId, threadId, threadResponseId },
         }),
       ),
+    onSuccess: refresh,
+  });
+}
+
+/**
+ * Removes an Attachment from the Thread or one of its Thread Responses, leaving its
+ * placeholder. Refetches what shows it: the Thread, its Thread Responses and its row.
+ */
+export function useRemoveAttachment(channelId: string, threadId: string) {
+  const refresh = useRefreshResponses(channelId, threadId);
+  return useMutation({
+    mutationFn: (attachmentId: string): Promise<void> =>
+      callNoContent(() => attachments[':attachmentId'].$delete({ param: { attachmentId } })),
     onSuccess: refresh,
   });
 }

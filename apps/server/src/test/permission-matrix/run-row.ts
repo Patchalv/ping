@@ -123,7 +123,8 @@ async function sectionFixture(
 
 /**
  * The row's Attachment row (no file is stored): the actor's own pending one, a fresh Staff
- * member's pending one, or one a fresh member attached to the row's Thread.
+ * member's pending one, or one attached to the row's Thread by a fresh member or by the
+ * actor (even one who isn't, or is no longer, in the Channel).
  */
 async function attachmentFixture(
   kind: NonNullable<MatrixRow['attachment']>,
@@ -143,6 +144,13 @@ async function attachmentFixture(
         threadId: thread.id,
       });
     }
+    case 'ownOnThread':
+      if (!channel || !thread) throw new Error('An attached Attachment needs a row with a Thread');
+      return insertAttachment({
+        uploaderId: actor.staff.id,
+        channelId: channel.id,
+        threadId: thread.id,
+      });
   }
 }
 

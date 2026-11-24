@@ -110,6 +110,15 @@ export type AttachmentView = {
   isImage: boolean;
 };
 
+/** An Attachment on a post in the Thread view: whether the viewer may remove it. */
+export type PostedAttachmentView = AttachmentView & { canRemove: boolean };
+
+/**
+ * The "Attachment removed by <name>" placeholder. It keeps who removed it and nothing about
+ * the file, since removal is how wrongly shared personal data comes down.
+ */
+export type RemovedAttachmentView = { id: string; removedByName: string };
+
 /** The longest filename kept; a longer one keeps its start and its extension. */
 export function shortenFilename(filename: string): string {
   const trimmed = filename.trim();
