@@ -13,7 +13,7 @@ const CARD_CLASS =
 
 const STRETCHED_LINK = 'outline-none after:absolute after:inset-0 after:rounded-lg';
 
-function ArchivedBadge() {
+export function ArchivedBadge() {
   return (
     <Badge variant="tag">
       <ArchiveIcon aria-hidden="true" />
@@ -102,8 +102,8 @@ export function ThreadResult({ thread }: { thread: ThreadSearchResult }) {
   );
 }
 
-/** The snippet's text, with matched words marked. Never HTML: every part is a text node. */
-function Snippet({ parts }: { parts: SnippetPart[] }) {
+/** A snippet's or title's text, with matched words marked. Never HTML: every part is a text node. */
+export function Snippet({ parts }: { parts: SnippetPart[] }) {
   return parts.map((part, index) =>
     part.match ? (
       // biome-ignore lint/suspicious/noArrayIndexKey: -- the parts are fixed for this result

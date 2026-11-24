@@ -1,7 +1,8 @@
 // The search screen (screens.md › Search, product.md › Search): the chips, the All,
 // Channels and Threads tabs, and the results. Everything it shows comes from the URL.
 import type { SearchRouteSearch, SearchTab } from '@ping/shared';
-import { Link, useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useCanGoBack, useNavigate, useRouter, useSearch } from '@tanstack/react-router';
+import { XIcon } from 'lucide-react';
 import { Button } from '#/components/ui/button';
 import { useChannelSearch, useThreadSearch } from './api';
 import { SearchChips } from './SearchChips';
@@ -25,13 +26,25 @@ export function SearchPage() {
   const navigate = useNavigate({ from: '/search' });
   const change = (next: Partial<SearchRouteSearch>) =>
     void navigate({ search: { ...search, ...next }, replace: true });
+  const router = useRouter();
+  const canGoBack = useCanGoBack();
+  // Typing, tabs and chips replace the history entry, so the entry before is where search
+  // was opened from: the Channel or Thread, as it was. With none, Home.
+  const close = () => (canGoBack ? router.history.back() : void navigate({ to: '/' }));
 
   return (
     <div className="min-h-0 flex-1 overflow-auto px-4 py-4 md:px-6">
       <h1 className="sr-only">Search</h1>
-      {/* The top bar holds the search bar on a laptop; a phone shows it here. */}
-      <SearchField tone="panel" className="mb-3 md:hidden" />
-      <SearchChips search={search} onChange={change} />
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          {/* The top bar holds the search bar on a laptop; a phone shows it here. */}
+          <SearchField tone="panel" className="mb-3 md:hidden" />
+          <SearchChips search={search} onChange={change} />
+        </div>
+        <Button variant="ghost" size="icon-sm" aria-label="Close search" onClick={close}>
+          <XIcon aria-hidden="true" />
+        </Button>
+      </div>
       <nav className="mt-3 flex gap-4 border-b" aria-label="Search results">
         {(Object.keys(TAB_LABEL) as SearchTab[]).map((tab) => (
           <Link

@@ -12,7 +12,6 @@ import type {
   ThreadAuthor,
   ThreadSearchPage,
 } from '@ping/shared';
-import { THREAD_PAGE_SIZE } from '@ping/shared';
 import { and, asc, desc, eq, isNotNull, isNull, type SQL, sql } from 'drizzle-orm';
 import type { ActorTx } from '../../auth/actor';
 import { schema } from '../../db';
@@ -118,7 +117,7 @@ type ResponseHit = {
  * one result each, by Latest activity, newest first (ties by Thread ID). From narrows the
  * match to what that person wrote. A Thread's own match comes first; otherwise the result
  * carries its latest matching Thread Response. `after` is the last Thread of the page
- * before.
+ * before, and `limit` the page's size.
  */
 export async function searchThreads(
   { tx, actor }: ActorTx,
@@ -171,8 +170,8 @@ export async function searchThreads(
       ),
     )
     .orderBy(desc(thread.latestActivityAt), desc(thread.id))
-    .limit(THREAD_PAGE_SIZE + 1);
-  const page = rows.slice(0, THREAD_PAGE_SIZE);
+    .limit(search.limit + 1);
+  const page = rows.slice(0, search.limit);
   return {
     threads: page.map(({ channelName, channelIsArchived, response, headline, ...columns }) => {
       // toThreadRow writes a System thread's title and folds the author as every Thread
@@ -199,7 +198,7 @@ export async function searchThreads(
         snippet: toSnippet(response ? response.headline : headline),
       };
     }),
-    nextCursor: rows.length > THREAD_PAGE_SIZE ? (page.at(-1)?.id ?? null) : null,
+    nextCursor: rows.length > search.limit ? (page.at(-1)?.id ?? null) : null,
   };
 }
 

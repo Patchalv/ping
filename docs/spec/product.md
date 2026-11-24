@@ -276,7 +276,8 @@ Source: [What happens to a Deactivated Staff member's Channels and Threads?](htt
 
 ### Results and filters
 
-- Tabs: **All**, **Channels** and **Threads**. All shows the top few Channels above the Threads.
+- Searching starts in a dialog over the current view, so you never leave the Channel or Thread you were in. It shows the top 3 Channels and 5 Threads as you type, offers to search only the Channel you opened it from, and hands off to the full search screen on Enter (see [screens.md](screens.md#search)).
+- Tabs on the search screen: **All**, **Channels** and **Threads**. All shows the top few Channels above the Threads.
 - One result per Thread. When the match is in a Thread Response, the result shows that Thread Response's snippet, and opening it scrolls to that Thread Response.
 - Results are sorted by Latest activity, newest first.
 - Filter chips: **In: #channel** (offered as a one-click suggestion when you search from inside a Channel, never applied by default), **From: person**, and **Status: All (default), Open or Resolved**.

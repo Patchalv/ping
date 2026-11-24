@@ -27,7 +27,7 @@ import {
 } from '#/components/ui/sidebar';
 import { useMyChannels } from '../features/channel/api';
 import { CreateChannelDialog } from '../features/channel/CreateChannelDialog';
-import { SearchField, SearchIconLink } from '../features/search/SearchField';
+import { TopBarSearch } from '../features/search/SearchField';
 import { useSections } from '../features/section/api';
 import { NewSectionButton, SidebarSections } from '../features/section/SidebarSections';
 import { useCurrentStaffMember } from '../features/staff/api';
@@ -108,9 +108,7 @@ function TopBar({ children }: { children: ReactNode }) {
         Ping
         <EnvironmentBadge />
       </span>
-      <SearchField tone="chrome" className="mx-auto w-full max-w-xl max-md:hidden" />
-      {/* Search sits behind an icon on a phone (screens.md › Phone). */}
-      <SearchIconLink />
+      <TopBarSearch />
       {children}
     </header>
   );

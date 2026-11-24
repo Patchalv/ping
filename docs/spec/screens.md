@@ -93,7 +93,22 @@ Reached from the avatar menu, for Admins only:
 ## Search
 
 - One search bar, always visible on laptop (behind an icon on phone).
-- Clicking it opens a panel of filter chips: **In: #channel** (suggested when you're inside a Channel), **From: person**, and **Status** (All by default, Open, Resolved).
+
+**The search dialog**
+
+- Clicking or typing in the search bar, ⌘K or Ctrl+K, or `/` (when focus isn't in a text field) opens a dialog anchored to the top bar. The Channel or Thread you were in stays open underneath, and opening, typing in and closing the dialog never changes the route. On a phone, the search icon opens the same dialog as a full-screen sheet.
+- Esc or clicking outside closes it, and focus returns to the search bar. It reopens with your last text selected, so typing replaces it and Enter re-runs it; a page reload clears it.
+- With nothing typed it shows only the input and the key hints (↵ all results, esc close). It has no filter chips.
+- About 150 ms after the last key it shows, in order: **All results for "X"** (↵, highlighted by default); **Only in #channel** (⇧↵), only when opened from a Channel, and while it's highlighted the list shows only that Channel's Threads; up to 3 **Channels**; and up to 5 **Threads**. The previous results stay until the new ones arrive, with a spinner in the input.
+- A Thread row shows its title, `#channel` and a muted "Resolved" when it applies. A Channel row shows `#name`, a lock for Private and an "Archived" badge. Matched words are marked in titles only; there are no snippets.
+- When nothing matches, the two action rows stay, with "No Channels or Threads match" below them.
+- The arrow keys move between rows, and Enter opens the highlighted one. A Channel row opens the Channel; a Thread row opens the Thread, scrolled to the matched Thread Response. Back returns to where you were.
+
+**The search screen**
+
+- **All results**, or Enter, opens the search screen (`/search?q=…`) as a new history entry. **Only in #channel** opens it with In set to that Channel, on the Threads tab, with Status All.
+- Browser Back, or the × on the screen, returns to the Channel or Thread you came from (Home when there is none). Typing, tabs and chips on the screen replace the history entry, and on the screen itself the search bar edits its text in place, with no dialog.
+- Filter chips: **In: #channel** (suggested when you came from a Channel), **From: person**, and **Status** (All by default, Open, Resolved).
 - Results have **All**, **Channels** and **Threads** tabs. Archived channels carry an "Archived" badge. Opening a Thread Response match scrolls to that Thread Response.
 
 The rules behind search are in [product.md](product.md#search).

@@ -432,6 +432,37 @@ describe('Search', () => {
       expect(idsOf(second)).toEqual(ids.slice(THREAD_PAGE_SIZE));
       expect(second.nextCursor).toBeNull();
     });
+
+    it('loads a smaller page when asked, as the search dialog does', async () => {
+      const word = unique();
+      const { author, channel } = await publicChannel();
+      const ids: string[] = [];
+      for (let i = 0; i < 7; i++) {
+        const thread = await insertThread({
+          channelId: channel.id,
+          authorId: author.id,
+          title: word,
+          latestActivityAt: at(i),
+        });
+        ids.push(thread.id);
+      }
+      const { threads } = await as(await createStaffMember());
+      const first = await threads({ q: word, limit: '5' });
+      expect(idsOf(first)).toEqual(ids.slice(0, 5));
+      expect(first.nextCursor).toBe(ids[4]);
+      const second = await threads({ q: word, limit: '5', after: first.nextCursor ?? '' });
+      expect(idsOf(second)).toEqual(ids.slice(5));
+      expect(second.nextCursor).toBeNull();
+    });
+
+    it.each(['0', '51', '2.5', 'abc'])('refuses a page of %s Threads', async (limit) => {
+      const { request } = await as(await createStaffMember());
+      const res = await request(`/api/search/threads?${new URLSearchParams({ q: 'rota', limit })}`);
+      expect(res.status).toBe(400);
+      expect(await res.json()).toMatchObject({
+        error: { issues: [{ path: 'limit', message: 'Ask for 1 to 50 Threads.' }] },
+      });
+    });
   });
 
   describe('Chips', () => {
