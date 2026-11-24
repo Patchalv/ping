@@ -56,7 +56,7 @@ apps/server/src/
   system-actions/  the only owner of the ping_system pool and the only caller of system functions (ADR 0004)
   features/<channel|thread|thread-response|mention|ping|saved|mute|search|attachment|staff|section>/
                    routes.ts, queries.ts, colocated tests
-  lib/             errors, validation, sse/ (live updates: the hub, publish() and GET /api/live), and later storage and email
+  lib/             errors, validation, email, storage/ (the S3 client for Attachments), sse/ (live updates: the hub, publish() and GET /api/live)
   test/            permission-matrix/, rls/, the catalog guard, route coverage
 apps/web/src/
   router.tsx       the routes (TanStack Router)
@@ -128,7 +128,7 @@ Every route in `features/<name>/routes.ts` follows the same steps, in this order
 | zod schemas live in `packages/shared`, and the SPA reuses them for its forms and route params | review only |
 | Every rule a Staff member can trip has a plain-English message saying what to do ("Keep the name to 80 characters or fewer."), never zod's default text | the schema's unit tests |
 | The ProseMirror allowlist validator runs inside the body schema (from the Threads slice) | review only |
-| The SPA calls the server only through the `hc` client in `apps/web/src/lib/api.ts`, inside a feature's `api.ts`. Two exceptions: Better Auth's own client, and the live-update stream (`components/use-live-updates.ts`), which the browser's `EventSource` opens so it can resume with `Last-Event-ID` | review only |
+| The SPA calls the server only through the `hc` client in `apps/web/src/lib/api.ts`, inside a feature's `api.ts`. Three exceptions: Better Auth's own client; the live-update stream (`components/use-live-updates.ts`), which the browser's `EventSource` opens so it can resume with `Last-Event-ID`; and adding an Attachment (`sendFormWithProgress` in `lib/api-client.ts`, called from a feature's `api.ts` inside a mutation), which uses `XMLHttpRequest` because fetch can't report upload progress. Opening an Attachment is a plain link to `/api/attachments/:id`, not an API call | review only |
 | No OpenAPI in the MVP | review only |
 
 ## The web app

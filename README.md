@@ -69,7 +69,7 @@ pnpm dlx shadcn@4.23.0 add <component>
 | `pnpm db:up` | Starts Postgres, PgBouncer and MinIO in Docker (`docker compose up -d --wait`) and waits until all three are healthy. |
 | `pnpm db:down` | Stops them and removes the containers (`docker compose down`). The data volumes stay, so the next `db:up` starts where you left off. |
 | `pnpm db:migrate` | Applies the migrations as the owner role and sets the local passwords of the `ping_app` and `ping_system` roles. |
-| `pnpm db:seed` | Runs `db:migrate`, then loads fake Staff members: one Admin, three Members and one Deactivated. They all use the password `ping-local-dev-password`. Safe to run again. |
+| `pnpm db:seed` | Runs `db:migrate`, then loads fake Staff members: one Admin, three Members and one Deactivated. They all use the password `ping-local-dev-password`. It also creates MinIO's `ping-attachments` bucket for Attachments. Safe to run again. |
 | `pnpm --filter @ping/server exec tsx src/db/cli/bootstrap-admin.ts --email <email> --name <name>` | Invites the first Admin and sends the invite email (locally, printed to the server log). Refuses if any Admin exists. In prod it runs once through `fly console` on a temporary Machine (docs/deploy-runbook.md). |
 
 `pnpm dev`, the integration tests, Playwright and Claude Code's Stop gate all need them running.
@@ -84,7 +84,7 @@ Every worktree shares one stack. The Compose project is named `ping` whichever f
 | MinIO S3 API | `localhost:9000` | `ping` / `ping-minio-local` |
 | MinIO console | http://localhost:9001 | same as the S3 API |
 
-Postgres is pinned to 18 to match Neon. PgBouncer runs in transaction mode like Neon's pooler, so session state never carries over between transactions. The app connects through it as `ping_app`. MinIO stands in for Cloudflare R2.
+Postgres is pinned to 18 to match Neon. PgBouncer runs in transaction mode like Neon's pooler, so session state never carries over between transactions. The app connects through it as `ping_app`. MinIO stands in for Cloudflare R2: Attachments go to its `ping-attachments` bucket, which `pnpm db:seed` and the test suites create. Staging and prod set `STORAGE_*` (see `.env.example`).
 
 To open a Postgres shell through PgBouncer:
 

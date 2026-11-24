@@ -97,19 +97,27 @@ export function AttachmentPicker({
     const key = crypto.randomUUID();
     const isImage = isImageName(picked.name);
     const refused = refusal(picked);
-    const file = !refused && isImage ? await prepareImage(picked) : picked;
-    const previewUrl = !refused && isImage ? URL.createObjectURL(file) : null;
+    // Listed at once, in the order picked; an image's preview follows its resize.
     update((current) => [
       ...current,
       {
         key,
         filename: picked.name,
         isImage,
-        previewUrl,
+        previewUrl: null,
         state: refused ? { kind: 'failed', message: refused } : { kind: 'adding', progress: 0 },
       },
     ]);
     if (refused) return;
+    const file = isImage ? await prepareImage(picked) : picked;
+    // Removed while it was being resized: nothing to send.
+    if (!itemsRef.current.some((item) => item.key === key)) return;
+    if (isImage) {
+      const previewUrl = URL.createObjectURL(file);
+      update((current) =>
+        current.map((item) => (item.key === key ? { ...item, previewUrl } : item)),
+      );
+    }
     try {
       const attachment = await add(file, (progress) => setState(key, { kind: 'adding', progress }));
       // Removed while it was being sent: leave it pending; it's swept after 24 hours.
