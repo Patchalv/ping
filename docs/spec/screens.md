@@ -10,6 +10,7 @@ Product principles behind the layout: clearing Pings and working through Saved o
 
 - Dark, across the full width.
 - A button on the left hides or shows the sidebar (also ⌘B or Ctrl+B, except while typing in a text field).
+- The Ping logo (the mark and "Ping") is a link to Home, `/`. The Staging badge beside it is not part of the link.
 - The search bar sits in the centre (see [Search](#search)).
 - The Staff member's avatar sits on the right. It opens their profile (display name and email), the theme (System, Light or Dark, kept in this browser), sign-out, and for Admins the Admin screens.
 
@@ -67,6 +68,14 @@ The **Members** tab lists members, marks Channel admins, and shows Deactivated m
 - Opening a Thread never clears its Ping.
 - Placeholders: "Thread Response deleted" and "Attachment removed by <name>".
 - Edited content shows "edited", or "edited by <name>" when someone other than the author edited it.
+
+### Home
+
+The main area at `/` shows two tiles side by side: how many Threads have a Ping for you, and how many Threads you've Saved. Each tile is a large number in its signal colour (pink for Pings, green for Saved), with what it counts under it and the view's name, and opens the Pings or Saved view.
+
+- At zero, the number is grey: Pings reads "You're all caught up", and Saved suggests saving a Thread to come back to it.
+- While loading, each tile keeps its size, so nothing moves when the numbers arrive. A failed load shows the error in the tile with **Try again**.
+- The numbers update live as Pings arrive and Threads are Saved or removed from Saved.
 
 ### Pings and Saved views
 

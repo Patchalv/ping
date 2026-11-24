@@ -1,12 +1,19 @@
 // The Saved routes, and how Saved Threads change who gets a Ping and what losing access
 // keeps, through the real app: what they answer, beyond the permission matrix's allow and
 // deny statuses. The Mute routes' own tests are in features/mute.
-import type { SavedPage, ThreadPage, ThreadView } from '@ping/shared';
+import {
+  type SavedPage,
+  type SavedSummary,
+  THREAD_PAGE_SIZE,
+  type ThreadPage,
+  type ThreadView,
+} from '@ping/shared';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   asOwner,
   createStaffMember,
   insertChannel,
+  insertThread,
   type StaffFixture,
 } from '../../db/test-support';
 import { createTestApp, jsonHeaders, signIn, type TestApp } from '../../test/test-app';
@@ -157,6 +164,62 @@ describe('Saved', () => {
       const member = await as(r.member);
       const res = await member(`${r.base}/threads/${other.threadId}/saved`, { method: 'PUT' });
       expect(res.status).toBe(404);
+    });
+  });
+
+  describe('the Saved count', () => {
+    it('counts nothing for a Staff member with nothing Saved', async () => {
+      const request = await as(await createStaffMember());
+      const res = await request('/api/saved/summary');
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual<SavedSummary>({ count: 0 });
+    });
+
+    it('counts only the Staff member’s own Saved Threads', async () => {
+      const r = await room();
+      const other = await room();
+      const member = await as(r.member);
+      const author = await as(r.author);
+      await member(`${r.thread}/saved`, { method: 'PUT' });
+      await member(`${other.thread}/saved`, { method: 'PUT' });
+      await author(`${r.thread}/saved`, { method: 'PUT' });
+      expect(await (await member('/api/saved/summary')).json()).toEqual({ count: 2 });
+      expect(await (await author('/api/saved/summary')).json()).toEqual({ count: 1 });
+    });
+
+    it('counts every Saved Thread, past the first page of the Saved list', async () => {
+      const reader = await createStaffMember();
+      const channel = await insertChannel({
+        visibility: 'public',
+        members: [{ staffId: reader.id, channelAdmin: true }],
+      });
+      const threads = await Promise.all(
+        Array.from({ length: THREAD_PAGE_SIZE + 1 }, () =>
+          insertThread({ channelId: channel.id, authorId: reader.id }),
+        ),
+      );
+      await asOwner((query) =>
+        query(
+          `insert into saved_thread (staff_id, channel_id, thread_id)
+           select $1, $2, unnest($3::uuid[])`,
+          [reader.id, channel.id, threads.map((t) => t.id)],
+        ),
+      );
+      const request = await as(reader);
+      const page = (await (await request('/api/saved')).json()) as SavedPage;
+      expect(page.threads).toHaveLength(THREAD_PAGE_SIZE);
+      expect(page.nextCursor).not.toBeNull();
+      expect(await (await request('/api/saved/summary')).json()).toEqual({
+        count: THREAD_PAGE_SIZE + 1,
+      });
+    });
+
+    it('stops counting a Thread once it’s deleted', async () => {
+      const r = await room();
+      const member = await as(r.member);
+      await member(`${r.thread}/saved`, { method: 'PUT' });
+      expect((await (await as(r.author))(r.thread, { method: 'DELETE' })).status).toBe(204);
+      expect(await (await member('/api/saved/summary')).json()).toEqual({ count: 0 });
     });
   });
 

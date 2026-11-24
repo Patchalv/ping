@@ -61,6 +61,12 @@ typography:
     fontSize: "0.75rem"
     fontWeight: 400
     lineHeight: "1rem"
+  home-count:
+    fontFamily: "Figtree Variable, system-ui, sans-serif"
+    fontSize: "5.5rem"
+    fontWeight: 700
+    lineHeight: 1
+    letterSpacing: "-0.03em"
 rounded:
   sm: "6px"
   md: "8px"
@@ -192,7 +198,7 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 - **Meta** (400, 12px, 16px): timestamps, tags, badges. `text-xs`.
 
 ### Named Rules
-**The Six Sizes Rule.** Use only the six steps above (`text-xs`, `text-small`, `text-sm`, `text-base`, `text-lg`, `text-xl`). The one exception is the Ping wordmark on the auth pages (24px, next to a 32px mark).
+**The Six Sizes Rule.** Use only the six steps above (`text-xs`, `text-small`, `text-sm`, `text-base`, `text-lg`, `text-xl`). The exceptions are the Ping wordmark on the auth pages (24px, next to a 32px mark) and the Home counts (88px bold tabular numbers, `text-[5.5rem]`, tracked -0.03em), the one place a number is the whole message.
 
 **The 16px Field Rule.** On a phone, inputs and textareas render at 16px so iOS doesn't zoom on focus. They drop to 14px from the `md` breakpoint.
 

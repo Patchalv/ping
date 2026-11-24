@@ -1051,6 +1051,15 @@ export const MATRIX: MatrixRow[] = [
     },
     allowed(200),
   ),
+  ...rowsFor(
+    {
+      route: 'GET /api/saved/summary',
+      action: 'count their own Saved Threads',
+      channel: null,
+      request: () => ({ path: '/api/saved/summary' }),
+    },
+    allowed(200),
+  ),
 
   // Search: anyone. Row-level security decides what they find, the same for everyone,
   // Admins included (features/search/routes.int.test.ts proves a Private channel's content

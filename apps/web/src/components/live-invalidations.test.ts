@@ -53,10 +53,13 @@ describe('liveInvalidations', () => {
     ]);
   });
 
-  it('refetches the feed and the Thread view for a deleted Thread', () => {
+  it('refetches the feed, the Thread view, Pings and Saved for a deleted Thread', () => {
+    // Deleting a Thread drops its Pings and every Saved copy of it.
     expect(liveInvalidations({ kind: 'thread.deleted', channelId, threadId })).toEqual([
       ['threads', 'list', channelId],
       ['threads', 'detail', channelId, threadId],
+      ['pings'],
+      ['saved'],
     ]);
   });
 
@@ -86,11 +89,13 @@ describe('liveInvalidations', () => {
     ]);
   });
 
-  it('refetches every Channel, Thread and Ping when the Staff member’s own memberships change', () => {
+  it('refetches every Channel, Thread, Ping and Saved Thread when the Staff member’s own memberships change', () => {
+    // Leaving a Private channel drops their Saved Threads in it.
     expect(liveInvalidations({ kind: 'membership.changed', staffId })).toEqual([
       ['channels'],
       ['threads'],
       ['pings'],
+      ['saved'],
     ]);
   });
 

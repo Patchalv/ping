@@ -8,6 +8,7 @@ import type {
   PingSummary,
   ReactionList,
   SavedPage,
+  SavedSummary,
   StartThreadBody,
   ThreadListView,
   ThreadPage,
@@ -101,13 +102,22 @@ export const pingKeys = {
 };
 
 /**
- * The query keys for the Saved view. Saving and removing invalidate `all`; live updates do
- * too.
+ * The query keys for the Saved view and its count. Saving, removing and deleting a Thread
+ * invalidate `all`; live updates do too.
  */
 export const savedKeys = {
   all: ['saved'] as const,
   list: () => [...savedKeys.all, 'list'] as const,
+  summary: () => [...savedKeys.all, 'summary'] as const,
 };
+
+/** How many Threads the Staff member has Saved: the Saved count on the home screen. */
+export function useSavedSummary() {
+  return useQuery({
+    queryKey: savedKeys.summary(),
+    queryFn: (): Promise<SavedSummary> => call(() => saved.summary.$get()),
+  });
+}
 
 /** The Saved view: the Staff member's Saved Threads, newest saved first, 50 at a time. */
 export function useSaved() {
@@ -300,6 +310,7 @@ export function useDeleteThread(
       queryClient.removeQueries({ queryKey: threadKeys.detail(channelId, threadId) });
       queryClient.removeQueries({ queryKey: threadKeys.responses(channelId, threadId) });
       void queryClient.invalidateQueries({ queryKey: pingKeys.all });
+      void queryClient.invalidateQueries({ queryKey: savedKeys.all });
       return queryClient.invalidateQueries({ queryKey: threadKeys.list(channelId) });
     },
   });

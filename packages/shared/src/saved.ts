@@ -17,3 +17,11 @@ export type SavedPage = {
   /** Pass as `after` to load the next page; null when this is the last. */
   nextCursor: string | null;
 };
+
+/**
+ * How many Threads the viewer has Saved, in all: the count on the home screen. A separate
+ * answer because the Saved list pages at 50.
+ */
+export type SavedSummary = {
+  count: number;
+};
