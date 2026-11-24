@@ -9,6 +9,10 @@
 app = "bypatrick-ping-staging"
 primary_region = "fra"
 
+# Swap on the Machine's disk, so a memory spike slows Ping down instead of stalling the
+# Machine until health checks fail (docs/deploy-runbook.md › Memory). Costs nothing extra.
+swap_size_mb = 512
+
 [build]
   dockerfile = "Dockerfile"
 

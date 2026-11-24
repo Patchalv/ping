@@ -11,7 +11,7 @@
   },
   "scripts": {
     "dev": "concurrently --names server,web --prefix-colors blue,magenta \"pnpm --filter @ping/server dev\" \"pnpm --filter @ping/web dev\"",
-    "build": "pnpm --filter @ping/web build",
+    "build": "pnpm --filter @ping/web build && node scripts/build-server.ts",
     "start": "pnpm --filter @ping/server start",
     "db:up": "docker compose up -d --wait",
     "db:down": "docker compose down",
@@ -36,6 +36,7 @@
     "@types/node": "26.6.6",
     "concurrently": "10.0.7",
     "dependency-cruiser": "18.7.2",
+    "esbuild": "0.28.2",
     "eslint": "10.15.0",
     "knip": "6.45.1",
     "typescript": "6.0.3",
