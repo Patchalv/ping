@@ -1,6 +1,6 @@
 // The Section feature's API: a query-key factory and hooks only. Components use these
 // hooks and never call hc or read a response themselves. Sections are personal, so only
-// the Staff member's own sidebar and Section picker read them.
+// the Staff member's own sidebar reads them.
 //
 // Moving, collapsing and reordering update the cache at once, so a drag lands without a
 // flicker, and put it back if the server refuses. Every change then refetches by key.
