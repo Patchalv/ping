@@ -394,6 +394,61 @@ export const mention = pgTable(
 );
 
 /**
+ * An Attachment (data-model.md › On Threads and Thread Responses). Pending while its post
+ * is being written: no target and no `channel_id`, and only its uploader sees it. Saving
+ * the post attaches it. The file lives in object storage under `object_key`, a random
+ * UUID; the original filename lives only here.
+ */
+export const attachment = pgTable(
+  'attachment',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channelId: uuid('channel_id'),
+    threadId: uuid('thread_id'),
+    threadResponseId: uuid('thread_response_id'),
+    uploaderId: uuid('uploader_id')
+      .notNull()
+      .references(() => staffMember.id),
+    objectKey: uuid('object_key').notNull().unique(),
+    originalFilename: text('original_filename').notNull(),
+    contentType: text('content_type').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    createdAt: createdAt(),
+    // Removal (#51) keeps the row as the "Attachment removed by <name>" placeholder.
+    removedAt: timestamp('removed_at', { withTimezone: true }),
+    removedBy: uuid('removed_by').references(() => staffMember.id),
+  },
+  (t) => [
+    foreignKey({
+      name: 'attachment_thread_fk',
+      columns: [t.threadId, t.channelId],
+      foreignColumns: [thread.id, thread.channelId],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'attachment_thread_response_fk',
+      columns: [t.threadResponseId, t.channelId],
+      foreignColumns: [threadResponse.id, threadResponse.channelId],
+    }).onDelete('cascade'),
+    // At most one target, and a Channel exactly when there is one: none only while pending.
+    check(
+      'attachment_at_most_one_target',
+      sql`${t.threadId} is null or ${t.threadResponseId} is null`,
+    ),
+    check(
+      'attachment_channel_with_target',
+      sql`(${t.channelId} is null) = (${t.threadId} is null and ${t.threadResponseId} is null)`,
+    ),
+    check('attachment_size_positive', sql`${t.sizeBytes} > 0`),
+    index('attachment_thread_id_idx').on(t.threadId),
+    index('attachment_thread_response_id_idx').on(t.threadResponseId),
+    // The pending-upload sweeper (#51) and the uploader's own pending files.
+    index('attachment_pending_idx')
+      .on(t.uploaderId, t.createdAt)
+      .where(sql`${t.channelId} is null`),
+  ],
+);
+
+/**
  * A Ping (data-model.md › Attention): one Staff member's open notice of other people's new
  * activity in one Thread, with a count. A row exists only while the Ping is open; the
  * fan-out upserts it and Acknowledging deletes it. Deleting the Thread cascades here, but

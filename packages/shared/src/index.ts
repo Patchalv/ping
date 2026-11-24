@@ -15,6 +15,21 @@ export {
   signInBody,
 } from './auth';
 export {
+  ALLOWED_ATTACHMENT_TYPES,
+  ATTACHMENT_ACCEPT,
+  ATTACHMENT_MAX_BYTES,
+  ATTACHMENT_MESSAGES,
+  ATTACHMENTS_PER_POST_MAX,
+  type AttachmentView,
+  addAttachmentForm,
+  attachmentIds,
+  attachmentParams,
+  fileExtension,
+  formatFileSize,
+  IMAGE_MAX_EDGE,
+  shortenFilename,
+} from './attachment';
+export {
   addChannelMemberBody,
   type BrowseChannel,
   CHANNEL_DESCRIPTION_MAX,
