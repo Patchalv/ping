@@ -164,7 +164,7 @@ A cool, low-chroma navy family carries the whole frame, so the four signal colou
 
 ### Neutral
 - **Ink Navy Chrome** (ink-navy-chrome): the top bar and the page behind the inset panel.
-- **Ink Navy Sidebar** (ink-navy-sidebar): the sidebar, one step lighter than the top bar. Its rows use Sidebar Text (10.4:1), section labels use Sidebar Muted (6.5:1), hover uses Sidebar Hover, and the current Channel uses Sidebar Active with white text (6.0:1).
+- **Ink Navy Sidebar** (ink-navy-sidebar): the sidebar, one step lighter than the top bar. Its rows use Sidebar Text (10.4:1), Section labels use Sidebar Text too, hover uses Sidebar Hover, and the current Channel uses Sidebar Active with white text (6.0:1).
 - **Panel White** (panel-white; night-panel in dark): the Channel bar, cards, dialogs and menus.
 - **Feed Mist** (feed-mist; night-feed in dark): the feed behind Thread rows and empty states.
 - **Ink Text** (ink-text; night-text in dark): all body text (16.5:1 on white).
@@ -263,7 +263,7 @@ Soft, compact and plain.
 
 ### Navigation
 - **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text.
-- **Section labels:** 13px medium Sidebar Muted, such as "Channels".
+- **Section labels:** 13px medium Sidebar Text, such as "Channels". Each Section after the first sits under a Sidebar Border hairline with 20px above it, and its Channels indent 18px under the chevron, so a label never reads as one more Channel row. Weight stays medium: bold means unread.
 - **Tabs (Channel bar):** 13px semibold, the current tab underlined 2px in Ink Indigo.
 - **Avatar menu:** the avatar opens a menu with the name and email, Edit profile (a dialog for the display name and email), the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
 

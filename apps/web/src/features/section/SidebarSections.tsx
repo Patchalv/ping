@@ -44,6 +44,13 @@ type DropTarget = { group: string; beforeChannelId?: string } | null;
 
 const DEFAULT_GROUP = 'default';
 
+/**
+ * Each group after the first sits under a hairline, so a Section reads as a block and
+ * its label can't pass for one more Channel row (#114). Bold can't do it: bold means unread.
+ */
+const dividedGroup =
+  "mt-5 before:absolute before:inset-x-4 before:-top-3 before:h-px before:bg-sidebar-border before:content-['']";
+
 type Props = {
   channels: SidebarChannel[];
   /** The Staff member's Sections, loaded by ChannelNav beside the Channels, or none. */
@@ -157,7 +164,11 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
             key={section.id}
             aria-label={section.name}
             role="group"
-            className={cn('rounded-md', isGroupTarget(section.id) && 'bg-sidebar-accent/60')}
+            className={cn(
+              'rounded-md',
+              index > 0 && dividedGroup,
+              isGroupTarget(section.id) && 'bg-sidebar-accent/60',
+            )}
             onDragLeave={(event) => {
               if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
                 setDropTarget(null);
@@ -167,7 +178,7 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
           >
             <SidebarGroupLabel
               render={(props: ComponentProps<'h2'>) => <h2 {...props} />}
-              className="pr-8"
+              className="pr-8 text-sidebar-foreground"
               draggable
               onDragStart={(event: DragEvent) => {
                 event.dataTransfer.effectAllowed = 'move';
@@ -179,7 +190,7 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
             >
               <button
                 type="button"
-                className="-mx-2 flex h-full min-w-0 flex-1 items-center gap-1 rounded-md px-2 outline-hidden hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+                className="-mx-2 flex h-full min-w-0 flex-1 items-center gap-1 rounded-md px-2 outline-hidden hover:text-sidebar-accent-foreground focus-visible:ring-2 focus-visible:ring-sidebar-ring"
                 aria-expanded={!section.collapsed}
                 onClick={() =>
                   collapse.mutate({ sectionId: section.id, collapsed: !section.collapsed })
@@ -201,7 +212,9 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
               onDelete={() => setDeleting(section)}
             />
             {shown.length > 0 ? (
-              <SidebarMenu>{channelRows(shown, section.id, section.id)}</SidebarMenu>
+              <SidebarMenu className="ml-4.5">
+                {channelRows(shown, section.id, section.id)}
+              </SidebarMenu>
             ) : section.collapsed ? null : (
               <p className="px-2 py-1 text-small text-sidebar-muted-foreground">
                 <span className="max-md:hidden">Drag Channels here, or use</span>
@@ -216,7 +229,11 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
       <SidebarGroup
         aria-label="Channels"
         role="group"
-        className={cn('rounded-md', isGroupTarget(DEFAULT_GROUP) && 'bg-sidebar-accent/60')}
+        className={cn(
+          'rounded-md',
+          groups.sections.length > 0 && dividedGroup,
+          isGroupTarget(DEFAULT_GROUP) && 'bg-sidebar-accent/60',
+        )}
         onDragLeave={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
             setDropTarget(null);
@@ -224,7 +241,10 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
         }}
         {...channelDrop(null, DEFAULT_GROUP)}
       >
-        <SidebarGroupLabel render={(props: ComponentProps<'h2'>) => <h2 {...props} />}>
+        <SidebarGroupLabel
+          render={(props: ComponentProps<'h2'>) => <h2 {...props} />}
+          className="text-sidebar-foreground"
+        >
           Channels
         </SidebarGroupLabel>
         {channels.length === 0 ? (
@@ -236,7 +256,9 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
             Every Channel is in a Section. Drag one here to take it out.
           </p>
         ) : (
-          <SidebarMenu>{channelRows(groups.unplaced, null, DEFAULT_GROUP)}</SidebarMenu>
+          <SidebarMenu className="ml-4.5">
+            {channelRows(groups.unplaced, null, DEFAULT_GROUP)}
+          </SidebarMenu>
         )}
       </SidebarGroup>
 
