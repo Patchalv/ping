@@ -144,7 +144,11 @@ function ChannelNav({ onCreate }: { onCreate(): void }) {
                 {summary.data && summary.data.threadCount > 0 ? (
                   <span className="ml-auto rounded-full bg-ping px-1.5 text-xs font-semibold text-white">
                     {summary.data.threadCount}
-                    <span className="sr-only"> Threads with Pings</span>
+                    <span className="sr-only">
+                      {summary.data.threadCount === 1
+                        ? ' Thread with a Ping'
+                        : ' Threads with Pings'}
+                    </span>
                   </span>
                 ) : null}
               </SidebarMenuButton>
