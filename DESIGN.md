@@ -262,7 +262,7 @@ Soft, compact and plain.
 - **Building one:** use the bound fields in `apps/web/src/components/form.tsx`, which apply these states, the error wiring and focus. The rules are in `docs/conventions.md` › The web app › Forms (ADR 0008).
 
 ### Navigation
-- **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text.
+- **Sidebar rows:** 28px tall (40px on a phone), 8px corners, a 16px icon at 80% then the name, truncated. Hover is one navy step lighter. The current Channel is a solid Sidebar Active row with white text. A muted Channel's name and count turn Sidebar Muted, and a 14px bell-off icon follows the name. As the current Channel it keeps white text, and only the icon shows it's muted.
 - **Section labels:** 13px medium Sidebar Text, such as "Channels". Each Section after the first sits under a Sidebar Border hairline with 20px above it, and its Channels indent 18px under the chevron, so a label never reads as one more Channel row. Weight stays medium: bold means unread.
 - **Tabs (Channel bar):** 13px semibold, the current tab underlined 2px in Ink Indigo.
 - **Avatar menu:** the avatar opens a menu with the name and email, Edit profile (a dialog for the display name and email), the theme choice (System, Light, Dark) and Sign out. Arrow keys move through it.
