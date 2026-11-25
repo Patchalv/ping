@@ -7,6 +7,7 @@ import { Link } from '@tanstack/react-router';
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  BellOffIcon,
   ChevronRightIcon,
   HashIcon,
   LockIcon,
@@ -34,7 +35,7 @@ import {
 import { cn } from '#/lib/utils';
 import { useCollapseSection, usePlaceChannel, useReorderSections } from './api';
 import { DeleteSectionDialog, NewSectionDialog, RenameSectionDialog } from './SectionDialogs';
-import { groupChannels, moveSection, shownChannels } from './sidebar-sections';
+import { channelLinkLabel, groupChannels, moveSection, shownChannels } from './sidebar-sections';
 
 /** What is being dragged: a Channel, or a Section by its label. */
 type Dragging = { kind: 'channel'; channelId: string } | { kind: 'section'; sectionId: string };
@@ -346,14 +347,20 @@ function ChannelLink({ channel, pingCount }: { channel: SidebarChannel; pingCoun
           to="/channels/$channelId"
           params={{ channelId: channel.id }}
           activeProps={{ 'aria-current': 'page' }}
-          // The lock icon is decorative, so the name says Private for screen readers.
-          aria-label={isPrivate ? `${channel.name}, Private` : undefined}
+          aria-label={channelLinkLabel(channel, pingCount)}
           draggable={false}
         />
       }
+      // A muted Channel reads one step quieter, except as the open Channel, where grey on
+      // indigo would be too faint: there only the bell says it's muted.
+      className={cn(
+        channel.isMuted &&
+          'text-sidebar-muted-foreground aria-[current=page]:text-sidebar-primary-foreground',
+      )}
     >
       {isPrivate ? <LockIcon aria-hidden="true" /> : <HashIcon aria-hidden="true" />}
-      <span className={pingCount > 0 ? 'font-bold' : undefined}>{channel.name}</span>
+      <span className={cn('min-w-0 truncate', pingCount > 0 && 'font-bold')}>{channel.name}</span>
+      {channel.isMuted ? <BellOffIcon aria-hidden="true" className="size-3.5!" /> : null}
       {pingCount > 0 ? (
         // A muted Channel's count is grey: it still counts, but asks for less.
         <span
@@ -363,9 +370,6 @@ function ChannelLink({ channel, pingCount }: { channel: SidebarChannel; pingCoun
           )}
         >
           {pingCount}
-          <span className="sr-only">
-            {channel.isMuted ? ' Threads with Pings, muted' : ' Threads with Pings'}
-          </span>
         </span>
       ) : null}
     </SidebarMenuButton>

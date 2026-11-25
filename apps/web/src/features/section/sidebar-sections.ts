@@ -1,5 +1,6 @@
 // The sidebar's Sections as pure functions: which Channels go where, which a collapsed
-// Section still shows, and the cache after a move (screens.md › Sidebar).
+// Section still shows, the cache after a move, and how a Channel row reads to a screen
+// reader (screens.md › Sidebar).
 import type { PlaceChannelBody, SectionView, SidebarChannel } from '@ping/shared';
 
 export type SectionGroup = { section: SectionView; channels: SidebarChannel[] };
@@ -32,6 +33,22 @@ export function shownChannels(
   pingCountIn: (channelId: string) => number,
 ): SidebarChannel[] {
   return collapsed ? channels.filter((c) => pingCountIn(c.id) > 0) : channels;
+}
+
+/**
+ * A Channel row's accessible name. Its lock and muted icons are decorative, so the name
+ * says Private and muted in words, then the count of Threads with Pings.
+ */
+export function channelLinkLabel(channel: SidebarChannel, pingCount: number): string {
+  return [
+    channel.name,
+    channel.visibility === 'private' ? 'Private' : null,
+    channel.isMuted ? 'muted' : null,
+    pingCount === 1 ? '1 Thread with a Ping' : null,
+    pingCount > 1 ? `${pingCount} Threads with Pings` : null,
+  ]
+    .filter(Boolean)
+    .join(', ');
 }
 
 export type Placement = { channelId: string } & PlaceChannelBody;

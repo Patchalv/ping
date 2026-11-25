@@ -1,6 +1,12 @@
 import type { SectionView, SidebarChannel } from '@ping/shared';
 import { describe, expect, it } from 'vitest';
-import { groupChannels, moveSection, placeIn, shownChannels } from './sidebar-sections';
+import {
+  channelLinkLabel,
+  groupChannels,
+  moveSection,
+  placeIn,
+  shownChannels,
+} from './sidebar-sections';
 
 const channel = (id: string, name: string): SidebarChannel => ({
   id,
@@ -51,6 +57,29 @@ describe('shownChannels', () => {
 
   it('shows only the Channels with Pings in a collapsed Section', () => {
     expect(ids(shownChannels(channels, true, pingCountIn))).toEqual(['b']);
+  });
+});
+
+describe('channelLinkLabel', () => {
+  it('is the name alone for a Public, unmuted Channel without Pings', () => {
+    expect(channelLinkLabel(channel('a', 'Admissions'), 0)).toBe('Admissions');
+  });
+
+  it('says muted for a muted Channel', () => {
+    expect(channelLinkLabel({ ...channel('a', 'Admissions'), isMuted: true }, 0)).toBe(
+      'Admissions, muted',
+    );
+  });
+
+  it('says Private, muted and the count together', () => {
+    const ops: SidebarChannel = { ...channel('o', 'Ops'), visibility: 'private', isMuted: true };
+    expect(channelLinkLabel(ops, 3)).toBe('Ops, Private, muted, 3 Threads with Pings');
+  });
+
+  it('says one Thread with a Ping in the singular', () => {
+    expect(channelLinkLabel(channel('a', 'Admissions'), 1)).toBe(
+      'Admissions, 1 Thread with a Ping',
+    );
   });
 });
 
