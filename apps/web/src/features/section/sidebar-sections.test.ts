@@ -75,6 +75,12 @@ describe('channelLinkLabel', () => {
     const ops: SidebarChannel = { ...channel('o', 'Ops'), visibility: 'private', isMuted: true };
     expect(channelLinkLabel(ops, 3)).toBe('Ops, Private, muted, 3 Threads with Pings');
   });
+
+  it('says one Thread with a Ping in the singular', () => {
+    expect(channelLinkLabel(channel('a', 'Admissions'), 1)).toBe(
+      'Admissions, 1 Thread with a Ping',
+    );
+  });
 });
 
 describe('placeIn', () => {

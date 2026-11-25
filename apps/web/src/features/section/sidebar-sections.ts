@@ -44,7 +44,8 @@ export function channelLinkLabel(channel: SidebarChannel, pingCount: number): st
     channel.name,
     channel.visibility === 'private' ? 'Private' : null,
     channel.isMuted ? 'muted' : null,
-    pingCount > 0 ? `${pingCount} Threads with Pings` : null,
+    pingCount === 1 ? '1 Thread with a Ping' : null,
+    pingCount > 1 ? `${pingCount} Threads with Pings` : null,
   ]
     .filter(Boolean)
     .join(', ');
