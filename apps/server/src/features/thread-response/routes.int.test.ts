@@ -99,6 +99,35 @@ describe('Thread Response routes', () => {
       expect(stored.rows[0]?.body_text).toBe('On my way');
     });
 
+    // From "Resolved Thread improvements" (#113).
+    it('leaves a Resolved thread Resolved', async () => {
+      const author = await createStaffMember();
+      const channel = await insertChannel({ members: [{ staffId: author.id }] });
+      const thread = await insertThread({
+        channelId: channel.id,
+        authorId: author.id,
+        resolved: true,
+      });
+      const resolvedState = async () =>
+        (
+          await asOwner((query) =>
+            query<{ resolved_at: Date | null; resolved_by: string | null }>(
+              'select resolved_at, resolved_by from thread where id = $1',
+              [thread.id],
+            ),
+          )
+        ).rows[0];
+      const before = await resolvedState();
+      expect(before?.resolved_at).toEqual(expect.any(Date));
+
+      const res = await (await as(author))(
+        `/api/channels/${channel.id}/threads/${thread.id}/responses`,
+        { method: 'POST', body: { body: doc('One more thing') } },
+      );
+      expect(res.status).toBe(201);
+      expect(await resolvedState()).toEqual(before);
+    });
+
     it('refuses an empty Thread Response, saying what to do', async () => {
       const { base, request } = await threadInNewChannel();
       const res = await request(base, { method: 'POST', body: { body: doc('  ') } });

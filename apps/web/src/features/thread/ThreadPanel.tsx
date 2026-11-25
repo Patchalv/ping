@@ -13,6 +13,7 @@ import { useState } from 'react';
 import { RichTextView } from '#/components/rich-text/RichTextView';
 import { SidePanel } from '#/components/SidePanel';
 import { Button, buttonVariants } from '#/components/ui/button';
+import { formatPostedAt } from '#/lib/format-time';
 import { cn } from '#/lib/utils';
 import { FormError } from '../../components/FormError';
 import { NotFound } from '../../components/NotFound';
@@ -26,7 +27,6 @@ import { EditThreadDialog } from './EditThreadDialog';
 import { PostAttachments } from './PostAttachments';
 import { Reactions } from './Reactions';
 import { SaveButton } from './SaveButton';
-import { ResolvedBadge } from './ThreadList';
 import { ThreadResponseComposer, ThreadResponseList } from './ThreadResponses';
 
 /**
@@ -62,7 +62,6 @@ export function ThreadPanel({
           Back to Channel
         </Link>
         <span className="text-small font-semibold text-muted-foreground max-md:hidden">Thread</span>
-        {thread.data?.resolvedAt ? <ResolvedBadge /> : null}
         <div className="ml-auto flex items-center gap-2">
           {thread.data ? <ThreadAttention thread={thread.data} /> : null}
           {/* Acknowledge: opening the Thread never clears its Ping, so this does. */}
@@ -77,19 +76,15 @@ export function ThreadPanel({
               Mark read
             </Button>
           ) : null}
-          {thread.data?.canResolve ? (
+          {thread.data?.canResolve && !thread.data.resolvedAt ? (
             <Button
               variant="outline"
               size="sm"
               disabled={setResolved.isPending}
-              onClick={() => setResolved.mutate(!thread.data.resolvedAt)}
+              onClick={() => setResolved.mutate(true)}
             >
-              {thread.data.resolvedAt ? (
-                <RotateCcwIcon aria-hidden="true" />
-              ) : (
-                <CircleCheckIcon aria-hidden="true" />
-              )}
-              {thread.data.resolvedAt ? 'Reopen' : 'Resolve'}
+              <CircleCheckIcon aria-hidden="true" />
+              Resolve
             </Button>
           ) : null}
           <Link
@@ -102,6 +97,15 @@ export function ThreadPanel({
           </Link>
         </div>
       </header>
+      {thread.data?.resolvedAt ? (
+        <ResolvedStrip
+          resolvedAt={thread.data.resolvedAt}
+          resolvedByName={thread.data.resolvedByName}
+          canReopen={thread.data.canResolve}
+          reopening={setResolved.isPending}
+          onReopen={() => setResolved.mutate(false)}
+        />
+      ) : null}
       {setResolved.isError ? (
         <FormError className="mx-4 mt-2 md:mx-5">{setResolved.error.message}</FormError>
       ) : null}
@@ -122,6 +126,50 @@ export function ThreadPanel({
         <ThreadBody thread={thread.data} scrollToResponseId={scrollToResponseId} />
       )}
     </SidePanel>
+  );
+}
+
+/**
+ * Says a Thread is Resolved, by whom and when, under the panel's header. Reopen sits in
+ * it for whoever the Channel's "Who can resolve threads?" setting allows.
+ */
+function ResolvedStrip({
+  resolvedAt,
+  resolvedByName,
+  canReopen,
+  reopening,
+  onReopen,
+}: {
+  resolvedAt: string;
+  resolvedByName: string | null;
+  canReopen: boolean;
+  reopening: boolean;
+  onReopen(): void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 border-b bg-muted px-4 py-2.5 md:px-5">
+      <CircleCheckIcon aria-hidden="true" className="size-4 shrink-0 text-foreground" />
+      <p className="text-sm">
+        <span className="font-semibold">Resolved</span>
+        <span className="text-muted-foreground">
+          {resolvedByName ? ` by ${resolvedByName}` : null}
+          {' · '}
+          <time dateTime={resolvedAt}>{formatPostedAt(resolvedAt)}</time>
+        </span>
+      </p>
+      {canReopen ? (
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto"
+          disabled={reopening}
+          onClick={onReopen}
+        >
+          <RotateCcwIcon aria-hidden="true" />
+          Reopen
+        </Button>
+      ) : null}
+    </div>
   );
 }
 
@@ -220,6 +268,11 @@ function ThreadBody({
       </div>
       {thread.canRespond && staffMemberId ? (
         <div className="max-h-[50%] shrink-0 overflow-auto border-t px-4 py-3 md:px-5">
+          {thread.resolvedAt ? (
+            <p className="mb-2 text-small text-muted-foreground">
+              This Thread is Resolved. Your Thread Response won’t reopen it.
+            </p>
+          ) : null}
           <ThreadResponseComposer
             channelId={thread.channelId}
             threadId={thread.id}

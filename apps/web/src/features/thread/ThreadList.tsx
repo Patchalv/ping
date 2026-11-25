@@ -115,9 +115,13 @@ export function ThreadRow({
   const markRead = useMarkRead();
   return (
     <div
+      // A Resolved thread drops the white card and sits flat on the feed, its title
+      // muted, so it reads as finished; its Ping and Mark read keep full strength.
       className={cn(
-        'relative rounded-lg border border-transparent bg-card px-4 py-3 text-card-foreground transition-colors focus-within:ring-3 focus-within:ring-ring/50 hover:border-border',
-        // A System thread comes from Ping, not a person: a dashed outline sets it apart.
+        'relative rounded-lg border px-4 py-3 transition-colors focus-within:ring-3 focus-within:ring-ring/50',
+        thread.resolvedAt
+          ? 'border-border bg-transparent text-foreground hover:bg-card'
+          : 'border-transparent bg-card text-card-foreground hover:border-border',
         thread.isSystem && 'border-dashed border-border',
         open && 'border-primary/60 hover:border-primary/60',
       )}
@@ -133,7 +137,12 @@ export function ThreadRow({
         {thread.mentionsYou ? <Badge variant="mention">@You</Badge> : null}
         {thread.resolvedAt ? <ResolvedBadge /> : null}
       </div>
-      <h2 className="mt-1.5 font-semibold [overflow-wrap:anywhere]">
+      <h2
+        className={cn(
+          'mt-1.5 [overflow-wrap:anywhere]',
+          thread.resolvedAt ? 'font-medium text-muted-foreground' : 'font-semibold',
+        )}
+      >
         <Link
           to="/channels/$channelId/threads/$threadId"
           params={{ channelId: thread.channelId, threadId: thread.id }}
@@ -188,8 +197,8 @@ export function ThreadRow({
   );
 }
 
-/** Marks a Resolved thread, on its row and in its Thread view. */
-export function ResolvedBadge() {
+/** Marks a Resolved thread's row in the Thread list. */
+function ResolvedBadge() {
   return (
     <Badge variant="tag">
       <CircleCheckIcon aria-hidden="true" />

@@ -153,6 +153,8 @@ export type ThreadView = Omit<ThreadRow, 'preview'> & {
   /** The current name of everyone Mentioned in the body. */
   mentionNames: MentionNames;
   edited: EditedMark | null;
+  /** The current name of whoever resolved the Thread, or null while it's open. */
+  resolvedByName: string | null;
   /** Whether the viewer may send a Thread Response here. */
   canRespond: boolean;
   /** The viewer's open Ping on the Thread, or null. */

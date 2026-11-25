@@ -213,6 +213,7 @@ async function countResolved(tx: ActorTx['tx'], where: ReturnType<typeof and>) {
 }
 
 const editor = alias(user, 'editor');
+const resolver = alias(user, 'resolver');
 
 /**
  * One Thread in the Channel, with what the actor may do with it, or undefined when it's
@@ -235,6 +236,7 @@ export async function findThread(
       editedAt: thread.editedAt,
       editedBy: thread.editedBy,
       editorName: editor.name,
+      resolvedByName: resolver.name,
       pingFirstAt: sql<Date | null>`(
         select ${ping.firstAt} from ${ping}
          where ${ping.threadId} = ${thread.id} and ${ping.staffId} = ${actor.staffId}::uuid)`,
@@ -246,6 +248,7 @@ export async function findThread(
     .leftJoin(staffMember, eq(staffMember.id, thread.authorId))
     .leftJoin(user, eq(user.id, thread.authorId))
     .leftJoin(editor, eq(editor.id, thread.editedBy))
+    .leftJoin(resolver, eq(resolver.id, thread.resolvedBy))
     .where(and(eq(thread.id, threadId), eq(thread.channelId, channelId)));
   if (!row) return undefined;
   const {
@@ -254,6 +257,7 @@ export async function findThread(
     editedAt,
     editedBy,
     editorName,
+    resolvedByName,
     pingFirstAt,
     isMuted,
     attachments,
@@ -269,6 +273,7 @@ export async function findThread(
     body: body as RichTextDoc,
     mentionNames,
     edited: toEditedMark({ authorId: rest.authorId, editedAt, editedBy, editorName }),
+    resolvedByName: rest.resolvedAt ? resolvedByName : null,
     canRespond: canSendThreadResponse(actor, access).allow,
     ping:
       rest.pingCount > 0 && pingFirstAt
