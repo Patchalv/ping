@@ -47,7 +47,7 @@ A Staff member viewing a Public channel they haven't joined sees a **Join** butt
 
 **Settings** opens the Channel settings dialog for everyone who can read the Channel. It shows the name, the description, "Who can resolve threads?" and the visibility. Channel admins change them there; everyone else, and everyone in an Archived channel, reads them only. A bottom section holds Archive or Unarchive, for whoever may, and Leave, for members. Archive and Leave ask first; Unarchive happens at once. Channel admins manage members from the Members tab.
 
-Each **Thread row** is a white card showing:
+Each **Thread row** is a white card (flat on the feed once Resolved) showing:
 
 - the author and time;
 - the title and a preview of the description;
@@ -56,14 +56,15 @@ Each **Thread row** is a white card showing:
 - a Saved marker and an "@You" marker when they apply;
 - inline Acknowledge buttons at the top right: ✓ mark read, 👍 react, 🔖 Save.
 
-A System thread row is styled as coming from Ping, not from a person. A Deactivated author shows greyed with a "Deactivated" label.
+A Resolved thread row sits flat on the feed instead of on a card, with a muted title and a "Resolved" badge, so it reads as finished; its Ping and Acknowledge controls keep full strength. A System thread row is styled as coming from Ping, not from a person. A Deactivated author shows greyed with a "Deactivated" label.
 
 The **Members** tab lists members, marks Channel admins, and shows Deactivated members greyed with their label.
 
 ### Thread view
 
 - Opens as a side panel on the right of the Channel view. The Staff member can resize it like the sidebar, by dragging its edge or with the arrow keys, and the width is kept in this browser.
-- Its header holds the Acknowledge buttons (mark read, react, Save) and Resolve or reopen when allowed.
+- Its header holds the Acknowledge buttons (mark read, react, Save) and, on an open Thread, Resolve when allowed.
+- A Resolved thread shows a strip under the header: "Resolved by <name> · <time>", with Reopen when allowed. Above the composer, a note says a Thread Response won't reopen it.
 - Then the Thread itself, its Thread Responses, a "N new" divider above the Thread Responses that are new since you last Acknowledged, and the composer at the bottom.
 - Opening a Thread never clears its Ping.
 - Placeholders: "Thread Response deleted" and "Attachment removed by <name>".

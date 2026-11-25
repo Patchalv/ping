@@ -88,6 +88,7 @@ describe('Thread routes', () => {
         attachmentCount: 0,
         mentionNames: {},
         edited: null,
+        resolvedByName: null,
         canRespond: true,
         ping: null,
         isMuted: false,
@@ -438,6 +439,7 @@ describe('Thread routes', () => {
       expect(resolved.status).toBe(200);
       const view = (await resolved.json()) as ThreadView;
       expect(view.resolvedAt).toEqual(expect.any(String));
+      expect(view.resolvedByName).toBe(other.name);
       expect(view.canResolve).toBe(true);
       expect(await stored(thread.id)).toEqual({
         resolved_at: expect.any(Date),
@@ -447,7 +449,9 @@ describe('Thread routes', () => {
 
       const reopened = await request(path, { method: 'DELETE' });
       expect(reopened.status).toBe(200);
-      expect(((await reopened.json()) as ThreadView).resolvedAt).toBeNull();
+      const reopenedView = (await reopened.json()) as ThreadView;
+      expect(reopenedView.resolvedAt).toBeNull();
+      expect(reopenedView.resolvedByName).toBeNull();
       expect(await stored(thread.id)).toEqual({
         resolved_at: null,
         resolved_by: null,

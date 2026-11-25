@@ -148,6 +148,7 @@ Source: decided while writing this spec.
 - The Channel's "Who can resolve threads?" setting decides who can resolve, and the same rule decides who can reopen.
 - Anyone allowed to resolve in a Channel can resolve a Deactivated Staff member's open Threads.
 - Resolving and reopening Ping nobody. A Mention is the way to call attention to a reopen.
+- Staff can still post Thread Responses on a Resolved thread. A Thread Response doesn't reopen it; only Reopen does.
 
 ### System threads
 

@@ -252,6 +252,8 @@ Soft, compact and plain.
 
 ### Cards / Containers
 - **Inset panel:** 10px corners, Feed Mist behind content, no shadow.
+- **Thread row:** a Panel White card with no border; a Hairline appears on hover. A Resolved thread's row drops the card and sits flat on Feed Mist inside a Hairline border, its title medium weight in Slate Muted, so it reads as finished at a glance; its Ping and Acknowledge controls keep full strength.
+- **Resolved strip:** under the Thread panel's header on a Resolved thread, a muted tone-step bar with a check icon, "**Resolved** by <name> · <time>" and an outline Reopen at the right.
 - **Choice card:** a radio option in a dialog (Create channel's Public and Private) is a bordered card that tints when checked. Clicking anywhere on the card selects it.
 - **Dialog:** Panel White, 14px corners, 24px padding, an 18px bold title, actions bottom-right with Cancel before the primary action.
 
