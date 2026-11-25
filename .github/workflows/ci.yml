@@ -74,9 +74,9 @@ jobs:
           docker run -d --name minio -p 9000:9000
           -e MINIO_ROOT_USER=ping -e MINIO_ROOT_PASSWORD=ping-minio-local
           pgsty/minio:RELEASE.2026-08-04T00-00-00Z server /data
-      - uses: actions/checkout@v7
-      - uses: pnpm/action-setup@v6
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v7.0.1
+      - uses: pnpm/action-setup@v6.1.1
+      - uses: actions/setup-node@v7.1.0
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -107,7 +107,7 @@ jobs:
         run: pnpm test:e2e
       - name: Upload Playwright traces
         if: failure()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.2
         with:
           name: playwright-traces
           path: test-results/
