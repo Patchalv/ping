@@ -216,7 +216,7 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
                 {channelRows(shown, section.id, section.id)}
               </SidebarMenu>
             ) : section.collapsed ? null : (
-              <p className="px-2 py-1 text-small text-sidebar-muted-foreground">
+              <p className="ml-4.5 px-2 py-1 text-small text-sidebar-muted-foreground">
                 <span className="max-md:hidden">Drag Channels here, or use</span>
                 <span className="md:hidden">Add Channels with</span> the Section picker in a
                 Channel.
@@ -252,7 +252,7 @@ export function SidebarSections({ channels, sections, sectionsError, pingCountIn
             You’re not in any Channels yet.
           </p>
         ) : groups.unplaced.length === 0 ? (
-          <p className="px-2 py-1 text-small text-sidebar-muted-foreground">
+          <p className="ml-4.5 px-2 py-1 text-small text-sidebar-muted-foreground">
             Every Channel is in a Section. Drag one here to take it out.
           </p>
         ) : (
